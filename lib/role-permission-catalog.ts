@@ -33,6 +33,18 @@ export const permissionGroups: { key: string; ar: string; en: string; arDescript
   {key:'zakat.view',ar:'عرض الزكاة',en:'View zakat',arHelp:'مشاهدة بيانات واحتسابات الزكاة.',enHelp:'View zakat data and assessments.'},
   {key:'zakat.edit',ar:'إدارة الزكاة',en:'Manage zakat',arHelp:'إنشاء وتعديل بيانات الزكاة.',enHelp:'Create and edit zakat data.'},
  ]},
+ {key:'feasibility',ar:'دراسات الجدوى',en:'Feasibility studies',arDescription:'الدراسات والدعوات والمشاركة بين المؤسسات',enDescription:'Studies, invitations and sharing between organizations',permissions:[
+  {key:'feasibility.shared_view',ar:'عرض الدراسات المشتركة',en:'View shared studies',arHelp:'قراءة الدراسات المتاحة للمؤسسة وتقاريرها ومرفقاتها.',enHelp:'Read studies shared with the organization, their reports and attachments.'},
+  {key:'feasibility.study_edit',ar:'إنشاء وتعديل دراسات المؤسسة',en:'Create and edit organization studies',arHelp:'إعداد الدراسات المملوكة للمؤسسة وتحديثها.',enHelp:'Create and update studies owned by the organization.'},
+  {key:'feasibility.invite',ar:'المشاركة للاطلاع',en:'Share for viewing',arHelp:'اختيار مؤسسة ودعوتها للاطلاع على دراسة وفق سياسة المشاركة.',enHelp:'Choose a recipient and invite it under the sharing policy.'},
+  {key:'feasibility.invite_edit',ar:'المشاركة للاطلاع والتعديل',en:'Share for viewing and editing',arHelp:'السماح للمؤسسة المستلمة باقتراح تغييرات على نسخة الدراسة وفق سياسة المشاركة.',enHelp:'Invite a recipient to propose changes to a study copy under the sharing policy.'},
+  {key:'feasibility.outgoing_manage',ar:'إدارة المشاركات الصادرة',en:'Manage outgoing shares',arHelp:'عرض الدعوات الصادرة وسحبها وإلغاء الوصول الممنوح.',enHelp:'Inspect and withdraw outgoing invitations or revoke granted access.'},
+  {key:'feasibility.inbox_manage',ar:'إدارة الدعوات الواردة',en:'Manage incoming invitations',arHelp:'عرض دعوات المؤسسة وقبولها أو رفضها.',enHelp:'View, accept or decline organization invitations.'},
+  {key:'feasibility.shared_edit',ar:'تعديل النسخ المشتركة',en:'Edit shared copies',arHelp:'تعديل النسخة المشتركة وإرسال التغييرات للمراجعة عند السماح بذلك.',enHelp:'Edit shared copies and submit changes for review when permitted.'},
+  {key:'feasibility.proposal_review',ar:'مراجعة تعديلات الدراسات',en:'Review study changes',arHelp:'قبول التعديلات المقترحة على الأصل أو رفضها.',enHelp:'Accept or reject proposed changes to the original study.'},
+  {key:'feasibility.sharing_audit',ar:'عرض سجل المشاركة',en:'View sharing audit',arHelp:'عرض سجل إجراءات مشاركة دراسات المؤسسة.',enHelp:'Inspect the sharing history for organization studies.'},
+  {key:'feasibility.directory_manage',ar:'إدارة الظهور في الدليل',en:'Manage directory visibility',arHelp:'إظهار المؤسسة في دليل المشاركة أو إخفاؤها.',enHelp:'Opt the organization into or out of the sharing directory.'},
+ ]},
  {key:'audit',ar:'المراجعة والرقابة',en:'Audit & Controls',arDescription:'سجل التدقيق والرقابة المالية',enDescription:'Audit trail and financial controls',permissions:[
   {key:'audit.view',ar:'عرض سجل التدقيق',en:'View audit trail',arHelp:'مشاهدة سجل التدقيق والعمليات الرقابية.',enHelp:'View audit and control records.'},
  ]},
@@ -49,6 +61,8 @@ export const permissionDependencies: Record<string, string[]> = {
  'financial_core.approve':['financial_core.view'], 'financial_core.post':['financial_core.approve'],
  'financial_core.reverse':['financial_core.post'], 'financial_core.self_approve':['financial_core.approve'],
  'liquidity.edit':['liquidity.view'], 'liquidity.settle':['liquidity.view'],
+ 'feasibility.invite_edit':['feasibility.invite'],
+ 'feasibility.shared_edit':['feasibility.shared_view'],
  'assets.edit':['assets.view'], 'budget.edit':['budget.view'], 'budget.submit':['budget.edit'],
  'budget.approve':['budget.view'], 'vat.edit':['vat.view'], 'vat.issue':['vat.edit'],
  'zakat.edit':['zakat.view'], 'organization.edit':['organization.view']

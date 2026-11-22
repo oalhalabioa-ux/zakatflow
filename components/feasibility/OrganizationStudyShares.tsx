@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import {InvitationDocuments} from './InvitationDocuments';
 import Link from 'next/link';
 import {RoyalIcon} from './RoyalIcon';
 import CompanyStudyInvitations from './CompanyStudyInvitations';
@@ -18,8 +19,11 @@ export default function OrganizationStudyShares({ locale, organization, project,
   const invitations = process.env.NEXT_PUBLIC_FEASIBILITY_COMPANY_INVITATIONS === 'true';
   const [mode, setMode] = useState<'disabled' | 'read' | 'edit'>();
   const [access, setAccess] = useState<'read' | 'edit'>('read');
+  const [documentMode,setDocumentMode]=useState('none');
+  const [documents,setDocuments]=useState<string[]>([]);
   const [shares, setShares] = useState<Share[]>();
   const [recipient, setRecipient] = useState('');
+  useEffect(()=>{setDocumentMode('none');setDocuments([]);setAccess('read')},[organization,project,recipient]);
   const [days, setDays] = useState('30');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -104,6 +108,7 @@ export default function OrganizationStudyShares({ locale, organization, project,
       const response = await fetch(issue ? '/api/feasibility/company-invitations' : '/api/feasibility/organization-shares', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: issue ? 'issue' : action, organization, project, recipient: id,
+          ...(issue && {documentMode,documents:documentMode==='selected'?documents:[]}),
           ...(action === 'share' ? { revision, days: Number(days), access } : {}) }),
       });
       if (!response.ok) throw Error((await response.json()).error);
@@ -132,7 +137,14 @@ export default function OrganizationStudyShares({ locale, organization, project,
           {mode === 'edit' && <option value="edit">{ar ? 'قراءة وتعديل' : 'Read and edit'}</option>}
         </select>
       </label>}
-      <div><button className="fs-btn" disabled={busy || !saved || !mode || mode === 'disabled'}>{invitations ? (ar ? 'إرسال دعوة' : 'Send invitation') : (ar ? 'مشاركة النسخة' : 'Share revision')}</button></div>
+      {invitations && <label className="fs-field">{ar?'المستندات المشمولة':'Documents to share'}
+        <select value={documentMode} onChange={e=>setDocumentMode(e.target.value)}>
+          <option value="none">{ar?'بدون مستندات':'Without documents'}</option>
+          <option value="all">{ar?'جميع مستندات الإصدار الحالي':'All documents in this revision'}</option>
+          <option value="selected">{ar?'تحديد مستندات':'Select documents'}</option>
+        </select></label>}
+      {invitations && documentMode==='selected' && <InvitationDocuments ar={ar} project={project} organization={organization} selected={documents} onSelect={setDocuments}/>}
+      <div><button className="fs-btn" disabled={(invitations && documentMode==='selected' && !documents.length) || busy || !saved || !mode || mode === 'disabled'}>{invitations ? (ar ? 'إرسال دعوة' : 'Send invitation') : (ar ? 'مشاركة النسخة' : 'Share revision')}</button></div>
     </form>}
     {mode === 'disabled' && <p>{ar ? 'المشاركة غير متاحة حاليًا.' : 'Sharing is currently unavailable.'}</p>}
     {!saved && <p>{ar ? 'احفظ الدراسة لتتمكن من مشاركة الإصدار الحالي.' : 'Save the study to share its current revision.'}</p>}

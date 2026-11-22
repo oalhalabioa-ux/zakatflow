@@ -1,0 +1,91 @@
+{
+  "description": "Delegated feasibility access and itemized proposal review",
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "private.feasibility_company_invitations.document_ids",
+      "fingerprint": "b3d7099299bd0fdf8b3544d8889c62b1"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_company_invitations.document_mode",
+      "fingerprint": "0f0d42a333ee8d1a1712c25cb0df16fb"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_company_invitations.document_versions",
+      "fingerprint": "76d26ceff0731fd880ac54724ba71355"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_share_proposals.decision_reasons",
+      "fingerprint": "538696bdb2387eda898b7e0c680ac48e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_share_proposals.submission_reasons",
+      "fingerprint": "538696bdb2387eda898b7e0c680ac48e"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_company_invitations.feasibility_company_invitations_document_mode_check",
+      "fingerprint": "67e48fd49d4bb74e5c3287fbb43296fa"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.organization_roles.organization_roles_permissions_check",
+      "fingerprint": "370882d74153929c979f714a70d74e50"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_company_invitations(p_action text, p_organization uuid, p_invitation uuid, p_project uuid, p_recipient uuid, p_revision integer, p_days integer, p_access text)",
+      "fingerprint": "8bf90caf34395326b4b193f6063ccc35"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_company_share_audit(p_organization uuid, p_project uuid)",
+      "fingerprint": "b8073607527d2066dd90a42326afb85c"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_company_shares_access(p_action text, p_organization uuid, p_project uuid, p_recipient uuid, p_revision integer, p_days integer, p_access text, p_patch jsonb)",
+      "fingerprint": "9f4437e51d8933d418c8fa0fe98a7177"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_evidence_version(d private.feasibility_evidence_documents)",
+      "fingerprint": "f388d15c5221184a344eb844f7d848fc"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_member_permission(p_org uuid, p_user uuid, p_key text)",
+      "fingerprint": "445fde262529ba098ee86945222c2f46"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_share_proposal(p_action text, p_org uuid, p_project uuid, p_proposal uuid, p_revision integer, p_resolutions jsonb, p_reason text)",
+      "fingerprint": "1cda26e5cef19890834e3563c3ad5547"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_valid_item_reasons(changes jsonb, reasons jsonb)",
+      "fingerprint": "b87eedb1098d36a75659d4a5f857b34b"
+    },
+    {
+      "category": "function",
+      "object_key": "public.feasibility_evidence(p_action text, p_project uuid, p_kind text, p_organization uuid, p_document uuid, p_filename text, p_media_type text, p_payload text, p_requirement text)",
+      "fingerprint": "ee3fb9f555fe961a6f34e18f65ffb563"
+    },
+    {
+      "category": "function",
+      "object_key": "public.feasibility_issue_with_documents(p_organization uuid, p_project uuid, p_recipient uuid, p_revision integer, p_days integer, p_access text, p_document_mode text, p_documents uuid[])",
+      "fingerprint": "8ea1651c315e49974b2d83a6a7c98dd7"
+    },
+    {
+      "category": "function",
+      "object_key": "public.normalize_role_permission_catalog(p_permissions text[])",
+      "fingerprint": "a6cfb8004cb2c468b8454f459923b40c"
+    }
+  ],
+  "removals": []
+}

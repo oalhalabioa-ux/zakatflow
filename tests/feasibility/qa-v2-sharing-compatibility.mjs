@@ -219,6 +219,70 @@ try{
  assert.equal((await getProject()).study.notes,'Original');
  assert.deepEqual(await query('select type from notifications'),[]);
  await actor(recipient,()=>assert.rejects(proposal('submit',destination,null,edited.shared_revision-1),{code:'40001'}));
+ if(process.argv.includes('--delegated-item-review')) {
+
+ await db.exec(await read('supabase/migrations/20261121155500_feasibility_company_invitations.sql'));
+ await db.exec(`create table organization_roles(id uuid,organization_id uuid,permissions text[],constraint organization_roles_permissions_check check(true));
+ alter table organization_members add column custom_role_id uuid;
+ create table organization_member_permission_overrides(organization_id uuid,user_id uuid,permission text,effect text);`);
+ await db.exec(await read('supabase/migrations/20261117134000_feasibility_organization_share_audit.sql'));
+ await db.exec(await read('supabase/migrations/20261117190000_feasibility_evidence_documents.sql'));
+ await db.exec("alter table feasibility_access_grants add column status text default 'ACTIVE', add column ends_at timestamptz");
+ const prior = new Map((await query(catalog)).map(row=>[row.category+row.object_key,row.fingerprint]));
+ await db.exec(await read('supabase/migrations/20261121174500_feasibility_delegated_permissions.sql'));
+ const delta={description:'Delegated feasibility access and itemized proposal review',
+  upserts:(await query(catalog)).filter(row=>prior.get(row.category+row.object_key)!==row.fingerprint),removals:[]};
+ const deltaFile='tests/migration-history/feasibility-delegated-permissions-schema-delta.json';
+ if(process.argv.includes('--write-delegated-delta')) await writeFile(new URL('../../'+deltaFile,import.meta.url),JSON.stringify(delta,null,2)+'\n');
+ else assert.deepEqual(delta,JSON.parse(await read(deltaFile)));
+ await query("update organization_members set role='ADMIN' where user_id=$1 and organization_id=$2",[recipient,destination]);
+ await actor(recipient,()=>assert.rejects(shareAccess('open',destination),{code:'42501'}));
+ await query("insert into organization_member_permission_overrides select $1,$2,unnest(array['feasibility.shared_view','feasibility.shared_edit']),'ALLOW'",[destination,recipient]);
+ const reasons={notes:'Supplier estimate',unitPrice:'New price list'};
+ await actor(recipient,()=>assert.rejects(proposal('submit',destination,null,edited.shared_revision,{notes:'only one'}),{code:'22023'}));
+ const sub=await actor(recipient,()=>proposal('submit',destination,null,edited.shared_revision,reasons));
+ assert.equal((await getProject()).study.unitPrice,100);
+ const choices={unitPrice:'proposed',notes:'current'};
+ const why={unitPrice:'Verified price',notes:'Keep original terms'};
+ await actor(owner,()=>proposal('approve',source,sub.id,3,{choices,reasons:why}));
+ const result=await getProject();
+ assert.equal(result.study.unitPrice,110);
+ assert.equal(result.study.notes,'Original');
+ assert.equal(result.revision,4);
+ const feedback=await actor(recipient,()=>proposal('recipient',destination));
+ assert.deepEqual(feedback.decisions,choices);
+ assert.deepEqual(feedback.decision_reasons,why);
+ assert.deepEqual(feedback.submission_reasons,reasons);
+ await db.exec('update private.feasibility_evidence_feature_switch set enabled=true; update private.feasibility_sharing_policy set company_invitations_enabled=true');
+ await query("insert into organization_member_permission_overrides values ($1,$2,'feasibility.inbox_manage','ALLOW')",[destination,recipient]);
+ const attach=async(name)=>(await query("insert into private.feasibility_evidence_documents(project_id,kind,filename,media_type,file_data) values($1,'valuation',$2,'application/pdf',decode('255044462d','hex')) returning id",[study,name]))[0].id;
+ const first=await attach('valuation.pdf');
+ const second=await attach('estimate.pdf');
+ const evidence=async(action,doc=null)=>(await actor(recipient,()=>query("select public.feasibility_evidence($1,$2,'valuation',$3,$4) as result",[action,study,destination,doc])))[0].result;
+ const issueDocs=async(mode,ids)=>(await actor(owner,()=>query("select public.feasibility_issue_with_documents($1,$2,$3,4,2,'read',$4,$5) as invitation",[source,study,destination,mode,ids])))[0].invitation.id;
+ const decideDoc=(action,inv)=>actor(action==='accept'?recipient:owner,()=>query("select public.feasibility_company_invitations($1,$2,$3)",[action,action==='accept'?destination:source,inv]));
+ for(const [mode,ids,expected] of [['none',[],[]],['selected',[second],[second]],['all',[],[first,second]]]){
+  const invitation=await issueDocs(mode,ids);
+  if(mode==='all') await attach('added-after-issue.pdf');
+  if(mode==='none') assert.deepEqual(await evidence('list'),[]);
+  else await assert.rejects(evidence('list'),{code:'42501'});
+  await decideDoc('accept',invitation);
+  assert.deepEqual((await evidence('list')).map(d=>d.id).sort(),[...expected].sort());
+  assert.equal((await evidence('download',first))?.name??null,mode==='all'?'valuation.pdf':null);
+  await assert.rejects(evidence('remove',second),{code:'42501'});
+  if(mode==='all'){
+   await query("update private.feasibility_evidence_documents set filename='replaced.pdf' where id=$1",[first]);
+   assert.equal(await evidence('download',first),null);
+   assert.deepEqual((await evidence('list')).map(d=>d.id),[second]);
+   await query("update private.feasibility_organization_shares set first_shared_at=now()-interval '2 days',expires_at=now()-interval '1 second' where project_id=$1",[study]);
+   await assert.rejects(evidence('download',second),{code:'42501'});
+  }
+  await decideDoc('revoke',invitation);
+  await assert.rejects(evidence('download',second),{code:'42501'});
+ }
+ console.log('PASS no documents, selected documents, issue-time snapshot and revoked downloads');
+ console.log('PASS mixed item decisions, required reasons, persisted source and recipient feedback');
+ } else {
  const submitted=await actor(recipient,()=>proposal('submit',destination,null,edited.shared_revision));
  await actor(recipient,async()=>{
   await assert.rejects(proposal('submit',destination,null,edited.shared_revision),{code:'40001'});
@@ -365,4 +429,5 @@ try{
  await assert.rejects(db.exec(apply),/UNEXPECTED_QA_V2_FEASIBILITY_SCHEMA/);
  await db.exec('rollback');
  console.log('PASS QA V2 switch bridge, isolated paid fixture, preserved legacy reads, DELETE denial, immutable snapshot, 30-day cap, revocation and tenant isolation');
+ }
 }finally{await db.close()}

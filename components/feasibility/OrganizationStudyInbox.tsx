@@ -10,6 +10,7 @@ import { cloudDraftWrite } from '@/lib/feasibility/draft-schema';
 import type { FeasibilityStudy } from '@/lib/feasibility/engine';
 import FeasibilityReport from './FeasibilityReport';
 import SharedStudyEditor from './SharedStudyEditor';
+import {InvitationDocuments} from './InvitationDocuments';
 import SharedStudySubmission from './SharedStudySubmission';
 import CompanyStudyInvitations from './CompanyStudyInvitations';
 import { CompanyDirectoryVisibility } from './CompanyInvitationDirectory';
@@ -112,6 +113,7 @@ export default function OrganizationStudyInbox({ locale,organizations }: { local
         {current.editRevision !== undefined && editing !== requestKey &&
           <SharedStudySubmission key={requestKey + ':' + current.editRevision} ar={ar} organization={organization}
             project={selected} revision={current.editRevision}/>}
+        <InvitationDocuments key={requestKey} ar={ar} project={selected} organization={organization}/>
         <FeasibilityReport study={current.study} locale={locale} allowExport={false}/>
       </>}
       {!selected && process.env.NEXT_PUBLIC_FEASIBILITY_COMPANY_INVITATIONS === 'true'

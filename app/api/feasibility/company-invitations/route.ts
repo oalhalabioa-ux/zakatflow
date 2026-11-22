@@ -23,7 +23,7 @@ const writeInput = z.union([
   z.object({ action: z.enum(['directory_enable', 'directory_disable']), organization: uuid }).strict(),
   z.object({ action: z.literal('issue'), organization: uuid, recipient: uuid, project: uuid,
     revision: z.number().int().positive().max(2147483647),
-    days: z.number().int().positive().max(2147483647), access: shareAccessSchema }).strict(),
+    days: z.number().int().positive().max(2147483647), access: shareAccessSchema, documentMode:z.enum(['none','all','selected']).default('none'), documents:z.array(uuid).default([]) }).strict(),
   z.object({ action: z.enum(['accept', 'decline', 'withdraw', 'revoke']), organization: uuid, invitation: uuid }).strict(),
 ]);
 
@@ -39,13 +39,15 @@ async function run(input: z.infer<typeof readInput> | z.infer<typeof writeInput>
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) return json({ error: 'UNAUTHORIZED' }, 401);
 
-  const { data, error } = await supabase.rpc('feasibility_company_invitations', {
+  const { data, error } = input.action === 'issue' ? await supabase.rpc('feasibility_issue_with_documents',{
+    p_organization:input.organization,p_project:input.project,p_recipient:input.recipient,p_revision:input.revision,p_days:input.days,p_access:input.access,
+    p_document_mode:input.documentMode,p_documents:input.documents,
+  }) : await supabase.rpc('feasibility_company_invitations', {
     p_action: input.action, p_organization: input.organization,
     ...('project' in input && { p_project: input.project }),
     ...(input.action === 'directory_search' && { p_access: input.name }),
     ...('invitation' in input && { p_invitation: input.invitation }),
-    ...(input.action === 'issue' && { p_recipient: input.recipient, p_revision: input.revision,
-      p_days: input.days, p_access: input.access }),
+
   });
   if (!error) return json(data);
   const status = error.code === '42501' ? 403 : error.code === '40001' ? 409 : error.code === '22023' ? 400 : 503;
@@ -63,7 +65,7 @@ export async function POST(request: Request) {
   if (!enabled()) return json({ error: 'FEASIBILITY_COMPANY_INVITATION_DISABLED' }, 404);
   if (!isSameOriginRequest(request)) return json({ error: 'INVALID_ORIGIN' }, 403);
   const raw = await request.text();
-  if (raw.length > 2048) return json({ error: 'INVALID_SHARE_REQUEST' }, 400);
+  if (raw.length > 128000) return json({ error: 'INVALID_SHARE_REQUEST' }, 400);
   let payload: unknown;
   try { payload = JSON.parse(raw); } catch { return json({ error: 'INVALID_SHARE_REQUEST' }, 400); }
   const parsed = writeInput.safeParse(payload);
