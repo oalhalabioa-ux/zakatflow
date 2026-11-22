@@ -4,6 +4,7 @@ import {useEffect, useState} from "react";
 import Link from "next/link";
 import ActionButton from "@/components/ActionButton";
 import {Money} from "@/components/DisplayCurrency";
+import {assetReportValuation} from "@/lib/asset-reports";
 
 export type AssetEditMode = "registration" | "valuation";
 export type RegistrationLock = {code: "ACCESS" | "MOVEMENT" | "LIFECYCLE" | "ZAKAT"; id?: string; date?: string; reference?: string; operation?: string};
@@ -25,9 +26,9 @@ export function registrationLockText(lock: RegistrationLock | null, ar: boolean)
 }
 
 export default function AssetEditActions({asset, ar, locale, onEdit, onReview}: {
-  asset: {id: string; currency: string; current_value_currency?: string; current_valuation_date?: string;
+  asset: {id: string; asset_type:string; currency: string; metadata?:Record<string,unknown>; current_quantity?: number; current_cost_value?: number; current_value_currency?: string; current_valuation_date?: string;
     current_valuation_source?: string; current_valuation_currency?: string; current_market_price?: number;
-    current_market_value?: number; organization_id?: string};
+    organization_id?: string};
   ar: boolean;
   locale: string;
   onEdit: (mode: AssetEditMode) => void;
@@ -47,14 +48,17 @@ export default function AssetEditActions({asset, ar, locale, onEdit, onReview}: 
   }, [asset.id]);
   const reject = policy?.registration_lock;
   const currency = asset.current_value_currency ?? asset.currency;
+  const valuationDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  const valuation=assetReportValuation(asset,valuationDate);
+
   return <div className="asset-registration-actions">
     {policy?.book && <dl className="operation-detail-grid">
       <div><dt>{ar?"التكلفة الدفترية الإجمالية":"Gross carrying cost"}</dt><dd><Money value={policy.book.gross} currency={currency} organizationId={asset.organization_id}/></dd></div>
       <div><dt>{ar?"مجمع الإهلاك":"Accumulated depreciation"}</dt><dd><Money value={policy.book.depreciation} currency={currency} organizationId={asset.organization_id}/></dd></div>
       <div><dt>{ar?"صافي القيمة الدفترية":"Net book value"}</dt><dd><Money value={policy.book.net} currency={currency} organizationId={asset.organization_id}/></dd></div>
-      <div><dt>{ar?"التقييم السوقي":"Market valuation"}</dt><dd>{asset.current_market_price == null ? "—" : <Money value={asset.current_market_value} currency={currency} organizationId={asset.organization_id}/>}</dd></div>
+      <div><dt>{ar?"التقييم السوقي":"Market valuation"}</dt><dd>{!valuation ? "—" : <Money value={valuation.value} currency={currency} organizationId={asset.organization_id}/>}</dd></div>
     </dl>}
-    {asset.current_market_price != null && <p className="muted">
+    {asset.current_market_price != null && asset.current_valuation_source!=='ACQUISITION_COST' && <p className="muted">
       {ar?"سعر السوق للوحدة":"Market price per unit"} · <Money value={asset.current_market_price} currency={asset.current_valuation_currency ?? asset.currency} organizationId={asset.organization_id}/> · {asset.current_valuation_date ?? "—"} · {asset.current_valuation_source ?? "—"}
     </p>}
     {failed && <p role="alert">{ar?"تعذّر تحميل صلاحيات التعديل.":"Unable to load edit permissions."}</p>}
