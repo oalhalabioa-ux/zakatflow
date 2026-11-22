@@ -159,7 +159,13 @@ try{
    name:'QA corrected proceeds',asset_type:'BANK',currency:'SAR',ownership_scope:'PERSONAL'}).select('id').single());
   await page.goto(app+'/en/assets?scope=PERSONAL');
   await open('QA 18K Gold');
-  await page.getByRole('dialog').getByRole('table').getByRole('button',{name:gold.payload.rows.find(r=>r.type==='SALE').voucher,exact:true}).click();
+  const sourceDialog=page.getByRole('dialog');
+  const cardValue=(label,amount)=>sourceDialog.locator('dl > div').filter({
+   has:page.getByText(label,{exact:true}),
+  }).locator('dd').filter({hasText:new RegExp('^'+amount+'$')});
+  await cardValue('Current quantity','8').waitFor();
+  await cardValue('Book cost','2,400').waitFor();
+  await sourceDialog.getByRole('table').getByRole('button',{name:gold.payload.rows.find(r=>r.type==='SALE').voucher,exact:true}).click();
   await page.getByRole('button',{name:'Review sale correction'}).click();
   await page.getByLabel('Correction type').selectOption('structure');
   await page.getByLabel('Sold asset').selectOption(asset);
@@ -173,6 +179,9 @@ try{
   const response=await saved;assert.ok(response.ok(),await response.text());
   const replacement=await response.json();
   await page.getByText('Asset movement statement',{exact:true}).waitFor();
+  await sourceDialog.getByText('3,000 SAR',{exact:true}).waitFor();
+  await cardValue('Current quantity','10').waitFor();
+  await cardValue('Book cost','3,000').waitFor();
   assert.equal(await page.getByRole('dialog').count(),1);
   assert.equal(new URL(page.url()).pathname,'/en/assets');
   await page.reload();await open('QA Gold Statement');
