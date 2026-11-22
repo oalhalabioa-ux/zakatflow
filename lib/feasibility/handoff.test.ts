@@ -1,5 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import {createStudy,defaultLegalItems} from './engine';
+import {emptyAdvanced} from './advanced-model';
 import {handoffReadiness,handoffSetupPath} from './handoff';
 
 function readyStudy(){
@@ -36,6 +37,39 @@ describe('project company handoff preflight',()=>{
   expect(handoffReadiness(s).checks.find(x=>x.key==='finance')?.passed).toBe(false);
   expect(handoffReadiness(s).ready).toBe(false);
   s.investorEquity=100000;
+  expect(handoffReadiness(s).ready).toBe(true);
+ });
+ it('uses the advanced cash requirement instead of the simplified balance when advanced inputs exist',()=>{
+  const s=readyStudy();
+  s.advanced={...emptyAdvanced(),lives:{...emptyAdvanced().lives,EQUIPMENT:10},contingencyPct:10};
+  const unfunded=handoffReadiness(s);
+  expect(unfunded.ready).toBe(false);
+  expect(unfunded.checks.find(x=>x.key==='finance')?.passed).toBe(false);
+  expect(unfunded.checks.find(x=>x.key==='advanced-FUNDING_GAP')).toMatchObject({
+   passed:false,ar:expect.stringContaining('نقص تمويل'),en:expect.stringContaining('Funding gap')
+  });
+  s.investorEquity=110000;
+  expect(handoffReadiness(s).ready).toBe(true);
+ });
+ it('shows missing debt terms even when simplified cash funding balances',()=>{
+  const s=readyStudy();
+  s.advanced={...emptyAdvanced(),lives:{...emptyAdvanced().lives,EQUIPMENT:10}};
+  s.investorEquity=50000;s.investorLoan=50000;
+  const review=handoffReadiness(s);
+  expect(review.checks.find(x=>x.key==='model')?.passed).toBe(false);
+  expect(review.checks.find(x=>x.key==='advanced-DEBT_TERM_MISSING')?.passed).toBe(false);
+  s.advanced.debtYears=1;
+  expect(handoffReadiness(s).ready).toBe(true);
+ });
+ it('checks recorded operational risks and blocked high-priority tasks for general studies',()=>{
+  const s=readyStudy();
+  s.risks=[{id:'permit',title:'Permit',response:'',impact:5,likelihood:3,status:'MITIGATED'}];
+  s.tasks=[{id:'permit-task',title:'File permit',due:'',owner:'',priority:'HIGH',status:'BLOCKED'}];
+  const review=handoffReadiness(s);
+  expect(review.checks.find(x=>x.key==='risk')?.passed).toBe(false);
+  expect(review.checks.find(x=>x.key==='execution')?.passed).toBe(false);
+  s.risks[0].response='Verified permit route and owner';
+  s.tasks[0].status='DONE';
   expect(handoffReadiness(s).ready).toBe(true);
  });
  it('generates only allowlisted organization V2 setup paths',()=>{
