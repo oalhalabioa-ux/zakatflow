@@ -17,3 +17,16 @@ it('keeps the corrected sale and receipt in operation totals once',()=>{
  const receipt={id:'receipt',transaction_type:'ADD',base_value:90,base_currency:'SAR'};
  expect(operationFilteredSummary([oldSale,oldReceipt,reversal,corrected,receipt])).toMatchObject({count:2,net:48,currency:'SAR'});
 });
+
+it('prints personal sale cost and gain from voucher data without a proceeds fallback',()=>{
+ const sale={...purchase,transaction_type:'SALE',quantity:2,unit_price:450,
+  currency:'SAR',gross_value:900,base_value:900,metadata:{},
+  standalone_sale_amounts:{bookEffect:-600,gain:300}};
+ const [headers,values]=operationExportRows([sale],false);
+ expect(values[headers.indexOf('Unit price')]).toBe(450);
+ expect(values[headers.indexOf('Book effect')]).toBe(-600);
+ expect(values[headers.indexOf('Gain / loss')]).toBe(300);
+ const [,unavailable]=operationExportRows([{...sale,standalone_sale_amounts:{bookEffect:null,gain:null}}],false);
+ expect(unavailable[headers.indexOf('Book effect')]).toBe('');
+ expect(unavailable[headers.indexOf('Gain / loss')]).toBe('');
+});
