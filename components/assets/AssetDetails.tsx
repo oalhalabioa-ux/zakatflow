@@ -13,6 +13,6 @@ export default function AssetDetails({asset,ar,onClose,editActions,onLifecycle,o
  <dl className="operation-detail-grid">{records.map(([label,value])=><div key={label}><dt>{label}</dt><dd>{typeof value==='number'?value.toLocaleString('en-US'):value}</dd></div>)}</dl>
  {editActions}
  {isAssetOpeningVoucher(asset)&&<AssetOpeningControls asset={asset} ar={ar} onChanged={()=>onOpeningChanged?.()}/>}
- <div className="asset-detail-actions asset-details-footer">{asset.current_quantity>0&&onLifecycle&&<ActionButton icon="operations" label={lifecycleLabel} onClick={onLifecycle}/>}{asset.financial_review_events?.map((e:any,i:number)=><ActionButton key={e.id} icon="history" label={`${t('المراجعة والسجل المالي','Financial review and history')}${asset.financial_review_events.length>1?` (${i+1})`:''}`} onClick={()=>onReview(e.id)}/>)}</div>
+ <div className="asset-detail-actions asset-details-footer">{onLifecycle&&<ActionButton icon="operations" label={lifecycleLabel} onClick={onLifecycle}/>}{asset.financial_review_events?.map((e:any,i:number)=><ActionButton key={e.id} icon="history" label={`${t('المراجعة والسجل المالي','Financial review and history')}${asset.financial_review_events.length>1?` (${i+1})`:''}`} onClick={()=>onReview(e.id)}/>)}</div>
  </section>;
 }
