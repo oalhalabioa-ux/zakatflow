@@ -12,9 +12,23 @@ import {resolveAssetEntryFx} from './asset-entry-fx';
 import {acquisitionValuation} from '@/lib/asset-entry-details';
 import {assetLedgerBalance,assetLifecycleStatus,assetZakatPayments,disposedAssetHistory,soldAssetHistory} from '@/lib/asset-ledger';
 
-function openingValues(asset:any){const m=asset.metadata??{};const quantity=Number(m.quantity??(asset.asset_type==='CASH'||asset.asset_type==='BANK'?1:0));const value=Number(m.purchase_value??m.opening_value??m.market_value??m.estimated_value??0);const unitPrice=quantity>0?Number(m.purchase_price??(value/quantity)):value;const date=m.purchase_date;return{quantity,value,unitPrice,date}}
-function currentValuation(asset:any){const m=asset.metadata??{};const value=Number(m.market_value??m.estimated_value??m.purchase_value??m.opening_value??0);return{current_market_value:value,current_market_price:m.market_price_per_unit??m.market_price??null,current_valuation_date:m.market_valuation_date??null,current_valuation_source:m.market_price_source??(m.market_value_auto?'MARKET_PRICE':'ASSET_METADATA'),current_valuation_currency:m.market_price_currency??asset.currency,current_valuation_auto:Boolean(m.market_value_auto)}}
-async function ensureOpeningLot(supabase:any,user:any,asset:any){if(asset?.metadata?.investment_id||asset?.metadata?.acquisition_mode==='INVESTMENT')return;if(asset?.ownership_scope==='ORGANIZATION')return;if(asset?.metadata?.acquisition_mode==='PURCHASE')return;const o=openingValues(asset);if(!o.date||o.value<=0)return;const{data:existing,error:existingError}=await supabase.from('lots').select('id').eq('user_id',user.id).eq('asset_account_id',asset.id).limit(1);if(existingError)throw existingError;if(existing?.length)return;const{data:profile,error:profileError}=await supabase.from('profiles').select('base_currency').eq('id',user.id).single();if(profileError)throw profileError;const baseCurrency=profile?.base_currency||'SAR';const fx=asset.currency===baseCurrency?1:Number(asset.metadata?.fx_rate??0);if(!Number.isFinite(fx)||fx<=0)throw new Error('ASSET_OPENING_FX_RATE_REQUIRED');const baseValue=o.value*fx;const{data:tx,error:te}=await supabase.from('transactions').insert({user_id:user.id,asset_account_id:asset.id,transaction_type:'OPENING_BALANCE',transaction_date:o.date,quantity:o.quantity>0?o.quantity:1,unit_price:o.unitPrice,currency:asset.currency,gross_value:o.value,base_currency:baseCurrency,base_value:baseValue,reference:'AUTO_ASSET_OPENING',notes:'Automatically created from asset opening data',created_by:user.id,metadata:{auto_created:true,source:'ASSET_ACCOUNT'}}).select().single();if(te)throw te;const{error:le}=await supabase.from('lots').insert({user_id:user.id,asset_account_id:asset.id,source_transaction_id:tx.id,acquisition_date:o.date,hawl_start_date:o.date,hawl_due_date:null,origin_hawl_start_date:o.date,zakatable_pool_entered_date:o.date,original_quantity:o.quantity>0?o.quantity:1,remaining_quantity:o.quantity>0?o.quantity:1,original_value_base:baseValue,remaining_value_base:baseValue,status:'ACTIVE',nisab_reached_date:o.date,hawl_cycle:0,hawl_basis:'ACQUISITION_DATE',metadata:{auto_created:true,source:'ASSET_ACCOUNT',hawl_start_source:'ACQUISITION_DATE'}});if(le){await supabase.from('transactions').delete().eq('id',tx.id).eq('user_id',user.id);throw le}}
+function currentValuation(asset: any) {
+ const metadata = asset.metadata ?? {};
+ const source = metadata.market_price_source ?? null;
+ const sourceMode = metadata.market_price_source_mode === 'MANUAL' ||
+   source === 'MANUAL_MARKET_PRICE' || source === 'USER_MANUAL' ? 'MANUAL'
+   : source === 'ALYAWMGOLD_LIVE_SA' ? 'PROVIDER'
+   : source === 'ACQUISITION_COST' ? 'ACQUISITION' : 'RECORDED';
+ return {
+  current_market_value: Number(metadata.market_value ?? metadata.estimated_value ?? metadata.purchase_value ?? metadata.opening_value ?? 0),
+  current_market_price: metadata.market_price_per_unit ?? metadata.market_price ?? null,
+  current_valuation_date: metadata.market_valuation_date ?? null,
+  current_valuation_source: source ?? 'ASSET_METADATA',
+  current_price_source_mode: sourceMode,
+  current_valuation_currency: metadata.market_price_currency ?? asset.currency,
+  current_valuation_auto: metadata.market_value_auto === true,
+ };
+}
 export async function listAssets(){
  const {supabase,user}=await requireUser();
  const [accounts,lotResult,exits,profileResult,cycleResult,assessmentResult,allocationResult,orgResult,operationResult,methodResult]=await Promise.all([
@@ -157,17 +171,23 @@ export async function createAsset(input:unknown){
  const{data,error}=await supabase.rpc('create_asset_with_acquisition',{p_asset:parsed,p_request_id:requestId});
  if(error)throw error;return data;
 }
-export async function updateAsset(id:string,input:unknown){
- const parsed=assetSchema.parse(input);const{supabase,user}=await requireUser();
- const{data:old,error:readError}=await supabase.from('asset_accounts').select('*').eq('id',id).single();if(readError)throw readError;
- const expected=(input as any)?.expected_updated_at;if(expected&&old.updated_at!==expected)throw new Error('ASSET_EDIT_CONFLICT');
- await validateAssetOwnership(supabase,user,parsed);
- const metadata={...(old.metadata??{}),...parsed.metadata};
- const{data,error}=await supabase.from('asset_accounts').update({...parsed,metadata,updated_at:new Date().toISOString()}).eq('id',id).eq('updated_at',old.updated_at).select().maybeSingle();
- if(error)throw error;if(!data)throw new Error('ASSET_EDIT_CONFLICT');
- await ensureOpeningLot(supabase,user,data);
- const{error:auditError}=await supabase.from('audit_logs').insert({user_id:user.id,entity_type:'asset_account',entity_id:id,action:'UPDATE_ASSET_DETAILS',old_data:old,new_data:data});if(auditError)throw auditError;
- return data;
+export async function assetEditAvailability(id: string) {
+  const {supabase} = await requireUser();
+  const {data, error} = await supabase.rpc('asset_edit_availability', {p_asset_id: id});
+  if (error) throw error;
+  return data;
+}
+
+export async function updateAsset(id: string, input: {name?: string; expected_updated_at: string; market_price?: number}) {
+  const {supabase} = await requireUser();
+  const {data, error} = await supabase.rpc('edit_asset_details', {
+    p_asset_id: id,
+    p_expected_updated_at: input.expected_updated_at,
+    p_name: input.name ?? null,
+    p_market_price: input.market_price ?? null,
+  });
+  if (error) throw error;
+  return data;
 }
 
 export async function deleteAsset(id:string){

@@ -1,0 +1,25 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "public.asset_edit_availability(p_asset_id uuid)",
+      "fingerprint": "d753da50ac35816457c9c3a0ed7a558e"
+    },
+    {
+      "category": "function",
+      "object_key": "public.edit_asset_details(p_asset_id uuid, p_expected_updated_at timestamp with time zone, p_name text, p_market_price numeric)",
+      "fingerprint": "4d49a2b38221e00300bce11bddd019e3"
+    },
+    {
+      "category": "function",
+      "object_key": "public.guard_asset_registration_fields()",
+      "fingerprint": "f82b014be51e200935cdedfbee6e5ce6"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.asset_accounts.trg_asset_registration_fields",
+      "fingerprint": "2e4fb8b57231423bf0193e92f317e96d"
+    }
+  ]
+}

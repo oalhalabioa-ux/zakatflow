@@ -1,0 +1,160 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "private.grouped_sale_reversals.opening_transaction",
+      "fingerprint": "78296fb14ede1542b33f5b0c49405956"
+    },
+    {
+      "category": "column",
+      "object_key": "private.grouped_sale_reversals.owner_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.grouped_sale_reversals.reason",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.grouped_sale_reversals.receipt_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.grouped_sale_reversals.request_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.grouped_sale_reversals.result",
+      "fingerprint": "538696bdb2387eda898b7e0c680ac48e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.grouped_sale_reversals.sale_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_opening_transaction_not_null",
+      "fingerprint": "7e6c70974e71d7a3598dd48cf61f2696"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_owner_id_not_null",
+      "fingerprint": "6d5f2b1ec05cc39e07bd62795be31bac"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_owner_id_request_id_key",
+      "fingerprint": "563d5437a0f2f670963819a03ed1ab4e"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_pkey",
+      "fingerprint": "18c53e1463bfc7fdcc242e24491c5311"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_reason_not_null",
+      "fingerprint": "f9ef52b0a7b83591d0397142289b704c"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_receipt_id_fkey",
+      "fingerprint": "19c517810ba891ddafa928931cc6bf22"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_receipt_id_key",
+      "fingerprint": "9cee1b62eacf5b20da39a7feae2886f3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_receipt_id_not_null",
+      "fingerprint": "4a583f7dcd0ab382dda195fd3129ea03"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_request_id_not_null",
+      "fingerprint": "9ad06d2910d72fcf7e6bb4b8ae6f950e"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_sale_id_fkey",
+      "fingerprint": "acec392db6ac63a671350ab9129fda54"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_sale_id_not_null",
+      "fingerprint": "c1d5ae4d4ec755dde34080942f704a5a"
+    },
+    {
+      "category": "function",
+      "object_key": "public.apply_personal_sale_lots(p_sale_id uuid, p_accounts uuid[], p_method text, p_selection jsonb)",
+      "fingerprint": "0ce4875d907e7736d969771841243ee2"
+    },
+    {
+      "category": "function",
+      "object_key": "public.gold_card_sale(p_asset uuid, p_date date, p_payload jsonb)",
+      "fingerprint": "82359bd629a16a475569aa825d818bfc"
+    },
+    {
+      "category": "function",
+      "object_key": "public.guard_grouped_sale_changes()",
+      "fingerprint": "e7c91eae57516795cb1d6aaf368f0b30"
+    },
+    {
+      "category": "function",
+      "object_key": "public.personal_asset_grouped_sales(p_asset_id uuid, p_until date, p_limit integer)",
+      "fingerprint": "8f24850a7215a14ebe9d0428646eebfd"
+    },
+    {
+      "category": "function",
+      "object_key": "public.plan_asset_sale_lots(p_candidates jsonb, p_quantity numeric, p_method text, p_selection jsonb)",
+      "fingerprint": "b198c2ef6df39c91fe79b9c2b88fd064"
+    },
+    {
+      "category": "function",
+      "object_key": "public.post_personal_gold_lot_sale(p_request uuid, p_karat integer, p_bank uuid, p_date date, p_quantity numeric, p_unit_price numeric, p_method text, p_selection jsonb)",
+      "fingerprint": "0e5f46f85e0e93438d4637b57396bf4f"
+    },
+    {
+      "category": "function",
+      "object_key": "public.reverse_grouped_gold_sale(p_sale uuid, p_request uuid, p_revision integer, p_reason text)",
+      "fingerprint": "283e80c447ed6722846281f8c61c3f6a"
+    },
+    {
+      "category": "index",
+      "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_owner_id_request_id_key",
+      "fingerprint": "1fb00bbfe66197ccbde0453a270a44dd"
+    },
+    {
+      "category": "index",
+      "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_pkey",
+      "fingerprint": "828ee942caae2e05b032dca83bd9449b"
+    },
+    {
+      "category": "index",
+      "object_key": "private.grouped_sale_reversals.grouped_sale_reversals_receipt_id_key",
+      "fingerprint": "994a48a451911998795381af0f93bbe4"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.grouped_sale_reversals",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.transactions.grouped_sale_amount_guard",
+      "fingerprint": "e876e5ed317638baa05d804b538ceb50"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.transactions.grouped_sale_reversal_guard",
+      "fingerprint": "2988c4c2f34489872650739b34e8072d"
+    }
+  ]
+}

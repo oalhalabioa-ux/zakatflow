@@ -83,7 +83,7 @@ try{
  const asset=await seed(owner),companyAsset=await seed(owner,organization),gold18=await seed(owner,null,true);
  server=spawn(process.execPath,['node_modules/next/dist/bin/next','dev','-H','127.0.0.1','-p','3000'],{
   env:{...process.env,NEXT_PUBLIC_SUPABASE_URL:settings.API_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY:settings.ANON_KEY,
-   NEXT_PUBLIC_APP_URL:app,NEXT_PUBLIC_APP_ENV:'test',NEXT_PUBLIC_ASSET_LOT_QA:'1',SUPABASE_SERVICE_ROLE_KEY:'',RESEND_API_KEY:''},stdio:'inherit',
+   NEXT_PUBLIC_APP_URL:app,NEXT_PUBLIC_APP_ENV:'test',NEXT_PUBLIC_PERSONAL_GOLD_SALES:'1',SUPABASE_SERVICE_ROLE_KEY:'',RESEND_API_KEY:''},stdio:'inherit',
  });
  let ready=false;
  for(let i=0;i<120;i++){

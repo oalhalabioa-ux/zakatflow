@@ -65,7 +65,7 @@ export default function AssetStatementPreview({assetId,ar}:{assetId:string;ar:bo
     ?t('تجاوز تاريخ هذا الأصل حد العرض. اختر تاريخًا أقدم.','This asset exceeds the statement limit. Select an earlier date.')
     :t('تعذر تحميل كشف الحركة.','The movement statement could not be loaded.')}</p>}
    {statement&&<>
-    {process.env.NEXT_PUBLIC_ASSET_LOT_QA==='1'&&!statement.asset.organizational&&statement.asset.type==='GOLD'&&statement.asset.unit==='g'&&statement.asset.metalGrade&&<button type="button" onClick={()=>setSelling(true)}>{t('بيع من حزم الذهب','Sell from gold lots')}</button>}
+    {process.env.NEXT_PUBLIC_PERSONAL_GOLD_SALES==='1'&&!statement.asset.organizational&&statement.asset.type==='GOLD'&&statement.asset.unit==='g'&&statement.asset.metalGrade&&<button type="button" onClick={()=>setSelling(true)}>{t('بيع من حزم الذهب','Sell from gold lots')}</button>}
     {!statement.complete&&<p role="status">{t('لم تكتمل مطابقة الأرصدة مع المصادر المسجلة لهذا الكشف.','Some balances could not be reconciled with recorded sources.')}</p>}
     {statement.complete&&<section className="asset-statement-summary" aria-label={t('ملخص رصيد الأصل','Asset balance summary')}>
      <dl className="operation-detail-grid">
@@ -136,7 +136,7 @@ export default function AssetStatementPreview({assetId,ar}:{assetId:string;ar:bo
        </>}
        <div><dt>{t('الرصيد بعد الحركة','Balance after movement')}</dt><dd><bdi>{format(row.remainingQuantity)} {unit} · {format(row.remainingCost)} {statement.baseCurrency}</bdi></dd></div>
       </dl>
-      {row.grouped&&row.status!=='REVERSED'&&process.env.NEXT_PUBLIC_ASSET_LOT_QA==='1'&&<GoldSaleAction id={row.source_id} ar={ar} revision={row.grouped.revision} onSaved={()=>setRevision(v=>v+1)}/>}
+      {row.grouped&&row.status!=='REVERSED'&&process.env.NEXT_PUBLIC_PERSONAL_GOLD_SALES==='1'&&<GoldSaleAction id={row.source_id} ar={ar} revision={row.grouped.revision} onSaved={()=>setRevision(v=>v+1)}/>}
      </details>)}
     </section>}
     {!statement.rows.length&&<p>{t('لا توجد حركات مسجلة حتى هذا التاريخ.','There are no recorded movements through this date.')}</p>}

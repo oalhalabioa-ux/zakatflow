@@ -60,4 +60,4 @@ begin
     'cost',(select sum((a->>'cost_base')::numeric) from jsonb_array_elements(planned) a));
 end $$;
 revoke all on function public.gold_card_sale(uuid,date,jsonb) from public,anon;
-grant execute on function public.gold_card_sale(uuid,date,jsonb) to authenticated;
+revoke execute on function public.gold_card_sale(uuid,date,jsonb) from authenticated;

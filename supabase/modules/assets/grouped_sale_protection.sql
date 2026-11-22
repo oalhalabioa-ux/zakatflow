@@ -3,6 +3,7 @@ create table private.grouped_sale_reversals(
   owner_id uuid not null, request_id uuid not null, reason text not null, opening_transaction bigint not null,
   result jsonb, unique(owner_id,request_id)
 );
+alter table private.grouped_sale_reversals enable row level security;
 revoke all on private.grouped_sale_reversals from public,anon,authenticated;
 -- Candidate only. Guard legacy paths when a voucher uses multiple asset accounts.
 create function public.guard_grouped_sale_changes() returns trigger language plpgsql security definer set search_path='' as $$
@@ -19,6 +20,8 @@ begin
       and new.reversal_of_transaction_id in(permitted.sale_id,permitted.receipt_id))
     then raise exception 'GROUPED_SALE_REVERSAL_UNAVAILABLE'; end if;
   elsif old.metadata ? 'lot_sale_request' and new.base_value is distinct from old.base_value then
+    if not has_function_privilege('authenticated','public.gold_card_sale(uuid,date,jsonb)','execute') then
+      raise exception 'GROUPED_SALE_WRITES_DISABLED'; end if;
     select assessment.id into blocker from public.transaction_allocations alloc
     join public.lots sold on sold.id=alloc.lot_id
     join public.lots related on related.asset_account_id=sold.asset_account_id and related.user_id=sold.user_id
@@ -32,8 +35,12 @@ begin
   end if;
   return new;
 end $$;
-create trigger grouped_sale_change_guard before insert or update of base_value on public.transactions
-for each row execute function public.guard_grouped_sale_changes();
+revoke all on function public.guard_grouped_sale_changes() from public,anon,authenticated;
+create trigger grouped_sale_reversal_guard before insert on public.transactions
+for each row when (new.reversal_of_transaction_id is not null) execute function public.guard_grouped_sale_changes();
+create trigger grouped_sale_amount_guard before update of base_value on public.transactions
+for each row when (old.metadata ? 'lot_sale_request' and old.base_value is distinct from new.base_value)
+execute function public.guard_grouped_sale_changes();
 
 create function public.reverse_grouped_gold_sale(p_sale uuid,p_request uuid,p_revision integer,p_reason text)
 returns jsonb language plpgsql security definer set search_path='' as $$
@@ -91,4 +98,4 @@ begin
   return result_data;
 end $$;
 revoke all on function public.reverse_grouped_gold_sale(uuid,uuid,integer,text) from public,anon;
-grant execute on function public.reverse_grouped_gold_sale(uuid,uuid,integer,text) to authenticated;
+revoke execute on function public.reverse_grouped_gold_sale(uuid,uuid,integer,text) from authenticated;
