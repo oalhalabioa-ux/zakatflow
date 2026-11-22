@@ -165,7 +165,7 @@ try{
  {
   const personal=await seed(owner,null,true,'QA Card Sale');
   const bank=value(await owner.client.from('asset_accounts').insert({user_id:owner.id,
-   name:'QA card sale bank',asset_type:'BANK',currency:'SAR',ownership_scope:'PERSONAL'}).select('id').single());
+   name:'QA destination for in-card sale',asset_type:'BANK',currency:'SAR',ownership_scope:'PERSONAL'}).select('id').single());
   const page=await en.newPage();
   const dialog=page.getByRole('dialog');
   const open=()=>page.getByRole('row').filter({hasText:'QA Card Sale'}).getByRole('button',{name:'Details and actions',exact:true}).click();
@@ -234,6 +234,7 @@ try{
   assert.equal(await page.getByRole('dialog').count(),1);
   assert.equal(new URL(page.url()).pathname,'/en/assets');
   await page.reload();await open('QA Gold Statement');
+  await sourceDialog.getByRole('button',{name:'Asset movement statement',exact:true}).click();
   const current=(await statement(en,asset)).payload;
   const row=current.rows.find(r=>r.source_id===replacement.id);
   assert.ok(row.voucher);assert.equal(row.amount,'1350');assert.equal(row.sale.cost,'960');
