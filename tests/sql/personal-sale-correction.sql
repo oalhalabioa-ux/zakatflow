@@ -18,6 +18,8 @@ declare
   receipt_id uuid;
   corrected_id uuid;
   cash_lot uuid;
+  other_sale uuid;
+  allocations_before jsonb;
   records_before integer;
 begin
   insert into auth.users(id,email,email_confirmed_at) values
@@ -80,6 +82,41 @@ begin
     raise exception 'RESET_RECEIPT_FIXTURE';
   exception when raise_exception then
     if sqlerrm<>'RESET_RECEIPT_FIXTURE' then raise; end if;
+  end;
+
+  -- The destination already has a sale between the old and corrected dates.
+  -- Its FIFO allocation and cost must survive a new sale posted after it.
+  begin
+    other_sale:=(public.post_sale_with_proceeds(owner_id,correct_asset,alternate_bank,
+      '2025-02-02',1,20,'SAR','SAR',20)->>'sale_transaction_id')::uuid;
+    select jsonb_agg(to_jsonb(a) order by id) into allocations_before
+      from public.transaction_allocations a where transaction_id=other_sale;
+    if public.personal_sale_preflight(previous_id,correct_asset,alternate_bank,'2025-02-03')->>'structural_block' is not null
+    then raise exception 'INDEPENDENT_DESTINATION_HISTORY_BLOCKED'; end if;
+    begin
+      perform public.post_sale_with_proceeds(owner_id,correct_asset,alternate_bank,'2025-02-04',1,25,'SAR','SAR',25);
+      begin
+        perform public.correct_personal_asset_sale(previous_id,request_id,correct_asset,alternate_bank,
+          '2025-02-03',3,30,1,'','Stale eligibility');
+        raise exception 'STALE_ELIGIBILITY_ACCEPTED';
+      exception when raise_exception then
+        if sqlerrm<>'SALE_CORRECTION_LATER_MOVEMENTS' then raise; end if;
+      end;
+      raise exception 'RESET_CONCURRENT_FIXTURE';
+    exception when raise_exception then
+      if sqlerrm<>'RESET_CONCURRENT_FIXTURE' then raise; end if;
+    end;
+    corrected:=public.correct_personal_asset_sale(previous_id,request_id,correct_asset,alternate_bank,
+      '2025-02-03',3,30,1,'','Independent later sale');
+    if (select jsonb_agg(to_jsonb(a) order by id) from public.transaction_allocations a where transaction_id=other_sale)
+        is distinct from allocations_before
+      or (select remaining_value_base from public.lots where id=correct_lot)<>84
+      or (select sum(remaining_quantity) from public.lots where asset_account_id=alternate_bank)<>110
+      or (corrected->>'realized_gain_base')::numeric<>48
+    then raise exception 'INDEPENDENT_DESTINATION_BALANCE_CHANGED'; end if;
+    raise exception 'RESET_INDEPENDENT_FIXTURE';
+  exception when raise_exception then
+    if sqlerrm<>'RESET_INDEPENDENT_FIXTURE' then raise; end if;
   end;
 
   corrected:=public.correct_personal_asset_sale(previous_id,request_id,correct_asset,alternate_bank,
