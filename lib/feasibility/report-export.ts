@@ -1,14 +1,31 @@
 const spreadsheetFormula=/^[\s\uFEFF]*[=+\-@]|^[\t\r\n]/u;
 
-export function feasibilityCsv(rows:readonly (readonly (string|number|null|undefined)[])[]){
- return '\uFEFF'+rows.map(row=>row.map(value=>{
-  const safe=typeof value==='string'&&spreadsheetFormula.test(value)?"'"+value:String(value??'');
+type CsvNumericFormat='integer'|'quantity'|'money';
+const csvNumericFormatters:Record<CsvNumericFormat,Intl.NumberFormat>={
+ integer:new Intl.NumberFormat('en-US',{useGrouping:false,maximumFractionDigits:0}),
+ quantity:new Intl.NumberFormat('en-US',{useGrouping:false,maximumFractionDigits:3}),
+ money:new Intl.NumberFormat('en-US',{useGrouping:false,minimumFractionDigits:2,maximumFractionDigits:2})
+};
+
+function csvValue(value:string|number|null|undefined,format?:CsvNumericFormat){
+ if(typeof value==='number'&&format){
+  if(!Number.isFinite(value))return '';
+  const formatted=csvNumericFormatters[format].format(value);
+  return formatted.startsWith('-')&&Number(formatted)===0?formatted.slice(1):formatted;
+ }
+ if(typeof value==='string'&&spreadsheetFormula.test(value))return "'"+value;
+ return String(value??'');
+}
+
+export function feasibilityCsv(rows:readonly (readonly (string|number|null|undefined)[])[],formats?:readonly CsvNumericFormat[]){
+ return '\uFEFF'+rows.map(row=>row.map((value,index)=>{
+  const safe=csvValue(value,formats?.[index]);
   return '"'+safe.replaceAll('"','""')+'"';
  }).join(',')).join('\r\n');
 }
 
-export function downloadFeasibilityCsv(filename:string,rows:Parameters<typeof feasibilityCsv>[0]){
- downloadReportBlob(filename,new Blob([feasibilityCsv(rows)],{type:'text/csv;charset=utf-8'}));
+export function downloadFeasibilityCsv(filename:string,rows:Parameters<typeof feasibilityCsv>[0],formats?:readonly CsvNumericFormat[]){
+ downloadReportBlob(filename,new Blob([feasibilityCsv(rows,formats)],{type:'text/csv;charset=utf-8'}));
 }
 
 function downloadReportBlob(filename:string,blob:Blob){

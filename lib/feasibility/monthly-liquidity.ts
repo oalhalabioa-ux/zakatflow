@@ -38,6 +38,7 @@ export const defaultMonthlyLiquidity:MonthlyLiquidity={openingCash:0,cashEquity:
 export function monthlyLiquidityAmounts(study:FeasibilityStudy):MonthlyAmounts|null {
  if(study.water){
   const result=evaluateWater(study.water);
+  if(study.water.packMix?.enabled&&!result.ready)return null;
   const year=result.annual[0];
   if(!year)return null;
   return {
@@ -64,6 +65,7 @@ export function monthlyLiquidityAmounts(study:FeasibilityStudy):MonthlyAmounts|n
  const advancedYear=advanced?.annual[0];
  const model=evaluateStudy(advanced?{...study,monthlyUnits:advanced.monthlyVolume}:study);
  const year=model.annual[0];
+ if(!year)return null;
  const operatingCash=advancedYear?.fcf??year.freeCashFlow;
  if(!Number.isFinite(operatingCash))return null;
  // A terminal working capital release is a month-12 receipt.

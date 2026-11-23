@@ -33,13 +33,15 @@ export function evaluateAdvanced(s:FeasibilityStudy,scenario:Scenario='BASE'):Ad
   !nonneg(s.indicativeTaxRatePct)||s.indicativeTaxRatePct>100||!nonneg(s.discountRatePct)||s.discountRatePct>100||
   ![s.volumeGrowthPct,s.priceGrowthPct,s.fixedCostGrowthPct].every(v=>nonneg(v)&&v<=100))
   blockers.push('INVALID_ASSUMPTIONS');
+ const usesProductionLines=s.sector==='INDUSTRIAL'&&!s.water&&s.productionPlan?.enabled;
  let monthlyVolume=s.monthlyUnits;
- if(a.mode==='CAPACITY'){
+ if(!usesProductionLines&&a.mode==='CAPACITY'){
   if(a.capacityMonthly<=0||a.utilisationPct<=0||a.saleablePct<=0)blockers.push('CAPACITY_INCOMPLETE');
   monthlyVolume=a.capacityMonthly*a.utilisationPct/100*a.saleablePct/100;
- }else if(a.mode!=='DIRECT')blockers.push('INVALID_ASSUMPTIONS');
+ }else if(!usesProductionLines&&a.mode!=='DIRECT')blockers.push('INVALID_ASSUMPTIONS');
  const base=evaluateStudy({...s,monthlyUnits:monthlyVolume},scenario);
- if(base.capex+base.landPurchase<=0||s.unitPrice<=0||monthlyVolume<=0)blockers.push('BASIC_INPUT_MISSING');
+ if(base.production)monthlyVolume=base.production.totals.sold;
+ if(!base.ready)blockers.push('BASIC_INPUT_MISSING');
  const grouped=Object.fromEntries(categories.map(category=>[category,s.capex.filter(x=>x.category===category).reduce((v,x)=>v+x.amount,0)])) as Record<CapitalCategory,number>;
  if(categories.some(category=>grouped[category]>0&&a.lives[category]<=0))blockers.push('USEFUL_LIVES_MISSING');
  const debt=s.investorLoan+s.otherDebt,years=s.years,working=s.workingCapital;
