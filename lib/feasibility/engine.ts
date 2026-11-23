@@ -7,6 +7,7 @@ import type {RawLand} from './raw-land';
 import type {WaterModel} from './water-model';
 import {generalLandCosts,type LandArrangement,type Partnership} from './partnership';
 import type {MonthlyLiquidity} from './monthly-liquidity';
+import {evaluateProductionPlan,type ProductionPlan} from './production-lines';
 
 export type Sector='INDUSTRIAL'|'COMMERCIAL'|'REAL_ESTATE'|'SERVICES'|'AGRICULTURE'|'CUSTOM';
 export type StudyStatus='IDEA'|'FEASIBILITY'|'APPROVED'|'ESTABLISHMENT'|'OPERATING'|'CANCELLED';
@@ -51,7 +52,7 @@ export interface FeasibilityStudy {
  priceGrowthPct:number; fixedCostGrowthPct:number; discountRatePct:number; indicativeTaxRatePct:number; years:number;
  capex:CapexItem[];tasks:StudyTask[];legal:LegalItem[];risks:StudyRisk[];suppliers:StudySupplier[];decisions:StudyDecision[];handoff?:ProjectHandoff;advanced?:AdvancedAssumptions;sectorSchedule?:SectorSchedule;
  scenarioAssumptions?: Partial<Record<Scenario,ScenarioFactors>>;
- rawLand?:RawLand;water?:WaterModel;monthlyLiquidity?:MonthlyLiquidity;preparedBy?:string;studyDate?:string;notes?:string;
+ productionPlan?:ProductionPlan;rawLand?:RawLand;water?:WaterModel;monthlyLiquidity?:MonthlyLiquidity;preparedBy?:string;studyDate?:string;notes?:string;
  /** Declared document details only; never used to authorize access or transfer ownership. */
  legalOwner?:string;siteDescription?:string;
  /** Descriptive profile inputs; specialized models retain their own canonical year/area. */
@@ -171,15 +172,21 @@ export function evaluateStudy(s:FeasibilityStudy,scenario:Scenario='BASE'){
  const initial=-(totalInvestment);
  const flows=[initial];
  const discount=nonneg(s.discountRatePct)/100;
+ const plan=s.sector==='INDUSTRIAL'&&!s.water&&s.productionPlan?.enabled?s.productionPlan:null;
+ const production=plan?evaluateProductionPlan(plan):null;
+ const monthlyFixed=nonneg(s.monthlyFixedCost)+(production?.payroll??0);
  const basePrice=nonneg(s.unitPrice)*(c.price/100);
  const baseCost=nonneg(s.variableCost)*(c.variable/100);
  const taxRate=Math.min(1,nonneg(s.indicativeTaxRatePct)/100);
- for(let year=1;year<=projectedYears;year++){
-  const volume=nonneg(s.monthlyUnits)*12*(c.volume/100)*Math.pow(1+nonneg(s.volumeGrowthPct)/100,year-1);
-  const price=basePrice*Math.pow(1+nonneg(s.priceGrowthPct)/100,year-1);
-  const variableCost=baseCost*volume;
-  const revenue=volume*price;
-  const fixed=nonneg(s.monthlyFixedCost)*12*Math.pow(1+nonneg(s.fixedCostGrowthPct)/100,year-1)+nonneg(land.rent)*12;
+ const canProject=!production||production.ready;
+ for(let year=1;canProject&&year<=projectedYears;year++){
+  const volumeFactor=(c.volume/100)*Math.pow(1+nonneg(s.volumeGrowthPct)/100,year-1);
+  const priceGrowth=Math.pow(1+nonneg(s.priceGrowthPct)/100,year-1);
+  const mix=plan&&production?.ready?evaluateProductionPlan(plan,volumeFactor).totals:null;
+  const volume=plan?(mix?.sold??0)*12:nonneg(s.monthlyUnits)*12*(c.volume/100)*Math.pow(1+nonneg(s.volumeGrowthPct)/100,year-1);
+  const variableCost=plan?(mix?.variable??0)*12*c.variable/100:baseCost*volume;
+  const revenue=plan?(mix?.revenue??0)*12*c.price/100*priceGrowth:volume*basePrice*priceGrowth;
+  const fixed=monthlyFixed*12*Math.pow(1+nonneg(s.fixedCostGrowthPct)/100,year-1)+nonneg(land.rent)*12;
   const ebitda=revenue-variableCost-fixed;
   // Indicative only: not a statutory tax base. Depreciation, loss carryforwards, etc. are omitted.
   const taxEstimate=Math.max(0,ebitda)*taxRate;
@@ -188,15 +195,16 @@ export function evaluateStudy(s:FeasibilityStudy,scenario:Scenario='BASE'){
   annual.push({year,volume,revenue,variable:variableCost,fixed,ebitda,taxEstimate,maintenance,freeCashFlow});
   flows.push(freeCashFlow);
  }
- const ready=(capex+landPurchase)>0&&nonneg(s.unitPrice)>0&&nonneg(s.monthlyUnits)>0;
+ const ready=(capex+landPurchase)>0&&(production?production.ready:nonneg(s.unitPrice)>0&&nonneg(s.monthlyUnits)>0);
  const npv=ready?npvAt(discount,flows):null;
  const irr=ready?internalRateOfReturn(flows):null;
  let paybackYears:null|number=null;
  if(ready){let cumulative=flows[0];for(let i=1;i<flows.length;i++){const prev=cumulative;cumulative+=flows[i];if(prev<0&&cumulative>=0&&flows[i]>0){paybackYears=i-1+(-prev/flows[i]);break;}}}
- const margin=basePrice-baseCost;
- const breakevenMonthlyUnits=margin>0?(nonneg(s.monthlyFixedCost)+nonneg(land.rent))/margin:null;
+ const firstYear=annual[0];
+ const margin=production?(firstYear&&firstYear.volume>0?(firstYear.revenue-firstYear.variable)/firstYear.volume:0):basePrice-baseCost;
+ const breakevenMonthlyUnits=margin>0?(monthlyFixed+nonneg(land.rent))/margin:null;
  return {capex,landAsset,landPurchase,cashInvestment,equity,cashEquity,investorShare,partnerShare,totalInvestment,cashFundingGap,
- annual,flows,npv,irr,paybackYears,breakevenMonthlyUnits,ready,margin,
+ annual,flows,npv,irr,paybackYears,breakevenMonthlyUnits,ready,margin,production,
  notes:['التدفقات تمثل المشروع قبل خدمة الديون، وليست تدفقات الشريك الشخصية.',
  'الأرض المحولة ملكيتها حصة عينية غير نقدية؛ لا تُستخدم لسداد مصروفات التأسيس.',
  'ضريبة الدخل هنا نسبة افتراضية على EBITDA لأغراض الاستكشاف وليست حساباً قانونياً.',

@@ -274,7 +274,7 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
      <li>{l('صافي القيمة الحالية','NPV')} · {money(base.npv)}</li>
      <li>{l('العائد الداخلي %','IRR %')} · {fmt(base.irr)}</li>
     </ul>
-    {allowExport&&<div className="fs-actions"><button className="fs-btn fs-btn--secondary" type="button"
+    {allowExport&&(!base.production||base.production.ready)&&<div className="fs-actions"><button className="fs-btn fs-btn--secondary" type="button"
      onClick={()=>downloadFeasibilityCsv('feasibility-projections.csv',[
       [...metrics.map(x=>x.label),l('العملة','Currency')],...financeRows.map(row=>[...row,study.currency])
      ])}>{l('تصدير التوقعات CSV','Export forecast CSV')}</button></div>}
