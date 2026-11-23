@@ -1,3 +1,31 @@
+-- Freeze the source's already-finalized coverage when the receipt is posted.
+-- A later final assessment of remaining gold cannot cover the cash receipt.
+alter table private.personal_gold_receipt_hawl_sources
+  add column source_covered_through date,
+  add column coverage_captured boolean not null default false;
+
+create function private.capture_gold_source_final_coverage()
+returns trigger language plpgsql security definer set search_path='' as $$
+begin
+  if new.continuity_applies and new.source_hawl_start_date is not null then
+    if new.user_id is distinct from auth.uid() then
+      raise exception 'GOLD_CASH_ASSESSMENT_OWNER_MISMATCH';
+    end if;
+    perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('zakat-snapshot:'||new.user_id::text,0));
+    -- covered_through is a recorded final date, independent of the projection calendar.
+    select hp.covered_through into strict new.source_covered_through
+    from public.zakat_lot_hawl_periods('GREGORIAN') hp where hp.lot_id=new.source_lot_id;
+    if new.source_covered_through > (select t.transaction_date from public.transactions t where t.id=new.receipt_id) then
+      raise exception 'SALE_BEFORE_FINAL_SOURCE_COVERAGE';
+    end if;
+    new.coverage_captured:=true;
+  end if;
+  return new;
+end $$;
+revoke all on function private.capture_gold_source_final_coverage() from public, anon, authenticated, service_role;
+create trigger capture_gold_source_final_coverage before insert on private.personal_gold_receipt_hawl_sources
+for each row execute function private.capture_gold_source_final_coverage();
+
 -- Component coverage is keyed by the saved cash line and the source gold lot.
 -- The enclosing calculation transaction must derive amounts from the receipt.
 create table private.gold_receipt_assessment_components (
@@ -37,14 +65,15 @@ language plpgsql stable security invoker set search_path='' as $$
 declare part record;
 begin
   for part in
-    select r.source_lot_id, r.remaining_base, p.hawl_start_date,
-           private.gold_receipt_final_coverage(cash.id,r.source_lot_id) as covered
+    select r.source_lot_id, r.remaining_base, r.inherited_hawl_start_date as hawl_start_date, s.coverage_captured,
+           greatest(s.source_covered_through,private.gold_receipt_final_coverage(cash.id,r.source_lot_id)) as covered
     from public.personal_gold_receipt_remaining(p_receipt) r
     join public.lots cash on cash.source_transaction_id=p_receipt and cash.user_id=auth.uid()
-    left join public.zakat_lot_hawl_periods(p_calendar) p on p.lot_id=r.source_lot_id
+    join private.personal_gold_receipt_hawl_sources s on s.receipt_id=p_receipt and s.source_lot_id=r.source_lot_id
     where r.inherited_hawl_start_date is not null and r.remaining_base>0
     order by r.source_order
   loop
+    if not part.coverage_captured then raise exception 'RECEIPT_SOURCE_COVERAGE_REVIEW_REQUIRED'; end if;
     if part.hawl_start_date is null then raise exception 'SOURCE_HAWL_PERIOD_REQUIRED'; end if;
     source_lot_id:=part.source_lot_id;
     remaining_base:=part.remaining_base;
