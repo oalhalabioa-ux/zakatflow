@@ -159,6 +159,18 @@ async function main(){
      from public.personal_gold_receipt_remaining($1) order by source_order`,[sale.proceeds_transaction_id]);
     assert.deepEqual(residual.rows,[{source_lot_id:id(20),remaining:3300,remaining_base:3300},
      {source_lot_id:id(21),remaining:900,remaining_base:900}]);
+    // Use the existing calendar/coverage engine for each source lot, including
+    // fully sold lots. Only the residual receipt balance belongs in this check.
+    for(const [asOf,expected] of [['2026-04-01',3300],['2026-06-01',4200]]){
+     const cashPeriod=await db.query(`select
+      coalesce(sum(r.remaining_base) filter(where p.hawl_due_date <= $2::date),0)::int as matured,
+      sum(r.remaining_base)::int as cash_balance
+      from public.personal_gold_receipt_remaining($1) r
+      left join public.zakat_lot_hawl_periods('GREGORIAN') p
+       on p.lot_id=r.source_lot_id and r.inherited_hawl_start_date is not null`,
+      [sale.proceeds_transaction_id,asOf]);
+     assert.deepEqual(cashPeriod.rows,[{matured:continuity?expected:0,cash_balance:4200}]);
+    }
     await db.exec('reset role');
    }
    const afterSpending=await db.query("select public.personal_sale_preflight($1)->>'amount_block' as blocker",[sale.sale_transaction_id]);
