@@ -156,7 +156,10 @@ try{
   const popup=page.waitForEvent('popup');
   await dialog.getByRole('button',{name:locale==='ar'?'طباعة كشف الحركة':'Print movement statement',exact:true}).click();
   const print=await popup;
-  await print.getByRole('cell',{name:'800',exact:true}).waitFor();
+  const printedSale=print.getByRole('row').filter({hasText:gold.payload.rows.find(row=>row.type==='SALE').voucher});
+  const printedProceeds=printedSale.getByRole('cell').nth(11);
+  await printedProceeds.waitFor();
+  assert.equal(await printedProceeds.textContent(),'800');
   assert.equal(await print.locator('html').getAttribute('dir'),locale==='ar'?'rtl':'ltr');
   await print.close();
   await page.screenshot({path:`asset-qa-preview/statement-${locale}.png`});
