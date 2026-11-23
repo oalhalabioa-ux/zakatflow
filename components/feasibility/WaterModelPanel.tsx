@@ -97,7 +97,7 @@ const baseProjectionLabels=[
  ['afterDebt','التدفق بعد خدمة القرض','Cash flow after debt service'],['dscr','تغطية خدمة الدين (DSCR)','Debt service coverage (DSCR)'],
  ['returnedVolume','الكراتين المرتجعة','Returned cartons'],['netVolume','صافي الكراتين المباعة','Net cartons sold']
 ] as const;
-const forecastQuantityColumns=new Set(['utilization','volume','dscr','returnedVolume','netVolume']);
+const forecastQuantityColumns=new Set(['utilization','volume','returnedVolume','netVolume']);
 const sensitivityVolume=[70,85,100,115,130],sensitivityPrices=[90,95,100,105,110];
 
 function NumberInput({label,value,onChange,max=1e12,min=0,step='any',disabled=false}:{
@@ -222,7 +222,11 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   [...projectionLabels.map(([,ar,en])=>l(ar,en)),l('العملة','Currency')],
   [0,...projectionLabels.slice(1).map(([key])=>key==='freeCashFlow'?m.flows[0]:key==='debtBalance'?m.totalLoan:null),currency],
   ...m.annual.map(y=>[...projectionLabels.map(([key])=>y[key]),currency])
-  ],projectionLabels.map(([key])=>key==='year'?'integer':forecastQuantityColumns.has(key)?'quantity':'money'));
+  ],projectionLabels.map(([key])=>{
+   if(key==='year')return 'integer';
+   if(key==='dscr')return undefined;
+   return forecastQuantityColumns.has(key)?'quantity':'money';
+  }));
  const compactValues=(rows:string[][])=><dl className="fs-royal-checks">{rows.map(([label,value])=>
   <div key={label}><dt>{label}</dt><dd><bdi>{value}</bdi></dd></div>)}</dl>;
  const equityHeaders=[l('السنة','Year'),l('حقوق الملكية الكلية','All equity holders'),l('ملكية الممول','Investor equity'),
