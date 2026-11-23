@@ -33,14 +33,12 @@ export async function calculateAndSaveAssessment(request:AssessmentRequest,revis
  const goldPrice=metalPrices.GOLD.price,silverPrice=metalPrices.SILVER.price;
  const nisabValue=nisabFromPrice(standard,metalPrices);
  const zakatableLots=(lots??[]).filter((l:any)=>l.asset_accounts?.is_zakatable===true&&l.asset_accounts?.ownership_scope!=='ORGANIZATION'&&Number(l.remaining_quantity)>0&&l.acquisition_date<=input.assessment_date);
- // Until snapshots support component periods, stop before creating a cycle or revision.
- for (const lot of zakatableLots) {
-  if (lot.hawl_start_date || lot.transactions?.transaction_type !== 'ADD' || !lot.transactions.sale_id) continue;
-  const {data:components,error}=await supabase.rpc('personal_gold_receipt_remaining',{p_receipt_id:lot.source_transaction_id});
+ const receiptPeriods=new Map<string,Array<{remaining_base:string;period_due:string;period_start:string}>>();
+ for(const lot of zakatableLots){
+  if(lot.hawl_start_date || lot.transactions?.transaction_type!=='ADD' || !lot.transactions.sale_id)continue;
+  const {data,error}=await supabase.rpc('gold_receipt_assessment_periods',{p_receipt:lot.source_transaction_id,p_calendar:method.calendar_type});
   if(error)throw error;
-  if(components?.some((part:any)=>Number(part.remaining_base)>0 && part.inherited_hawl_start_date)){
-   throw new Error('PERSONAL_GOLD_RECEIPT_COMPONENT_ASSESSMENT_REQUIRED');
-  }
+  if(data?.length)receiptPeriods.set(lot.id,data);
  }
  const valuation=(l:any)=>frozenLotValuation(l,lots??[],baseCurrency,metalPrices);
  const marketValue=(l:any)=>valuation(l).marketValueBase;
@@ -52,8 +50,15 @@ export async function calculateAndSaveAssessment(request:AssessmentRequest,revis
  const periods=new Map<string,any>((periodRows??[]).map((p:any)=>[p.lot_id,p]));
  const {data:coverageRows,error:coverageError}=await supabase.rpc('investment_zakat_lot_coverage',{p_calendar:method.calendar_type});if(coverageError)throw coverageError;
  const coverages=new Map<string,any>((coverageRows??[]).map((c:any)=>[c.lot_id,c]));
- const candidates=zakatableLots.filter((lot:any)=>!!lot.hawl_start_date).map((lot:any)=>{
+ const candidates=zakatableLots.filter((lot:any)=>!!lot.hawl_start_date||receiptPeriods.has(lot.id)).map((lot:any)=>{
   const account=lot.asset_accounts;const v=valuation(lot);
+  const parts=receiptPeriods.get(lot.id);
+  if(parts){
+   const receiptComponents=parts.map(part=>({remainingBase:part.remaining_base,hawlCompleted:part.period_due<=input.assessment_date}));
+   return {lotId:lot.id,assetName:account?.name,assetType:account?.asset_type,...v,quantity:lot.remaining_quantity,
+    receiptComponents,hawlCompleted:receiptComponents.some(part=>part.hawlCompleted),externalCoveredDays:0,hawlPeriodDays:0,
+    valuationSnapshot:{...v.valuationSnapshot,hawlDueDate:parts[0].period_due,valuationDate,receiptComponentPolicy:'SOURCE_PERIOD_V1'}};
+  }
   const period=periods.get(lot.id);if(!period)throw new Error('LOT_HAWL_PERIOD_REQUIRED');
   const coverage=coverages.get(lot.id);const institutionCoverage={policy:'CAPITAL_PERIOD_EXCLUSION_V1',coveredDays:coverage?.covered_days??0,periodDays:coverage?.period_days??0,intervals:coverage?.coverage_intervals??[]};
   const due=period.hawl_due_date;const following=calculateHawl(method.calendar_type==='GREGORIAN'?'GREGORIAN':'HIJRI_TABULAR',new Date(due+'T00:00:00Z'),new Date(input.assessment_date+'T00:00:00Z'));if(following.completed)throw new Error('MULTIPLE_UNASSESSED_HAWLS_REQUIRE_REVIEW');if(period.covered_through&&input.assessment_date<period.covered_through)throw new Error('ASSESSMENT_BEFORE_FINAL_COVERAGE');
