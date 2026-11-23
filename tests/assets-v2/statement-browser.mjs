@@ -280,7 +280,7 @@ try{
   await page.reload();
   await page.locator('.asset-lifecycle-tabs').getByRole('button',{name:'All',exact:true}).click();
   await open();
-  await dialog.getByRole('button',{name:'Sell',exact:true}).click();
+  await dialog.getByRole('button',{name:'Dispose',exact:true}).click();
   const repeated=page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/transactions');
   await dialog.getByRole('button',{name:'Retry same request',exact:true}).click();
   const disposalReplay=await repeated;
@@ -306,11 +306,11 @@ try{
   await page.goto(app+'/en/assets?scope=PERSONAL');
   await open('QA 18K Gold');
   const sourceDialog=page.getByRole('dialog');
-  const cardValue=(label,amount)=>sourceDialog.locator('dl > div').filter({
+  const cardValue=(label,amount)=>sourceDialog.getByRole('region',{name:'Asset balance summary'}).locator('.asset-card-kpi').filter({
    has:page.getByText(label,{exact:true}),
-  }).locator('dd').filter({hasText:new RegExp('^'+amount+'$')});
-  await cardValue('Current quantity','8').waitFor();
-  await cardValue('Book cost','2,400').waitFor();
+  }).getByText(amount,{exact:true});
+  await cardValue('Remaining quantity','8 g').waitFor();
+  await cardValue('Remaining cost','2,400 SAR').waitFor();
   await sourceDialog.getByRole('button',{name:'Asset movement statement',exact:true}).click();
   await sourceDialog.getByRole('table').getByRole('button',{name:gold.payload.rows.find(r=>r.type==='SALE').voucher,exact:true}).click();
   await page.getByRole('button',{name:'Review sale correction'}).click();
@@ -328,8 +328,8 @@ try{
   await page.getByText('Asset movement statement',{exact:true}).waitFor();
   await sourceDialog.getByRole('region',{name:'Asset balance summary'}).getByText('3,000 SAR',{exact:true}).waitFor();
   await sourceDialog.getByRole('button',{name:'Asset summary',exact:true}).click();
-  await cardValue('Current quantity','10').waitFor();
-  await cardValue('Book cost','3,000').waitFor();
+  await cardValue('Remaining quantity','10 g').waitFor();
+  await cardValue('Remaining cost','3,000 SAR').waitFor();
   assert.equal(await page.getByRole('dialog').count(),1);
   assert.equal(new URL(page.url()).pathname,'/en/assets');
   await page.reload();await open('QA Gold Statement');

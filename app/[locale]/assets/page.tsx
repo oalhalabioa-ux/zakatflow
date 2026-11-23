@@ -680,8 +680,10 @@ export default function Assets({
           onSection={setDetailPanel} onClose={closeDetails} onSaved={refreshDetail} hawlLots={detailAsset.lots??[]} zakatable={!!detailAsset.is_zakatable}
           toolbar={<>{detailRegistration}
             {hasExitAction&&<>
-              <ActionButton icon="collect" showLabel className="asset-card-primary" label={ar?'بيع':'Sell'} onClick={()=>setDetailOperation('SALE')}/>
-              <ActionButton icon="delete" showLabel label={ar?'استبعاد':'Dispose'} onClick={()=>setDetailOperation('DISPOSAL')}/>
+              {(!pendingExit||pendingExit.transaction_type==='SALE')&&
+                <ActionButton icon="collect" showLabel className="asset-card-primary" label={ar?'بيع':'Sell'} onClick={()=>setDetailOperation('SALE')}/>}
+              {(!pendingExit||pendingExit.transaction_type==='ADJUSTMENT')&&
+                <ActionButton icon="delete" showLabel label={ar?'استبعاد':'Dispose'} onClick={()=>setDetailOperation('DISPOSAL')}/>}
             </>}
             {canDepreciate&&<ActionButton icon="operations" showLabel label={ar?'إهلاك':'Depreciate'} onClick={()=>setDetailOperation('DEPRECIATION')}/>}
           </>}
