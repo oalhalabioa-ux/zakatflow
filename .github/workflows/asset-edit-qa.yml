@@ -1,0 +1,63 @@
+name: Asset edit isolated QA
+on:
+  pull_request:
+    paths:
+      - 'app/api/assets/route.ts'
+      - 'services/assets.ts'
+      - 'components/assets/AssetEditForm.tsx'
+      - 'supabase/migrations/*_asset_edit_details.sql'
+      - 'app/[locale]/assets/page.tsx'
+      - 'tests/assets-v2/edit-browser.mjs'
+      - '.github/workflows/asset-edit-qa.yml'
+permissions:
+  contents: read
+jobs:
+  asset-edit:
+    strategy:
+      fail-fast: false
+      matrix:
+        phase: [before, after]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - name: Set up isolated Chromium and Supabase
+        run: |
+          npm install --prefix "$RUNNER_TEMP/assets-tools" --no-save --package-lock=false playwright@1.64.1
+          node "$RUNNER_TEMP/assets-tools/node_modules/playwright/cli.js" install --with-deps chromium
+          root="$RUNNER_TEMP/asset-edit-qa"
+          mkdir -p "$root"
+          npx --yes supabase@2.122.0 init --workdir "$root"
+          cp -a supabase/migrations "$root/supabase/migrations"
+          echo "ASSET_QA_ROOT=$root" >> "$GITHUB_ENV"
+          echo "ASSET_BROWSER_MODULE=$RUNNER_TEMP/assets-tools/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+          npx --yes supabase@2.122.0 start --workdir "$root" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta > "$RUNNER_TEMP/assets-start.log" 2>&1 || { tail -60 "$RUNNER_TEMP/assets-start.log"; exit 1; }
+      - name: Reproduce P0 and verify browser persistence
+        env:
+          QA_BASE: ${{ github.event.pull_request.base.sha }}
+        if: matrix.phase == 'before'
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/asset-edit-base" "$QA_BASE"
+          ln -s "$PWD/node_modules" "$RUNNER_TEMP/asset-edit-base/node_modules"
+          ASSET_APP_DIR="$RUNNER_TEMP/asset-edit-base" ASSET_EDIT_PHASE=before timeout --kill-after=10s 180s node tests/assets-v2/edit-browser.mjs
+      - name: Verify registration lock and valuation persistence
+        if: matrix.phase == 'after'
+        run: ASSET_EDIT_PHASE=after timeout --kill-after=10s 180s node tests/assets-v2/edit-browser.mjs
+      - name: Upload before and after browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: asset-edit-preview-${{ matrix.phase }}
+          path: asset-edit-qa/
+      - name: Stop isolated database
+        if: always()
+        run: test -z "$ASSET_QA_ROOT" || npx --yes supabase@2.122.0 stop --workdir "$ASSET_QA_ROOT" --no-backup
