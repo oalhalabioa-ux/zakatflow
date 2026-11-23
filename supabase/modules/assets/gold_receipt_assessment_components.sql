@@ -58,3 +58,47 @@ begin
   end loop;
 end $$;
 revoke all on function private.gold_receipt_component_periods(uuid,text) from public,anon,authenticated,service_role;
+
+-- Persist verified components in the same transaction as their assessment line.
+create function private.capture_gold_cash_assessment_line()
+returns trigger language plpgsql security definer set search_path='' as $$
+declare
+  parent public.zakat_assessments%rowtype;
+  cash public.lots%rowtype;
+  calendar text;
+  part record;
+  total numeric := 0;
+  eligible numeric := 0;
+  amount numeric;
+begin
+  select * into parent from public.zakat_assessments where id=new.assessment_id;
+  select * into cash from public.lots where id=new.lot_id and user_id=parent.user_id;
+  if not exists (select 1 from private.personal_gold_receipt_hawl_sources s
+    where s.user_id=parent.user_id and s.receipt_lot_id=cash.id and s.continuity_applies) then
+    return new;
+  end if;
+  if parent.user_id is distinct from auth.uid() or cash.organization_id is not null then
+    raise exception 'GOLD_CASH_ASSESSMENT_OWNER_MISMATCH';
+  end if;
+  select calendar_type into strict calendar from public.zakat_methods where id=parent.method_id;
+  for part in select * from private.gold_receipt_component_periods(cash.source_transaction_id,calendar) loop
+    if public.zakat_next_hawl_date(part.period_due,calendar)<=parent.assessment_date then
+      raise exception 'MULTIPLE_UNASSESSED_HAWLS_REQUIRE_REVIEW';
+    end if;
+    amount:=case when part.period_due<=parent.assessment_date then part.remaining_base else 0 end;
+    total:=total+part.remaining_base;
+    eligible:=eligible+amount;
+    insert into private.gold_receipt_assessment_components
+      (assessment_line_id,source_lot_id,period_start,period_due,remaining_base,eligible_base)
+    values (new.id,part.source_lot_id,part.period_start,part.period_due,part.remaining_base,amount);
+  end loop;
+  if total is distinct from cash.remaining_value_base or total is distinct from new.market_value
+    or (new.eligibility_status='ELIGIBLE' and eligible is distinct from new.eligible_value)
+    or (eligible>0 and parent.zakat_due>0 and new.eligibility_status<>'ELIGIBLE') then
+    raise exception 'GOLD_RECEIPT_COMPONENT_BASIS_MISMATCH';
+  end if;
+  return new;
+end $$;
+revoke all on function private.capture_gold_cash_assessment_line() from public,anon,authenticated,service_role;
+create trigger capture_gold_cash_assessment_line after insert on public.zakat_assessment_lines
+for each row execute function private.capture_gold_cash_assessment_line();
