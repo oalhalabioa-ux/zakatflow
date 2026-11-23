@@ -37,6 +37,7 @@ export function quantityIssueLabel(code:string,locale:string,items:readonly Quan
   PHASING:['مجموع مراحل البند يجب أن يساوي 100%','Item phasing must add to 100%'],
   LICENSED_WATER_CAPACITY:['الطلب على المياه يتجاوز الكمية المرخصة','Water demand exceeds licensed capacity'],PUMP_CAPACITY:['الطلب على المياه يتجاوز طاقة الضخ','Water demand exceeds pumping capacity'],
   PUMP_INPUTS:['أكمل معدل الضخ وساعات المصدر للبئر أو النبع','Complete pumping rate and source hours for well/spring'],
+  PACK_MIX_INPUTS:['راجع الخطوط وتوزيع الأحجام وأيام التشغيل وفاقد المصدر','Review lines, pack allocations, operating days and source loss'],
   OPERATING_INPUTS:['راجع ساعات وأيام التشغيل وحجم العبوة وفاقد المياه','Review operating hours/days, bottle size and water loss'],
  };
  const label=labels[key]??['تحتاج المدخلات مراجعة','Inputs need review'];

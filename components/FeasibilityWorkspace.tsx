@@ -15,6 +15,7 @@ import CollaborationPanel from '@/components/feasibility/CollaborationPanel';
 import JoinInvitationPanel from '@/components/feasibility/JoinInvitationPanel';
 import AdvancedModelPanel from '@/components/feasibility/AdvancedModelPanel';
 import SectorAnalysisPanel from '@/components/feasibility/SectorAnalysisPanel';
+import ProductionLinesPanel from '@/components/feasibility/ProductionLinesPanel';
 import RawLandPanel from '@/components/feasibility/RawLandPanel';
 import WaterModelPanel from '@/components/feasibility/WaterModelPanel';
 import CopyToOrganizationDialog from '@/components/feasibility/CopyToOrganizationDialog';
@@ -804,11 +805,14 @@ function FeasibilityWorkspaceContent({
     <p className="fs-hint">{txt(ar,'النسب اقتصادية تقديرية لحقوق الملكية فقط؛ قروض المساهمين لا تمنح ملكية تلقائيًا، ولا تتغير الحصص القانونية دون إجراءات معتمدة.','Economic indicative equity only: loans do not automatically generate shares; legal ownership changes require formal approval.')}</p>
    </section>}
    {tab==='partners'&&detail!=='valuation'&&<PartnershipPanel study={study} locale={locale} onChange={effectiveReadOnly?undefined:partnership=>update({partnership})}/>}
+   {!water&&!rawLand&&study.sector==='INDUSTRIAL'&&tab==='operations'&&<ProductionLinesPanel plan={study.productionPlan} locale={locale} currency={study.currency} onChange={productionPlan=>update({productionPlan})}/>}
    {!water&&!rawLand&&tab==='operations'&&<section className="card fs-panel"><h3>{txt(ar,'افتراضات التشغيل والمبيعات','Operating assumptions')}</h3><div className="fs-form-grid">
+    {!(study.sector==='INDUSTRIAL'&&study.productionPlan?.enabled)&&<>
     <Field label={ar?sectorTemplates[study.sector].volumeAr:sectorTemplates[study.sector].volumeEn} value={study.monthlyUnits} onChange={setNum('monthlyUnits')}/>
     <Field label={txt(ar,'سعر بيع الوحدة الصافي','Net selling price / unit')} value={study.unitPrice} onChange={setNum('unitPrice')}/>
     <Field label={txt(ar,'التكلفة المتغيرة للوحدة','Variable cost / unit')} value={study.variableCost} onChange={setNum('variableCost')}/>
-    <Field label={txt(ar,'التكاليف الثابتة الشهرية','Monthly fixed costs')} value={study.monthlyFixedCost} onChange={setNum('monthlyFixedCost')}/>
+    </>}
+    <Field label={study.sector==='INDUSTRIAL'&&study.productionPlan?.enabled?txt(ar,'التكاليف الثابتة الشهرية باستثناء مسير الرواتب','Monthly fixed costs excluding payroll'):txt(ar,'التكاليف الثابتة الشهرية','Monthly fixed costs')} value={study.monthlyFixedCost} onChange={setNum('monthlyFixedCost')}/>
     <Field label={txt(ar,'نمو حجم المبيعات سنويًا %','Volume growth % / year')} value={study.volumeGrowthPct} onChange={setNum('volumeGrowthPct')}/>
     <Field label={txt(ar,'نمو أسعار البيع سنويًا %','Price growth % / year')} value={study.priceGrowthPct} onChange={setNum('priceGrowthPct')}/>
     <Field label={txt(ar,'نمو التكاليف الثابتة سنويًا %','Fixed cost growth % / year')} value={study.fixedCostGrowthPct} onChange={setNum('fixedCostGrowthPct')}/>

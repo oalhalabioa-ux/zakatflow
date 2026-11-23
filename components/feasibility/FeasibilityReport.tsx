@@ -277,7 +277,8 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
     {allowExport&&<div className="fs-actions"><button className="fs-btn fs-btn--secondary" type="button"
      onClick={()=>downloadFeasibilityCsv('feasibility-projections.csv',[
       [...metrics.map(x=>x.label),l('العملة','Currency')],...financeRows.map(row=>[...row,study.currency])
-     ])}>{l('تصدير التوقعات CSV','Export forecast CSV')}</button></div>}
+     ],study.productionPlan?.enabled?metrics.map(({key})=>key==='year'?'integer':key==='volume'?'quantity':'money'):undefined
+     )}>{l('تصدير التوقعات CSV','Export forecast CSV')}</button></div>}
     <div className="fs-table-wrap"><table className="fs-table">
      <thead><tr>{metrics.map(({key,label})=><th key={key} scope="col">{label}</th>)}</tr></thead>
      <tbody>{financeRows.map((row,index)=><tr key={index}>{row.map((value,i)=><td key={i}>{fmt(value)}</td>)}</tr>)}</tbody>
