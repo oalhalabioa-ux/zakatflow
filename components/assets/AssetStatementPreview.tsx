@@ -1,6 +1,7 @@
 'use client';
 
 import {useEffect,useState,type ReactNode} from 'react';
+import Decimal from 'decimal.js';
 import AssetOperationDetails from './AssetOperationDetails';
 import GoldSaleAction from './GoldSaleAction';
 import GoldCardSale from './GoldCardSale';
@@ -87,9 +88,10 @@ export default function AssetStatementPreview({assetId,name,typeName,icon,status
   t('مبلغ العملية','Amount'),t('أثر التكلفة','Cost effect'),t('متحصلات البيع','Sale proceeds'),
   t('الربح أو الخسارة المحققة','Realized gain or loss'),t('الكمية المتبقية','Remaining units'),t('التكلفة المتبقية','Remaining cost'),
  ];
- const amounts=(row:Statement['rows'][number])=>[
-  row.quantityIn,row.quantityOut,row.unitPrice,row.currency,row.exchangeRate,row.amount,row.costEffect,row.sale?.proceeds??null,row.sale?.realized??null,row.remainingQuantity,row.remainingCost,
+ const amounts=(row:Statement['rows'][number],unitPrice=row.unitPrice)=>[
+  row.quantityIn,row.quantityOut,unitPrice,row.currency,row.exchangeRate,row.amount,row.costEffect,row.sale?.proceeds??null,row.sale?.realized??null,row.remainingQuantity,row.remainingCost,
  ];
+ const displayedUnitPrice=(value:string|null)=>value===null?null:new Decimal(value).toFixed(2,Decimal.ROUND_HALF_UP);
 
  async function exportStatement(kind:'print'|'csv'){
   const preview=kind==='print'?window.open('','_blank'):null;
@@ -108,7 +110,7 @@ export default function AssetStatementPreview({assetId,name,typeName,icon,status
    const response=await fetch(`/api/assets/${encodeURIComponent(assetId)}/statement?${query}`,{cache:'no-store'});
    if(!response.ok)throw Error('STATEMENT_EXPORT_FAILED');
    const report:Statement=await response.json();
-   const rows=report.rows.map(row=>[row.date,show(row.voucher??row.reference),movement(row.type),statusLabel(row.status),...amounts(row).map(show)]);
+   const rows=report.rows.map(row=>[row.date,show(row.voucher??row.reference),movement(row.type),statusLabel(row.status),...amounts(row,kind==='print'?displayedUnitPrice(row.unitPrice):row.unitPrice).map(show)]);
    const title=t('كشف حركة الأصل','Asset movement statement');
    const period=`${report.asset.name} · ${t('حتى تاريخ','Through date')} ${report.asOf} · ${report.baseCurrency}`;
    const closing=report.complete
@@ -231,7 +233,7 @@ export default function AssetStatementPreview({assetId,name,typeName,icon,status
         <Link href={`/${ar?'ar':'en'}/transactions/${row.source_id}`}><bdi>{row.voucher??row.reference??t('التفاصيل','Details')}</bdi></Link>}</td>
        <td>{movement(row.type)}</td>
        <td>{statusLabel(row.status)}</td>
-       {amounts(row).map((value,index)=><td key={index}><bdi>{show(value)}</bdi></td>)}
+       {amounts(row,displayedUnitPrice(row.unitPrice)).map((value,index)=><td key={index}><bdi>{show(value)}</bdi></td>)}
       </tr>)}</tbody>
      </table>
     </div>}

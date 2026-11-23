@@ -136,6 +136,8 @@ try{
   await dialog.getByText(summary,{exact:true}).click();
   const table=dialog.getByRole('table');
   await table.getByText('2400',{exact:true}).first().waitFor({timeout:20000});
+  await table.locator('tr[data-movement="OPENING_BALANCE"]').getByRole('cell',{name:'300.00',exact:true}).waitFor();
+  await table.locator('tr[data-movement="SALE"]').getByRole('cell',{name:'400.00',exact:true}).waitFor();
   assert.equal(await page.getByRole('dialog').count(),1);
   assert.equal(new URL(page.url()).pathname,'/'+locale+'/assets');
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));
@@ -160,6 +162,7 @@ try{
   const printedProceeds=printedSale.getByRole('cell').nth(11);
   await printedProceeds.waitFor();
   assert.equal(await printedProceeds.textContent(),'800');
+  assert.equal(await printedSale.getByRole('cell').nth(6).textContent(),'400.00');
   assert.equal(await print.locator('html').getAttribute('dir'),locale==='ar'?'rtl':'ltr');
   await print.close();
   await page.screenshot({path:`asset-qa-preview/statement-${locale}.png`});
