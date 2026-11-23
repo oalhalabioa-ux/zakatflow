@@ -1,3 +1,5 @@
+import type {evaluateGeneralForecast} from './advanced-model';
+
 const spreadsheetFormula=/^[\s\uFEFF]*[=+\-@]|^[\t\r\n]/u;
 
 export function feasibilityCsv(rows:readonly (readonly (string|number|null|undefined)[])[]){
@@ -30,4 +32,18 @@ export async function downloadFeasibilityXlsx(filename:string,sheetName:string,r
  sheet.columns.forEach(column=>{column.width=24;});
  const bytes=await workbook.xlsx.writeBuffer();
  downloadReportBlob(filename,new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+}
+
+export function generalForecastRows({model,advanced}:ReturnType<typeof evaluateGeneralForecast>){
+ return [
+  [0,null,null,null,null,null,null,null,-(advanced?.initialInvestment??model.totalInvestment),
+   ...(advanced?[null,null,null,advanced.equityFlows[0]??null]:[])],
+  ...model.annual.map((row,index)=>{
+   const projection=advanced?.annual[index];
+   return [row.year,row.volume,row.revenue,row.variable,row.fixed,row.ebitda,
+    projection?.tax??row.taxEstimate,row.maintenance,projection?.fcf??row.freeCashFlow,
+    ...(projection?[projection.principal,projection.interest,projection.debtBalance,
+     advanced?.equityReady?projection.equityFcf:null]:[])];
+  })
+ ];
 }
