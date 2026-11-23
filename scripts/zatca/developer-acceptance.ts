@@ -43,9 +43,17 @@ export function summarizeDeveloperResult(http:number,input:unknown,operation:'co
  const validationPassed=http===200&&validation.status==='PASS'&&errors!==null&&warnings!==null
   &&errors.length===0&&warnings.length===0;
  const outcomeMatched=operation==='compliance'||(operation==='reporting'?disposition==='REPORTED':disposition==='CLEARED');
+ const passed=validationPassed&&outcomeMatched;
+ const reportingOutcome=operation!=='reporting'?undefined:
+  passed?'REPORTED_WITHOUT_WARNINGS':
+  http===202&&disposition==='REPORTED'&&validation.status==='WARNING'
+   &&errors?.length===0&&warnings&&warnings.length>0?'REPORTED_WITH_WARNINGS':
+  http===400&&disposition==='NOT_REPORTED'&&validation.status==='ERROR'
+   &&errors&&errors.length>0&&warnings!==null?'REJECTED':
+  'UNCONFIRMED';
  return {http,validationStatus:['PASS','WARNING','ERROR'].includes(String(validation.status))?String(validation.status):'UNRECOGNIZED',
   disposition:['REPORTED','CLEARED','NOT_REPORTED','NOT_CLEARED'].includes(String(disposition))?String(disposition):null,
-  errorCodes:codes(errors),warningCodes:codes(warnings),passed:validationPassed&&outcomeMatched};
+  errorCodes:codes(errors),warningCodes:codes(warnings),passed,...(reportingOutcome?{reportingOutcome}:{})};
 }
 
 type DeliveryResult=ReturnType<typeof summarizeDeveloperResult>&{

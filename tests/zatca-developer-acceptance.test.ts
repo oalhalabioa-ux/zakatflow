@@ -30,6 +30,31 @@ describe('Developer Portal diagnostic acceptance boundary',()=>{
   expect(summarizeDeveloperResult(200,{...valid,clearanceStatus:'NOT_CLEARED'},'clearance').passed).toBe(false);
   expect(summarizeDeveloperResult(200,{...valid,clearanceStatus:'CLEARED'},'clearance').passed).toBe(true);
  });
+ it.each([
+  {http:200, disposition:'REPORTED', status:'PASS', errors:0, warnings:0, outcome:'REPORTED_WITHOUT_WARNINGS'},
+  {http:202, disposition:'REPORTED', status:'WARNING', errors:0, warnings:1, outcome:'REPORTED_WITH_WARNINGS'},
+  {http:400, disposition:'NOT_REPORTED', status:'ERROR', errors:1, warnings:0, outcome:'REJECTED'},
+  {http:422, disposition:'NOT_REPORTED', status:'ERROR', errors:1, warnings:0, outcome:'UNCONFIRMED'},
+  {http:503, disposition:'REPORTED', status:'PASS', errors:0, warnings:0, outcome:'UNCONFIRMED'},
+  {http:202, disposition:'REPORTED', status:'WARNING', errors:1, warnings:1, outcome:'UNCONFIRMED'},
+  {http:202, disposition:'REPORTED', status:'WARNING', errors:0, warnings:0, outcome:'UNCONFIRMED'},
+  {http:202, disposition:'CLEARED', status:'WARNING', errors:0, warnings:1, outcome:'UNCONFIRMED'},
+  {http:200, disposition:'REPORTED', status:'PASS', errors:0, warnings:1, outcome:'UNCONFIRMED'},
+  {http:400, disposition:'NOT_REPORTED', status:'ERROR', errors:0, warnings:0, outcome:'UNCONFIRMED'},
+ ])('classifies reporting HTTP $http and $status as $outcome',({http,disposition,status,errors,warnings,outcome})=>{
+  const result=summarizeDeveloperResult(http,{reportingStatus:disposition,validationResults:{
+   status,errorMessages:Array(errors).fill({code:'BR-KSA-10',message:'private test data'}),
+   warningMessages:Array(warnings).fill({code:'BR-KSA-100',message:'private test data'}),
+  }},'reporting');
+  expect(result.reportingOutcome).toBe(outcome);
+  expect(result.passed).toBe(outcome==='REPORTED_WITHOUT_WARNINGS');
+  expect(JSON.stringify(result)).not.toContain('private test data');
+ });
+ it('leaves incomplete reporting responses unconfirmed',()=>{
+  expect(summarizeDeveloperResult(202,{reportingStatus:'REPORTED',validationResults:{
+   status:'WARNING',warningMessages:[{code:'BR-KSA-100'}],
+  }},'reporting')).toMatchObject({reportingOutcome:'UNCONFIRMED',passed:false});
+ });
  it('retains safe rule codes and removes raw messages and untrusted code strings',()=>{
   const secret='sensitive-credential-value';const r=summarizeDeveloperResult(200,{...valid,secret,validationResults:{status:'ERROR',warningMessages:[],
    errorMessages:[{code:'BR-KSA-10',message:secret},{code:secret,message:secret}]}},'compliance');
