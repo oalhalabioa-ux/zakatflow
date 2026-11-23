@@ -15,7 +15,7 @@ export async function calculateAndSaveAssessment(request:AssessmentRequest,revis
  const {supabase,user}=await requireUser();const valuationDate=input.valuation_date??input.assessment_date;const priceMode=input.price_mode??'MANUAL';
  const {data:profile,error:pe}=await supabase.from('profiles').select('base_currency,zakat_method_id,nisab_standard').eq('id',user.id).single();if(pe)throw pe;const methodId=input.method_id??profile.zakat_method_id;if(!methodId)throw new Error('ZAKAT_METHOD_NOT_CONFIGURED');
  const {data:method,error:me}=await supabase.from('zakat_methods').select('*').eq('id',methodId).single();if(me)throw me;
- const {data:lots,error:le}=await supabase.from('lots').select('*,asset_accounts(id,name,asset_type,currency,is_zakatable,metadata,ownership_scope),transactions!lots_source_transaction_id_fkey(id,transaction_date)').eq('user_id',user.id);if(le)throw le;
+ const {data:lots,error:le}=await supabase.from('lots').select('*,asset_accounts(id,name,asset_type,currency,is_zakatable,metadata,ownership_scope),transactions!lots_source_transaction_id_fkey(id,transaction_date,transaction_type,sale_id:metadata->>sale_transaction_id)').eq('user_id',user.id);if(le)throw le;
  // Current residual lots cannot reconstruct a balance before a subsequent exit.
  const {data:futureExits,error:futureError}=await supabase.from('transactions').select('id').eq('user_id',user.id).gt('transaction_date',input.assessment_date).in('transaction_type',['SALE','WITHDRAWAL','TRANSFER_OUT','ZAKAT_PAYMENT','ADJUSTMENT','REVERSAL']).limit(1);
  if(futureError)throw futureError;if(futureExits?.length)throw new Error('HISTORICAL_BALANCE_RECONSTRUCTION_REQUIRED');
@@ -33,6 +33,15 @@ export async function calculateAndSaveAssessment(request:AssessmentRequest,revis
  const goldPrice=metalPrices.GOLD.price,silverPrice=metalPrices.SILVER.price;
  const nisabValue=nisabFromPrice(standard,metalPrices);
  const zakatableLots=(lots??[]).filter((l:any)=>l.asset_accounts?.is_zakatable===true&&l.asset_accounts?.ownership_scope!=='ORGANIZATION'&&Number(l.remaining_quantity)>0&&l.acquisition_date<=input.assessment_date);
+ // Until snapshots support component periods, stop before creating a cycle or revision.
+ for (const lot of zakatableLots) {
+  if (lot.hawl_start_date || lot.transactions?.transaction_type !== 'ADD' || !lot.transactions.sale_id) continue;
+  const {data:components,error}=await supabase.rpc('personal_gold_receipt_remaining',{p_receipt_id:lot.source_transaction_id});
+  if(error)throw error;
+  if(components?.some((part:any)=>Number(part.remaining_base)>0 && part.inherited_hawl_start_date)){
+   throw new Error('PERSONAL_GOLD_RECEIPT_COMPONENT_ASSESSMENT_REQUIRED');
+  }
+ }
  const valuation=(l:any)=>frozenLotValuation(l,lots??[],baseCurrency,metalPrices);
  const marketValue=(l:any)=>valuation(l).marketValueBase;
  const poolValue=zakatableLots.reduce((s:any,l:any)=>s.add(marketValue(l)),new Decimal(0));
