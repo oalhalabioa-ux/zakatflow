@@ -38,6 +38,7 @@ export const defaultMonthlyLiquidity:MonthlyLiquidity={openingCash:0,cashEquity:
 export function monthlyLiquidityAmounts(study:FeasibilityStudy):MonthlyAmounts|null {
  if(study.water){
   const result=evaluateWater(study.water);
+  if(study.water.packMix?.enabled&&!result.ready)return null;
   const year=result.annual[0];
   if(!year)return null;
   return {
