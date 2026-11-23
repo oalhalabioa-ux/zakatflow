@@ -205,6 +205,35 @@ describe('isolated STANDARD Simulation clearance protocol', () => {
     expect(JSON.stringify(result)).not.toContain('urn:synthetic:unused');
     await expect(f.api.submit(input(p, 1))).rejects.toThrow('QA_CLEARANCE_PREVIOUS_REQUIRED'); expect(f.transport).toHaveBeenCalledTimes(1);
   });
+  it.each(['binary', 'base64', 'mismatch', 'missing', 'duplicate', 'truncated'] as const)
+    ('reports QR field binding for %s without changing verification gates', async mode => {
+      const f = fixture(), prepared = await f.api.prepare(), artifact = f.manifest().artifacts[0];
+      const xml = syntheticClearedXml(artifact.xml).replace('><cbc:UUID>', '>\n<cbc:UUID>');
+      const returned = (await prepareZatcaInvoiceHash(xml)).invoiceHashBase64;
+      expect(returned).not.toBe(artifact.invoiceHash);
+      const signature = 'U1lOVEhFVElD';
+      const field = (tag: number, base64: string) => {
+        const data = Buffer.from(base64, mode === 'base64' ? 'ascii' : 'base64');
+        return Buffer.concat([Buffer.from([tag, data.length]), data]);
+      };
+      const tag6 = field(6, mode === 'mismatch' ? artifact.invoiceHash : returned);
+      const tag7 = field(7, signature);
+      const qr = Buffer.concat([tag6, mode === 'missing' ? Buffer.alloc(0) : tag7,
+        mode === 'duplicate' ? tag6 : mode === 'truncated' ? Buffer.from([8, 1]) : Buffer.alloc(0)]).toString('base64');
+      const response = xml.replace('>U1lOVEhFVElD</cbc:EmbeddedDocumentBinaryObject>',
+        '>' + qr + '</cbc:EmbeddedDocumentBinaryObject>');
+      f.transport.mockResolvedValueOnce(new Response(JSON.stringify(reply(response)), { status: 202 }));
+      const result = await f.api.submit(input(prepared));
+      const match = mode === 'base64' ? 'BASE64_TEXT_MATCH' : 'BINARY_MATCH';
+      expect(result).toHaveProperty('results.0.returnedInspection.qrBinding',
+        mode === 'duplicate' || mode === 'truncated' ? null : {
+          tag6ReturnedHash: mode === 'mismatch' ? 'MISMATCH' : match,
+          tag6SubmittedHash: mode === 'mismatch' ? 'BINARY_MATCH' : 'MISMATCH',
+          tag7XmlSignature: mode === 'missing' ? 'MISSING' : match,
+        });
+      expect(result).toMatchObject({ protocolPassed: false, authorityStampVerified: false, trustVerified: false, activationAllowed: false });
+      expect(JSON.stringify(result)).not.toContain(qr);
+    });
   it('checks the saved stamp against its embedded key and distinguishes the XML signature and invoice digest profiles', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'synthetic-clearance-stamp-'));
     try {

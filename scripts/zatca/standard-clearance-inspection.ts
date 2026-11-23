@@ -22,6 +22,34 @@ function decodeXmlBase64(value: string, maxCharacters: number) {
   return bytes.toString('base64') === clean ? bytes : null;
 }
 
+/** Report comparisons only. Never expose QR contents or use them to grant trust. */
+function inspectQr(payload: string, signatureValue: string, returnedHash: string, submittedHash: string) {
+  const bytes = decodeXmlBase64(payload, 700);
+  if (!bytes) return null;
+  const tags = new Map<number, Buffer>();
+  for (let offset = 0; offset < bytes.length;) {
+    if (bytes.length - offset < 2) return null;
+    const tag = bytes[offset++];
+    const size = bytes[offset++];
+    if (!tag || !size || tags.has(tag) || offset + size > bytes.length) return null;
+    tags.set(tag, bytes.subarray(offset, offset + size));
+    offset += size;
+  }
+
+  const compare = (value: Buffer | undefined, expected: Buffer | null) => {
+    if (!value) return 'MISSING' as const;
+    if (!expected) return 'UNAVAILABLE' as const;
+    if (value.equals(expected)) return 'BINARY_MATCH' as const;
+    if (value.equals(Buffer.from(expected.toString('base64'), 'ascii'))) return 'BASE64_TEXT_MATCH' as const;
+    return 'MISMATCH' as const;
+  };
+  return {
+    tag6ReturnedHash: compare(tags.get(6), decodeXmlBase64(returnedHash, 64)),
+    tag6SubmittedHash: compare(tags.get(6), decodeXmlBase64(submittedHash, 64)),
+    tag7XmlSignature: compare(tags.get(7), decodeXmlBase64(signatureValue, 4096)),
+  };
+}
+
 function inspectStamp(signature: XmlNode, certificateNodes: XmlNode[], originalHash: string, returnedHash: string) {
   const ns = { ds: signatureNamespace, ec: exclusiveNamespace };
   const signedInfo = signature.find('./ds:SignedInfo', ns);
@@ -127,6 +155,7 @@ export async function inspectStandardClearedDocument(xml: string, original: { xm
     canonicalInvoiceHashMatched: false, expandedContentMatched: false, uuidMatched: false,
     embeddedInvoiceHashMatched: false, stampCount: 0, signatureValueCount: 0, certificateCount: 0,
     qrCount: 0, qrCharacters: 0, stampStructurePresent: false,
+    qrBinding: null as ReturnType<typeof inspectQr>,
     stampCryptography: null as ReturnType<typeof inspectStamp> | null,
     authorityCertificateDiscovery: null as ReturnType<typeof inspectSimulationCertificateDiscovery> | null,
     failureCode: 'XML_REJECTED' as string | null, authorityStampVerified: false, trustVerified: false, activationAllowed: false };
@@ -153,6 +182,10 @@ export async function inspectStandardClearedDocument(xml: string, original: { xm
       checked.stampStructurePresent = stamps.length === 1 && signatures.length === 1 && !!signatures[0].content.trim()
         && certs.length > 0 && certs.length <= 5 && certs.every(c => !!c.content.trim())
         && qr.length === 1 && checked.qrCharacters > 0 && checked.qrCharacters <= 700;
+      if (qr.length === 1 && signatures.length === 1 && stamps.length === 1) {
+        checked.qrBinding = inspectQr(qr[0].content.trim(), signatures[0].content,
+          returnedHash.invoiceHashBase64, original.invoiceHash);
+      }
       if (stamps.length === 1) {
         try { checked.stampCryptography = inspectStamp(stamps[0], certs, original.invoiceHash, returnedHash.invoiceHashBase64); }
         catch { /* Keep the independent document/structure checks available. */ }
