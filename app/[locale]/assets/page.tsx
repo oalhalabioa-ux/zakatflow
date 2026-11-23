@@ -1,5 +1,6 @@
 "use client";
 import "./asset-entry.css";
+import "./asset-card.css";
 import AssetEntrySettings from '@/components/assets/AssetEntrySettings';
 import {assetEntryTaxSettings} from '@/lib/asset-entry-tax';
 import {assetEntryAmount} from '@/lib/asset-entry';
@@ -35,14 +36,14 @@ import AssetsPageToolbar from "@/components/assets/AssetsPageToolbar";
 import ActionButton,{ActionIconGlyph} from "@/components/ActionButton";
 import DetailsDialog from "@/components/assets/DetailsDialog";
 import AssetDetails from "@/components/assets/AssetDetails";
-import AssetStatementPreview from '@/components/assets/AssetStatementPreview';
+import AssetStatementPreview,{type AssetCardSection} from '@/components/assets/AssetStatementPreview';
 import AssetEditForm from "@/components/assets/AssetEditForm";
-import AssetEditActions, {type AssetEditMode} from "@/components/assets/AssetEditActions";
+import AssetEditActions, {useAssetEditPolicy} from "@/components/assets/AssetEditActions";
 import AssetPurchasePanel from "@/components/assets/AssetPurchasePanel";
 import {assetPurchaseAmounts,assetPurchaseStatus} from "@/lib/asset-purchase-workspace";
 import {isAssetPurchaseAllowed} from "@/lib/assets-acquisition";
 import AssetFinancialReview from "@/components/assets/AssetFinancialReview";
-import AssetLifecyclePanel from "@/components/assets/AssetLifecyclePanel";
+import AssetLifecyclePanel,{assetCanDepreciate,type AssetLifecycleOperation} from "@/components/assets/AssetLifecyclePanel";
 import PersonalAssetExit, {pendingPersonalAssetExit} from "@/components/assets/PersonalAssetExit";
 type T =
   | "CASH"
@@ -125,7 +126,9 @@ export default function Assets({
     [formOpen,setFormOpen]=useState(false),
     [saving, setSaving] = useState(false),
     [requestId,setRequestId]=useState(""),
-    [detailPanel,setDetailPanel]=useState<'summary'|'statement'|'valuation'|'operation'>('summary'),
+    [detailPanel,setDetailPanel]=useState<AssetCardSection>('summary'),
+    [detailOperation,setDetailOperation]=useState<AssetLifecycleOperation|null>(null),
+    [detailRevision,setDetailRevision]=useState(0),
     [detailAsset,setDetailAsset]=useState<any>(null),
     [reviewEvent,setReviewEvent]=useState<string|null>(null),
     [msg, setMsg] = useState(""),
@@ -151,12 +154,13 @@ export default function Assets({
       column: AssetSortColumn;
       direction: AssetSortDirection;
     }>({ column: "current", direction: "desc" });
-  useEffect(()=>{setScopeEntityId("");setScopeCostCenterId("");setClassFilter("ALL");setTypeFilter("ALL");setDetailAsset(null);setDetailPanel('summary');setReviewEvent(null);setFormOpen(false);setEditAsset(null)},[assetScope]);
+  useEffect(()=>{setScopeEntityId("");setScopeCostCenterId("");setClassFilter("ALL");setTypeFilter("ALL");setDetailAsset(null);setDetailPanel('summary');setDetailOperation(null);setReviewEvent(null);setFormOpen(false);setEditAsset(null)},[assetScope]);
   useEffect(()=>{
     setFormOpen(false);
     setEditAsset(null);
     setDetailAsset(null);
     setDetailPanel('summary');
+    setDetailOperation(null);
     setReviewEvent(null);
   },[scopeOrgId,scopeGroup,scopeEntityId,scopeCostCenterId]);
   const baseCurrency=assetScope==="ORGANIZATION"?catalog.organizations.find((o:any)=>o.id===scopeOrgId)?.base_currency||"SAR":catalog.base_currency||"SAR";
@@ -387,33 +391,50 @@ export default function Assets({
   const closeDetails = () => {
     setDetailAsset(null);
     setDetailPanel('summary');
+    setDetailOperation(null);
     setEditAsset(null);
     setReviewEvent(null);
   };
   const openAssetDetails = (asset: any) => {
     setDetailAsset(asset);
     setDetailPanel('summary');
+    setDetailOperation(null);
     setEditAsset(null);
     setReviewEvent(null);
   };
   const returnToStatement = () => {
     setDetailPanel('statement');
+    setDetailOperation(null);
     setEditAsset(null);
     setReviewEvent(null);
   };
-  const refreshDetailStatement = () => {
-    returnToStatement();
+  const refreshDetail = () => {
+    setDetailRevision(value=>value+1);
     void load(true,true);
   };
-  const assetEditActions = detailAsset && <AssetEditActions key={detailAsset.id} asset={detailAsset}
-    ar={ar} locale={locale} onEdit={mode=>setEditAsset({id:detailAsset.id,mode})}
-    onReview={setReviewEvent}/>;
+  const refreshDetailStatement = () => {
+    returnToStatement();
+    refreshDetail();
+  };
+  const {policy:detailPolicy,failed:detailPolicyFailed}=useAssetEditPolicy(detailAsset?.id??null,detailRevision);
+  const editDetail=(mode:'registration'|'valuation')=>setEditAsset({id:detailAsset.id,mode});
   const isInstitutionalDetail=detailAsset?.ownership_scope==='ORGANIZATION'||!!detailAsset?.organization_id;
   const pendingExit=detailAsset&&!isInstitutionalDetail&&pendingPersonalAssetExit(detailAsset.id);
-  const hasExitAction=detailAsset&&(isInstitutionalDetail
+  const hasExitAction=detailAsset&&!!detailPolicy&&detailPolicy.registration_lock?.code!=='ACCESS'&&(isInstitutionalDetail
     ?detailAsset.current_quantity>0
     :!['CASH','BANK','RECEIVABLE'].includes(detailAsset.asset_type)&&(detailAsset.current_quantity>0||pendingExit));
-  const openExit=hasExitAction?()=>setDetailPanel('operation'):undefined;
+  const canDepreciate=hasExitAction&&isInstitutionalDetail&&assetCanDepreciate(detailAsset);
+  const detailStatus=detailAsset?.lifecycle_status??'ACTIVE';
+  const detailStatusLabel=detailStatus==='ACTIVE'?(ar?'نشط':'Active'):
+    detailStatus==='SOLD'?(ar?'مباع':'Sold'):detailStatus==='DISPOSED'?(ar?'مستبعد':'Disposed'):detailStatus;
+  const detailRegistration=detailPolicy?.asset_registration_can_edit&&<ActionButton icon="edit" showLabel
+    className="asset-card-primary" label={ar?'تعديل بيانات الأصل':'Edit asset details'} onClick={()=>editDetail('registration')}/>;
+  const currentReviewEvents=detailAsset?.financial_review_events??[];
+  const detailReviewActions=currentReviewEvents.map((event:{id:string},index:number)=><ActionButton key={event.id}
+    icon="history" showLabel label={`${ar?'المراجعة والسجل المالي':'Financial review and history'}${currentReviewEvents.length>1?` (${index+1})`:''}`}
+    onClick={()=>setReviewEvent(event.id)}/>);
+  const detailEditInfo=detailAsset&&<AssetEditActions asset={detailAsset} ar={ar} locale={locale} onEdit={editDetail} onReview={setReviewEvent}
+    policy={detailPolicy} failed={detailPolicyFailed}/>;
   const columnLabel = (column: AssetColumn) => {
     if (column === "date" && assetScope === "ORGANIZATION") return ar ? "تاريخ الاقتناء" : "Acquisition date";
     const definition = ASSET_COLUMNS.find(([key]) => key === column)!;
@@ -652,45 +673,41 @@ export default function Assets({
         <div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>{ar?"الأصل":"Asset"}</th><th>{ar?"النوع":"Type"}</th><th>{selectedMetric.title}</th></tr></thead><tbody>{selectedMetric.rows.map(r=><tr key={r.id}><td>{r.name}</td><td>{typeName(r)}</td><td>{selectedMetric.detail(r)}</td></tr>)}</tbody></table></div>
         {!selectedMetric.rows.length&&<p className="muted">{ar?"لا توجد أصول مطابقة لهذا المؤشر.":"No matching assets for this indicator."}</p>}
       </section>}
-      {detailAsset&&<DetailsDialog label={ar?"تفاصيل الأصل والإجراءات":"Asset details and actions"} onClose={closeDetails}>
-        {editAsset?<AssetEditForm key={editAsset.mode} asset={detailAsset} mode={editAsset.mode} ar={ar}
-          onClose={()=>setEditAsset(null)} onSaved={refreshDetailStatement}/>
-        :reviewEvent?<section className="card section">
-          <div className="page-head"><h3>{detailAsset.name}</h3><ActionButton icon="close"
-            label={ar?"العودة إلى التفاصيل":"Return to details"} onClick={()=>setReviewEvent(null)}/></div>
-          <AssetFinancialReview key={reviewEvent} eventId={reviewEvent} ar={ar} onChanged={()=>void load(true,true)} initialOpen/>
-        </section>
-        :detailPanel==='operation'?(isInstitutionalDetail
-          ?<AssetLifecyclePanel key={detailAsset.id} asset={detailAsset} locale={locale}
-            counterparties={catalog.counterparties||[]} onClose={returnToStatement}
-            onSaved={()=>void load(true,true)} onPosted={refreshDetailStatement}/>
-          :<PersonalAssetExit key={detailAsset.id} asset={detailAsset} accounts={rows}
-            baseCurrency={catalog.base_currency??detailAsset.current_value_currency} ar={ar}
-            onClose={returnToStatement} onSaved={refreshDetailStatement}/>)
-        :<>
-          <nav className="asset-details-tabs" aria-label={ar?"أقسام بطاقة الأصل":"Asset card sections"}>
-            <ActionButton icon="details" showLabel label={ar?"ملخص الأصل":"Asset summary"} aria-pressed={detailPanel==='summary'}
-              onClick={()=>setDetailPanel('summary')}/>
-            <ActionButton icon="history" showLabel label={ar?"كشف حركة الأصل":"Asset movement statement"} aria-pressed={detailPanel==='statement'}
-              onClick={()=>setDetailPanel('statement')}/>
-            <ActionButton icon="trend" showLabel label={isInstitutionalDetail?(ar?"التقييم والإهلاك":"Valuation and depreciation"):(ar?"التقييم":"Valuation")}
-              aria-pressed={detailPanel==='valuation'} onClick={()=>setDetailPanel('valuation')}/>
-            {detailPanel!=='summary'&&<ActionButton icon="close" label={ar?"إغلاق التفاصيل":"Close details"} onClick={closeDetails}/>}
-          </nav>
-          {detailPanel==='statement'
-            ?<AssetStatementPreview key={detailAsset.id} assetId={detailAsset.id} ar={ar} onSaved={()=>void load(true,true)}/>
-            :detailPanel==='valuation'?<section className="card section">{assetEditActions}</section>
-            :detailAsset.financial_event_id
-            ?<AssetPurchasePanel key={detailAsset.id} assetId={detailAsset.id} ar={ar} onChanged={()=>void load(true,true)}
-              onClose={closeDetails} extraActions={<>{assetEditActions}
-                {openExit&&<ActionButton icon="operations" label={ar?"بيع أو إهلاك أو استبعاد":"Sale, depreciation or disposal"} onClick={openExit}/>}
-                {detailAsset.financial_review_events?.map((event:{id:string},index:number)=><ActionButton key={event.id}
-                  icon="history" label={`${ar?"السجل والمراجعة المالية":"Financial review and history"}${detailAsset.financial_review_events.length>1?` (${index+1})`:''}`}
-                  onClick={()=>setReviewEvent(event.id)}/>)}
-              </>}/>
-            :<AssetDetails key={detailAsset.id} asset={detailAsset} ar={ar} onOpeningChanged={refreshDetailStatement}
-              onClose={closeDetails} editActions={assetEditActions} onLifecycle={openExit} onReview={setReviewEvent}/>}
-        </>}
+      {detailAsset&&<DetailsDialog label={ar?"تفاصيل الأصل والإجراءات":"Asset details and actions"} onClose={closeDetails} className="asset-card-dialog">
+        <AssetStatementPreview key={detailAsset.id} assetId={detailAsset.id} name={detailAsset.name} typeName={typeName(detailAsset)}
+          icon={assetTypeIcon(detailAsset.asset_type_code||detailAsset.asset_type)} status={detailStatusLabel} active={detailStatus==='ACTIVE'}
+          organizational={isInstitutionalDetail} ar={ar} revision={detailRevision} section={detailPanel}
+          onSection={setDetailPanel} onClose={closeDetails} onSaved={refreshDetail} hawlLots={detailAsset.lots??[]} zakatable={!!detailAsset.is_zakatable}
+          toolbar={<>{detailRegistration}
+            {hasExitAction&&<>
+              <ActionButton icon="collect" showLabel className="asset-card-primary" label={ar?'بيع':'Sell'} onClick={()=>setDetailOperation('SALE')}/>
+              <ActionButton icon="delete" showLabel label={ar?'استبعاد':'Dispose'} onClick={()=>setDetailOperation('DISPOSAL')}/>
+            </>}
+            {canDepreciate&&<ActionButton icon="operations" showLabel label={ar?'إهلاك':'Depreciate'} onClick={()=>setDetailOperation('DEPRECIATION')}/>}
+          </>}
+          content={detailPanel==='summary'?<>
+            <AssetDetails asset={detailAsset} ar={ar} onOpeningChanged={refreshDetailStatement}/>
+            {detailEditInfo}
+          </>:detailPanel==='valuation'?detailEditInfo
+          :detailPanel==='documents'?(detailAsset.financial_event_id
+            ?<AssetPurchasePanel assetId={detailAsset.id} ar={ar} onChanged={refreshDetail} onClose={()=>setDetailPanel('summary')}/>
+            :<div className="asset-card-notes"><p>{ar?'تجد السندات المرتبطة بكل عملية في كشف حركة الأصل.':'Open the movement statement to review each linked voucher.'}</p>
+              <ActionButton icon="history" showLabel label={ar?'فتح كشف الحركة':'Open movement statement'} onClick={()=>setDetailPanel('statement')}/>
+            </div>)
+          :detailPanel==='actions'?<div className="asset-detail-actions">{detailReviewActions.length?detailReviewActions:<p>{ar?'تظهر هنا المراجعات المالية المرتبطة بالأصل عند توفرها.':'Linked financial reviews appear here when available.'}</p>}</div>:null}
+          work={editAsset?<AssetEditForm key={editAsset.mode} asset={detailAsset} mode={editAsset.mode} ar={ar}
+            onClose={()=>setEditAsset(null)} onSaved={refreshDetailStatement}/>
+          :reviewEvent?<section className="card section">
+            <div className="page-head"><h3>{detailAsset.name}</h3><ActionButton icon="close"
+              label={ar?'العودة إلى التفاصيل':'Return to details'} onClick={()=>setReviewEvent(null)}/></div>
+            <AssetFinancialReview key={reviewEvent} eventId={reviewEvent} ar={ar} onChanged={refreshDetail} initialOpen/>
+          </section>
+          :detailOperation?(isInstitutionalDetail
+            ?<AssetLifecyclePanel key={detailOperation} asset={detailAsset} locale={locale} initialOperation={detailOperation}
+              counterparties={catalog.counterparties||[]} onClose={returnToStatement} onSaved={refreshDetail} onPosted={refreshDetailStatement}/>
+            :<PersonalAssetExit key={detailOperation} asset={detailAsset} accounts={rows} initialOperation={detailOperation==='DISPOSAL'?'DISPOSAL':'SALE'}
+              baseCurrency={catalog.base_currency??detailAsset.current_value_currency} ar={ar} onClose={returnToStatement} onSaved={refreshDetailStatement}/>)
+          :null}/>
       </DetailsDialog>}
       {formOpen&&<section className="card section asset-entry" aria-labelledby="asset-entry-title">
         <div className="asset-entry-header"><div><span className="asset-entry-eyebrow">{ar?"سجل الأصول":"Asset register"}</span><h3 id="asset-entry-title" tabIndex={-1}>{ar?"إضافة أصل":"Add asset"}</h3><p>{ar?"أدخل بيانات الأصل وراجع القيم قبل الحفظ.":"Enter the asset details and review the values before saving."}</p></div><ActionButton icon="close" label={ar?"إغلاق النموذج":"Close form"} disabled={saving} onClick={closeAssetForm}/></div>
