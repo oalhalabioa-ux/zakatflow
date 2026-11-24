@@ -622,17 +622,18 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    await page.getByRole('button',{name:'New study',exact:true}).click();
    await page.getByRole('textbox',{name:'New project name',exact:true}).fill('Royal synthetic overview');
    await page.getByRole('button',{name:'Add project +',exact:true}).click();
+   const expectedReadiness={value:1,max:6};
    for(const locale of ['ar','en']){
     for(const width of [1440,390]){
      await page.setViewportSize({width,height:1000});
      await page.goto(appUrl+'/'+locale+'/feasibility?scope=PERSONAL');
      await page.getByRole('heading',{name:'Royal synthetic overview',exact:true}).waitFor();
      const progress=page.locator('.fs-royal-portfolio-progress');
-     assert.deepEqual(await progress.evaluate(el=>({value:el.value,max:el.max})),{value:2,max:6},
-      'An empty draft passes only balanced zero funding and absence of a recorded legal blocker');
+     assert.deepEqual(await progress.evaluate(el=>({value:el.value,max:el.max})),expectedReadiness,
+      'An empty draft passes only the absence of a recorded legal blocker');
      const label=locale==='ar'?'سياق الدراسة':'Study context';
      const badges=page.getByLabel(label,{exact:true});
-     assert.ok((await badges.innerText()).includes(new Intl.NumberFormat(locale,{style:'percent',maximumFractionDigits:0}).format(2/6)));
+     assert.ok((await badges.innerText()).includes(new Intl.NumberFormat(locale,{style:'percent',maximumFractionDigits:0}).format(expectedReadiness.value/expectedReadiness.max)));
      assert.equal(await badges.locator('time').getAttribute('datetime')!==null,true);
      assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=window.innerWidth),true);
      assert.equal(await page.locator('.fs-royal-priority-table thead th:visible').count(),width===390?2:4);
@@ -646,7 +647,13 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
      await page.screenshot({path:new URL('./screenshots/royal-overview-'+locale+'-'+width+'.png',import.meta.url).pathname,fullPage:true});
      await page.reload();
      await page.getByRole('heading',{name:'Royal synthetic overview',exact:true}).waitFor();
-     assert.equal(await progress.evaluate(el=>el.value),2);
+     assert.equal(await progress.evaluate(el=>el.value),expectedReadiness.value);
+     const ar=locale==='ar';
+     await page.getByRole('button',{name:ar?'التقرير والتصدير':'Report and export',exact:true}).click();
+     const fundingLabel=ar?'التمويل النقدي متوازن دون عجز أو فائض غير مخصص':'Cash funding balances without uncovered gap or unallocated surplus';
+     const fundingStatus=page.locator('li').filter({has:page.getByText(fundingLabel,{exact:true})}).locator('strong');
+     assert.equal(await fundingStatus.getAttribute('data-complete'),'false');
+     assert.equal(await fundingStatus.innerText(),ar?'يحتاج مراجعة':'Review needed');
     }
    }
   }finally{await context.close();}
