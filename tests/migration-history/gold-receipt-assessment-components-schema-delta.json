@@ -1,0 +1,126 @@
+{
+  "description": "Persist verified receipt source periods with assessment lines and retain the existing snapshot RPC contract",
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "private.gold_receipt_assessment_components.assessment_line_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.gold_receipt_assessment_components.eligible_base",
+      "fingerprint": "749b2391a89381c557f9939cb49e84c7"
+    },
+    {
+      "category": "column",
+      "object_key": "private.gold_receipt_assessment_components.period_due",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "private.gold_receipt_assessment_components.period_start",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "private.gold_receipt_assessment_components.remaining_base",
+      "fingerprint": "749b2391a89381c557f9939cb49e84c7"
+    },
+    {
+      "category": "column",
+      "object_key": "private.gold_receipt_assessment_components.source_lot_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.personal_gold_receipt_hawl_sources.coverage_captured",
+      "fingerprint": "1b2d399aaa0209161b2a562d0ec668df"
+    },
+    {
+      "category": "column",
+      "object_key": "private.personal_gold_receipt_hawl_sources.source_covered_through",
+      "fingerprint": "aed943be412fde2bc082da6a2222596b"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.gold_receipt_assessment_components.gold_receipt_assessment_components_assessment_line_id_fkey",
+      "fingerprint": "b7c1c1cc644f4af14d6a246312c9df73"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.gold_receipt_assessment_components.gold_receipt_assessment_components_check",
+      "fingerprint": "daa398a27dab05a9cc2161279f4b595c"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.gold_receipt_assessment_components.gold_receipt_assessment_components_check1",
+      "fingerprint": "84c1b8b9e56f723142d3b6dc4f591a8d"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.gold_receipt_assessment_components.gold_receipt_assessment_components_pkey",
+      "fingerprint": "8955f60a9704a161e485a270d89e643b"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.gold_receipt_assessment_components.gold_receipt_assessment_components_remaining_base_check",
+      "fingerprint": "ffb8b9db2357d27055373cc8aa6a4590"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.gold_receipt_assessment_components.gold_receipt_assessment_components_source_lot_id_fkey",
+      "fingerprint": "e2c419d30a9b6b72c387fb6354c45618"
+    },
+    {
+      "category": "function",
+      "object_key": "private.capture_gold_cash_assessment_line()",
+      "fingerprint": "d18ab576e22aba2d87c4a5b6bb67988e"
+    },
+    {
+      "category": "function",
+      "object_key": "private.capture_gold_source_final_coverage()",
+      "fingerprint": "1a9fddff0a68045985dbb6c34b025157"
+    },
+    {
+      "category": "function",
+      "object_key": "private.gold_receipt_component_periods(p_receipt uuid, p_calendar text)",
+      "fingerprint": "3bb8f6137ebc1ffc696234966ccf5097"
+    },
+    {
+      "category": "function",
+      "object_key": "private.gold_receipt_final_coverage(p_cash_lot uuid, p_source_lot uuid)",
+      "fingerprint": "d4536f323cf143f055673ab1d6d47cb2"
+    },
+    {
+      "category": "function",
+      "object_key": "public.gold_receipt_assessment_periods(p_receipt uuid, p_calendar text)",
+      "fingerprint": "b022b72bc2939b048b044a4db7178a09"
+    },
+    {
+      "category": "function",
+      "object_key": "public.save_zakat_assessment_snapshot(p_assessment jsonb, p_lines jsonb, p_revision_of uuid)",
+      "fingerprint": "a326f21e3e788074d518e24b81a4ee59"
+    },
+    {
+      "category": "index",
+      "object_key": "private.gold_receipt_assessment_components.gold_receipt_assessment_components_pkey",
+      "fingerprint": "7885317e4b142db6a0494f5946a028c6"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.gold_receipt_assessment_components",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "trigger",
+      "object_key": "private.personal_gold_receipt_hawl_sources.capture_gold_source_final_coverage",
+      "fingerprint": "3a398a50c036ca38373b3e588d4b7f2b"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.zakat_assessment_lines.capture_gold_cash_assessment_line",
+      "fingerprint": "8fb890526aa4fd77cc1545e23a0f5cd0"
+    }
+  ]
+}

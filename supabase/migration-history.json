@@ -2177,6 +2177,38 @@
       "expected_md5": "60a3ad93d562ee57af19a90d20861a02",
       "file_sha256": "bd2f6a3d4a0ddcfcced15bd6a90a4d486139d8d151e21ea2289e344a01cb09c0",
       "validation_project": "Disposable schemas and browser for direct sale expense links, scope, replay and rollback"
+    },
+    {
+      "path": "supabase/migrations/20261124170000_personal_asset_exit_requests.sql",
+      "version": "20261124170000",
+      "name": "personal_asset_exit_requests",
+      "expected_md5": "d9d7d3430bcb6f51d6de8f8d3b6e9cdb",
+      "file_sha256": "71825876aeb2c95071cb4026ece15737d3114bbe7179de8138c45bb28fcc0bdb",
+      "validation_project": "Isolated personal exit replay, ledger atomicity, tenant isolation and browser response loss"
+    },
+    {
+      "path": "supabase/migrations/20261124171000_personal_gold_receipt_hawl_sources.sql",
+      "version": "20261124171000",
+      "name": "personal_gold_receipt_hawl_sources",
+      "expected_md5": "0f7c0368eadf1b2549ee350c365b97d2",
+      "file_sha256": "ba73d6d5e73d18524cd95283988d6c12d94c394216dd1e9acd4df50e17d5bb7d",
+      "validation_project": "Disposable PostgreSQL synthetic personal gold sale provenance and receipt reconciliation"
+    },
+    {
+      "path": "supabase/migrations/20261124172000_personal_gold_receipt_remaining.sql",
+      "version": "20261124172000",
+      "name": "personal_gold_receipt_remaining",
+      "expected_md5": "571c812175d8f19d6a112976e0534628",
+      "file_sha256": "bdd902e4f7c0f5aef714fd8462d4a0350329e2563713dc8f62911023b96600a7",
+      "validation_project": "Disposable PostgreSQL oldest-acquisition-first receipt residuals after correction and spending"
+    },
+    {
+      "path": "supabase/migrations/20261124173000_gold_receipt_assessment_components.sql",
+      "version": "20261124173000",
+      "name": "gold_receipt_assessment_components",
+      "expected_md5": "b1cc628c92e851a7bf9c27f56cb01aab",
+      "file_sha256": "9c3c198007c1b188cff7abffcf3976092f8d2dec81cb5f9883e9521f40018c1d",
+      "validation_project": "Canonical bootstrap and isolated asset statement, Zakat and payment acceptance"
     }
   ]
 }

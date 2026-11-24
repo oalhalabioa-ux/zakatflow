@@ -196,6 +196,7 @@ async function runWaterEquityFinancingBrowser({browser,cookies,check}){
     for(const kind of ['advanced','report']){
      if(kind==='report'){
       await page.getByRole('button',{name:ar?'التقرير والتصدير':'Report and export',exact:true}).click();
+      await page.getByRole('heading',{name:ar?'التقرير الاستثماري الشامل':'Comprehensive investment report',exact:true}).waitFor();
       const reportMetrics=page.locator('.fs-royal-report-summary-kpis .fs-metric');
       assert.equal(await reportMetrics.filter({hasText:'NPV'}).locator('bdi').textContent(),modelNpv);
       assert.equal(await reportMetrics.filter({hasText:'IRR'}).locator('bdi').textContent(),modelIrr);
@@ -214,6 +215,20 @@ async function runWaterEquityFinancingBrowser({browser,cookies,check}){
       assert.equal(labels.join(','),labels.toSorted().join(','),'Open requirements must come first');
      }
      await page.evaluate(()=>document.fonts.ready);assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=innerWidth),true);
+     const tabs=page.getByRole('navigation',{name:ar?'أقسام دراسة المشروع':'Study sections',exact:true});
+     const tabLayout=await tabs.evaluate(el=>({
+      rows:new Set([...el.children].map(button=>Math.round(button.getBoundingClientRect().top))).size,
+      scrollable:el.scrollWidth>el.clientWidth,
+      clippedLabel:[...el.querySelectorAll('button > span')].some(label=>label.scrollWidth>label.clientWidth+1)
+     }));
+     assert.deepEqual(tabLayout,width===1440?{rows:2,scrollable:false,clippedLabel:false}:{rows:1,scrollable:true,clippedLabel:false});
+     if(width===1440){
+      const sameRow=await page.locator('.fs-royal-project-context').evaluate(el=>{
+       const bounds=[...el.children].map(item=>item.getBoundingClientRect());
+       return Math.max(...bounds.map(r=>r.top))<Math.min(...bounds.map(r=>r.bottom));
+      });
+      assert.equal(sameRow,true,'Study heading, context and actions should align in a single desktop row');
+     }
      const equityRegion=page.getByRole('region',{name:ar?'جدول عوائد الملكية، قابل للتمرير أفقيًا':'Equity return schedule, horizontally scrollable',exact:true});
      assert.equal(await equityRegion.locator('tbody tr').last().locator('td').first().textContent(),
       new Intl.NumberFormat(locale,{maximumFractionDigits:2}).format(val(4,'All equity holders'))+' USD');
@@ -240,13 +255,19 @@ async function runWaterEquityFinancingBrowser({browser,cookies,check}){
       await page.emulateMedia({media:'print'});
       try{
        assert.equal(await page.locator('.fs-print-report button:visible').count(),0);
+       const governanceItems=page.locator('[data-report-section="governance"] > ul > li');
+       assert.ok(await governanceItems.count()>0);
+       assert.ok(await governanceItems.evaluateAll(items=>items.every(item=>getComputedStyle(item).breakInside==='avoid')));
        const name='template-finance-water-equity-'+locale+'.pdf',bytes=await page.pdf({path:path(name),format:'A4',landscape:true,printBackground:true,margin:{top:'12mm',bottom:'12mm',left:'10mm',right:'10mm'}});
-       evidence.pdfs.push({file:name,pages:(bytes.toString('latin1').match(/\/Type\s*\/Page\b/g)??[]).length});
+       const pages=(bytes.toString('latin1').match(/\/Type\s*\/Page\b/g)??[]).length;
+       assert.ok(pages>0&&pages<=8,'Governance lists should fit within the existing PDF page budget');
+       evidence.pdfs.push({file:name,pages});
       }finally{await page.emulateMedia({media:null});}
      }
     }
    }
    evidence.assertions.push('AR/EN desktop/mobile: project NPV/IRR and peak cash gap match the report, terminal equity cash flow matches the CSV, report statuses reflect actual checks, open checks are keyboard reachable, and the mobile debt schedule pins the year.');
+   evidence.assertions.push('AR/EN Royal layout: two complete rows of desktop tabs and one scrollable mobile row; desktop title, context and actions align; governance PDF rows avoid page breaks inside entries.');
    await writeFile(new URL('./water-equity-financing-result.json',import.meta.url),JSON.stringify(evidence,null,2));
   }finally{await context.close();}
  });

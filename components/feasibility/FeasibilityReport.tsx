@@ -178,7 +178,7 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
  ]);
  return <div ref={report} className="fs-block fs-print-report">
   <section className="fs-block" id={sectionId('summary')} tabIndex={-1} data-report-section="summary">
-   <h3 className={titleInWorkspace?'fs-royal-report-title fs-report-print-title':'fs-royal-report-title'}><RoyalIcon name="file"/>{l('التقرير الشامل','Feasibility report')}</h3>
+   <h3 className={titleInWorkspace?'fs-royal-report-title fs-report-print-title':'fs-royal-report-title'}><RoyalIcon name="file"/>{l('التقرير الاستثماري الشامل','Comprehensive investment report')}</h3>
    <div className="fs-kpis fs-royal-overview-kpis fs-royal-report-summary-kpis">
     {summaryMetrics.map(({label,value,icon})=><div className="fs-metric" key={label}>
      <RoyalIcon name={icon}/><small>{label}</small><strong><bdi>{value}</bdi></strong>
