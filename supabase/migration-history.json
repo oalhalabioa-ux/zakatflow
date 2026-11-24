@@ -2169,6 +2169,14 @@
       "expected_md5": "626a0f9340e7b46e9bc402d52e595eea",
       "file_sha256": "d7f915f3da66d87c11ce5cac00edabc1a689fc8de04e36869ac008a92831b26d",
       "validation_project": "Feasibility invitation reception and restricted pilot QA"
+    },
+    {
+      "path": "supabase/migrations/20261124140000_asset_sale_expense_links.sql",
+      "version": "20261124140000",
+      "name": "asset_sale_expense_links",
+      "expected_md5": "60a3ad93d562ee57af19a90d20861a02",
+      "file_sha256": "bd2f6a3d4a0ddcfcced15bd6a90a4d486139d8d151e21ea2289e344a01cb09c0",
+      "validation_project": "Disposable schemas and browser for direct sale expense links, scope, replay and rollback"
     }
   ]
 }

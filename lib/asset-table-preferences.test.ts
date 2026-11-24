@@ -22,17 +22,17 @@ describe("asset table preferences", () => {
     expect(new Set(order).size).toBe(ASSET_COLUMN_ORDER.length);
   });
 
-  it("provides a professional model with every column", () => {
+  it("preserves the professional model's default columns", () => {
     const preferences = assetTablePreset("professional");
     expect(visibleAssetColumns(preferences.order, preferences.visible)).toEqual(
-      PERSONAL_COLUMN_ORDER,
+      PERSONAL_COLUMN_ORDER.filter(key => key !== "realized"),
     );
   });
 
   it("defaults corporate tables to valuations without personal Zakat or payment columns", () => {
     const preferences = parseAssetTablePreferences(null, "ORGANIZATION");
     expect(preferences.preset).toBe("corporate");
-    expect(visibleAssetColumns(preferences.order, preferences.visible)).toEqual(CORPORATE_COLUMN_ORDER);
+    expect(visibleAssetColumns(preferences.order, preferences.visible)).toEqual(CORPORATE_COLUMN_ORDER.filter(key => key !== "realized"));
     const restored = parseAssetTablePreferences(JSON.stringify(assetTablePreset("professional")), "ORGANIZATION");
     for (const key of ["due", "paid", "remaining", "hawl", "calculation"] as const) expect(restored.visible[key]).toBe(false);
   });
@@ -98,5 +98,30 @@ describe("asset table preferences", () => {
       "a",
     ]);
     expect(rows.map((row) => row.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("opens old saved orders with the same visible columns and persists independent realized-profit settings", () => {
+    const old = {order: ["date", "asset", "current"], visible: {date: true, asset: true, current: true}};
+    const personal = parseAssetTablePreferences(JSON.stringify(old));
+    expect(personal.order.slice(0, 3)).toEqual(old.order);
+    expect(personal.visible.realized).toBe(false);
+    personal.visible.realized = true;
+    personal.order = moveAssetColumn(personal.order, 'realized', 'current');
+    const saved = new Map([[assetTableStorageKey('PERSONAL'), JSON.stringify(personal)]]);
+    const storage = {getItem: (key: string) => saved.get(key) ?? null};
+    expect(readAssetTablePreferences(storage, 'PERSONAL').order.slice(0, 4)).toEqual(['date', 'asset', 'realized', 'current']);
+    expect(readAssetTablePreferences(storage, 'ORGANIZATION').visible.realized).toBe(false);
+  });
+
+  it("sorts gains and losses within their currency and puts unknown data last in either direction", () => {
+    const rows = ['missing', 'profit', 'incomplete', 'loss', 'foreign'].map(id => ({id}));
+    const report = {
+      profit: {status: 'recorded', amount: '2200', currency: 'SAR'},
+      loss: {status: 'recorded', amount: '-800', currency: 'SAR'},
+      foreign: {status: 'recorded', amount: '20', currency: 'USD'},
+      incomplete: {status: 'incomplete'},
+    } as const;
+    expect(sortAssetRows(rows, 'realized', 'asc', report).map(row => row.id)).toEqual(['loss', 'profit', 'foreign', 'missing', 'incomplete']);
+    expect(sortAssetRows(rows, 'realized', 'desc', report).map(row => row.id)).toEqual(['profit', 'loss', 'foreign', 'missing', 'incomplete']);
   });
 });

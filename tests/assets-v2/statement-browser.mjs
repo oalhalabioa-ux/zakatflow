@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {execFileSync,spawn} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
-import {mkdir} from 'node:fs/promises';
+import {mkdir,readFile} from 'node:fs/promises';
 import {setTimeout as delay} from 'node:timers/promises';
 import {createClient} from '@supabase/supabase-js';
 import {createServerClient} from '@supabase/ssr';
@@ -124,6 +124,108 @@ try{
  assert.deepEqual(company.payload.closing,{quantity:'10',cost:'90000',currency:'SAR'});
  assert.equal((await statement(foreign,asset)).status,404);
  assert.equal((await statement(foreign,companyAsset)).status,404);
+
+ const profitEndpoint=app+'/api/assets/realized-profit?scope=PERSONAL';
+ const profitResponse=await en.request.get(profitEndpoint);
+ const profits=await profitResponse.json();
+ assert.equal(profitResponse.status(),200,JSON.stringify(profits));
+ assert.deepEqual(profits[asset],{status:'recorded',amount:'1150',currency:'SAR'});
+ assert.deepEqual(profits[gold18],{status:'recorded',amount:'200',currency:'SAR'});
+ const foreignProfits=await foreign.request.get(profitEndpoint);
+ assert.equal(foreignProfits.status(),200);
+ assert.deepEqual(await foreignProfits.json(),{});
+
+ // Link a real recorded payment voucher. Neither linking nor unlinking posts cash.
+ {
+  const cash=value(await owner.client.from('asset_accounts').insert({user_id:owner.id,name:'QA selling expense cash',
+   asset_type:'BANK',currency:'SAR',ownership_scope:'PERSONAL'}).select('id').single());
+  const funding=value(await owner.client.from('transactions').insert({user_id:owner.id,asset_account_id:cash.id,
+   transaction_type:'OPENING_BALANCE',transaction_date:'2025-01-01',quantity:500,currency:'SAR',base_currency:'SAR',
+   gross_value:500,base_value:500,created_by:owner.id}).select('id').single());
+  value(await owner.client.from('lots').insert({user_id:owner.id,asset_account_id:cash.id,source_transaction_id:funding.id,
+   acquisition_date:'2025-01-01',original_quantity:500,remaining_quantity:500,original_value_base:500,remaining_value_base:500}));
+  const payment=value(await owner.client.rpc('post_withdrawal',{p_user_id:owner.id,p_asset_account_id:cash.id,
+   p_date:'2025-03-01',p_quantity:75,p_value:75,p_currency:'SAR',p_base_currency:'SAR',p_base_value:75,p_notes:'QA fixed direct selling fee'}));
+  const voucher=value(await owner.client.from('voucher_numbers').select('document_number').eq('source_id',payment)
+   .eq('source_table','transactions').single()).document_number;
+  const goldSale=value(await owner.client.from('transactions').select('id').eq('asset_account_id',gold18).eq('transaction_type','SALE').single());
+  const expensePath=app+'/api/assets/sale-expenses/'+goldSale.id;
+  const page=await en.newPage();
+  await page.goto(app+'/en/transactions/'+goldSale.id,{waitUntil:'domcontentloaded',timeout:90000});
+  await page.getByText('Linked selling expenses',{exact:true}).click();
+  await page.getByLabel('Expense voucher number').fill(voucher);
+  await page.getByLabel('Reason for linking or unlinking').fill('Documented commission for this gold sale');
+  await page.getByRole('button',{name:'Link expense',exact:true}).click();
+  await page.getByText('Expense link saved.',{exact:true}).waitFor();
+  const linked=await (await en.request.get(expensePath)).json();
+  assert.equal(linked.length,1);
+  assert.equal(linked[0].source_id,payment);
+  assert.equal(Number(linked[0].amount),75);
+  assert.deepEqual(await (await foreign.request.get(expensePath)).json(),[]);
+  assert.equal((await foreign.request.post(expensePath,{headers:{Origin:app},data:{source:payment,reason:'Foreign account probe'}})).status(),403);
+  assert.equal((await (await en.request.get(profitEndpoint)).json())[gold18].amount,'125');
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.getByText('Linked selling expenses',{exact:true}).click();
+  await page.getByRole('button',{name:'Unlink',exact:true}).click();
+  await page.getByLabel('Reason for linking or unlinking').fill('QA release verifies the audited unlink');
+  await page.getByRole('button',{name:'Confirm unlink',exact:true}).click();
+  await page.getByText('No expenses are linked to this voucher.',{exact:true}).waitFor();
+  assert.equal((await (await en.request.get(profitEndpoint)).json())[gold18].amount,'200');
+  const balance=value(await owner.client.from('lots').select('remaining_value_base').eq('asset_account_id',cash.id).single());
+  assert.equal(Number(balance.remaining_value_base),425);
+  await page.close();
+ }
+
+ for(const [locale,ctx,customize,label,move,save,close] of [
+  ['ar',ar,'تخصيص الجدول','الأرباح الفعلية (المحققة)','تحريك للأعلى','حفظ النموذج والتخصيص','إغلاق'],
+  ['en',en,'Customize table','Realized profit / loss','Move up','Save model & customization','Close'],
+ ]){
+  const page=await ctx.newPage();
+  await page.goto(app+'/'+locale+'/assets?scope=PERSONAL',{waitUntil:'domcontentloaded',timeout:90000});
+  const goldRow=page.getByRole('row').filter({hasText:'QA 18K Gold'});
+  await goldRow.waitFor();
+  assert.equal(await page.getByRole('columnheader',{name:label,exact:true}).count(),0);
+  await page.getByRole('button',{name:customize,exact:true}).click();
+  const options=page.getByRole('dialog');
+  const column=options.locator('.att-order-row').filter({hasText:label});
+  await column.getByRole('checkbox').check();
+  const moveUp=column.getByRole('button',{name:move,exact:true});
+  for(let position=await column.evaluate(row=>Array.from(row.parentElement.children).indexOf(row));position>1;position--){
+   await moveUp.click();
+  }
+  await options.getByRole('button',{name:save,exact:true}).click();
+  await options.getByRole('button',{name:close,exact:true}).click();
+  const cell=goldRow.locator('[data-column="realized"]');
+  await cell.locator('.display-money-screen').filter({hasText:/^200\.00 SAR$/}).waitFor();
+  const first=await cell.evaluate(node=>node.cellIndex);
+  assert.equal(first,1);
+  await page.reload({waitUntil:'domcontentloaded'});
+  await cell.locator('.display-money-screen').filter({hasText:/^200\.00 SAR$/}).waitFor();
+  assert.equal(await cell.evaluate(node=>node.cellIndex),first);
+  const heading=page.getByRole('columnheader',{name:label,exact:true}).first();
+  await heading.getByRole('button').click();
+  assert.equal(await heading.getAttribute('aria-sort'),'ascending');
+  await heading.getByRole('button').click();
+  assert.equal(await heading.getAttribute('aria-sort'),'descending');
+  await page.locator('.asset-report-filters label').filter({hasText:locale==='ar'?'تصفية حسب النوع':'Filter by type'}).locator('select').selectOption('GOLD');
+  await cell.scrollIntoViewIfNeeded();
+  assert.ok(await cell.evaluate(node=>node.getBoundingClientRect().left>=0&&node.getBoundingClientRect().right<=innerWidth));
+  await page.screenshot({path:`asset-qa-preview/realized-profit-${locale}.png`});
+  await page.close();
+ }
+
+ {
+  const page=await en.newPage();
+  await page.goto(app+'/en/reports?scope=PERSONAL',{waitUntil:'domcontentloaded',timeout:90000});
+  await page.getByRole('row').filter({hasText:'QA 18K Gold'}).locator('.display-money-screen').filter({hasText:/^200\.00 SAR$/}).waitFor();
+  await page.getByLabel('Print and export',{exact:true}).click();
+  const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'CSV',exact:true}).first().click()]);
+  const csv=await readFile(await download.path(),'utf8');
+  assert.match(csv,/Realized profit \/ loss/);
+  assert.match(csv,/QA 18K Gold[^\n]+200 SAR/);
+  assert.match(csv,/QA Gold Statement[^\n]+1150 SAR/);
+  await page.close();
+ }
 
  for(const [locale,ctx,label,summary] of [
   ['ar',ar,'التفاصيل والإجراءات','كشف حركة الأصل'],

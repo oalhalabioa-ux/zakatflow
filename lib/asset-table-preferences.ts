@@ -1,3 +1,6 @@
+import Decimal from 'decimal.js';
+import type {RealizedProfit} from './asset-realized-profit';
+
 export const ASSET_COLUMNS = [
   ["asset", "الأصل", "Asset"],
   ["date", "تاريخ الشراء", "Purchase date"],
@@ -13,6 +16,7 @@ export const ASSET_COLUMNS = [
   ["classification", "التصنيف", "Classification"],
   ["status", "حالة الأصل", "Asset status"],
   ["center", "مركز التكلفة", "Cost center"],
+  ["realized", "الأرباح الفعلية (المحققة)", "Realized profit / loss"],
 ] as const;
 
 export type AssetColumn = (typeof ASSET_COLUMNS)[number][0];
@@ -21,7 +25,7 @@ export type AssetSortDirection = "asc" | "desc";
 export type AssetTableSize = "compact" | "normal" | "wide";
 export type AssetTablePreset = "professional" | "zakat" | "corporate";
 export type AssetTableScope = "PERSONAL" | "ORGANIZATION";
-export const CORPORATE_COLUMN_ORDER: AssetColumn[] = ["asset", "classification", "date", "status", "center", "cost", "current", "action"];
+export const CORPORATE_COLUMN_ORDER: AssetColumn[] = ["asset", "classification", "date", "status", "center", "cost", "current", "action", "realized"];
 export const PERSONAL_COLUMN_ORDER = ASSET_COLUMNS.map(([key]) => key).filter(key => !["classification", "status", "center"].includes(key));
 export const assetTableStorageKey = (scope: AssetTableScope) => `zf_asset_table_v5_${scope}`;
 export function readAssetTablePreferences(storage: Pick<Storage, "getItem">, scope: AssetTableScope) {
@@ -84,7 +88,7 @@ export function visibleAssetColumns(
   order: AssetColumn[],
   visible: Record<string, boolean>,
 ) {
-  return normalizeAssetColumnOrder(order).filter((key) => visible[key] !== false);
+  return normalizeAssetColumnOrder(order).filter((key) => key === "realized" ? visible[key] === true : visible[key] !== false);
 }
 
 const finiteNumber = (value: unknown) => {
@@ -169,10 +173,11 @@ const assetSortValue = (row: any, column: AssetSortColumn) => {
   }
 };
 
-export function sortAssetRows(
-  rows: any[],
+export function sortAssetRows<T>(
+  rows: T[],
   column: AssetSortColumn,
   direction: AssetSortDirection,
+  realized?: Record<string, RealizedProfit> | null,
 ) {
   const collator = new Intl.Collator("ar", {
     numeric: true,
@@ -181,6 +186,15 @@ export function sortAssetRows(
   return rows
     .map((row, index) => ({ row, index }))
     .sort((left, right) => {
+      if (column === "realized") {
+        const a = realized?.[(left.row as {id: string}).id];
+        const b = realized?.[(right.row as {id: string}).id];
+        const aRecorded = a?.status === 'recorded';
+        const bRecorded = b?.status === 'recorded';
+        if (!aRecorded || !bRecorded) return Number(bRecorded) - Number(aRecorded) || left.index - right.index;
+        const amountOrder = new Decimal(a.amount).cmp(b.amount);
+        return a.currency.localeCompare(b.currency) || (direction === "asc" ? amountOrder : -amountOrder) || left.index - right.index;
+      }
       const a = assetSortValue(left.row, column);
       const b = assetSortValue(right.row, column);
       const compared =
@@ -198,7 +212,7 @@ export function assetTablePreset(
 ): AssetTablePreferences {
   const columns = preset === "corporate" ? CORPORATE_COLUMN_ORDER : preset === "zakat" ? ZAKAT_COLUMN_ORDER : PERSONAL_COLUMN_ORDER;
   const visible = Object.fromEntries(
-    ASSET_COLUMN_ORDER.map((key) => [key, columns.includes(key)]),
+    ASSET_COLUMN_ORDER.map((key) => [key, key !== "realized" && columns.includes(key)]),
   ) as Record<AssetColumn, boolean>;
 
   return {
