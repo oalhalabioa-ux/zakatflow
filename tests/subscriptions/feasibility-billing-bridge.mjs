@@ -76,7 +76,11 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     await page.getByRole('button',{name:'Collapse sidebar',exact:true}).click();
     assert.equal(await sidebarSections.locator('svg').evaluate(icon=>getComputedStyle(icon).color),'rgb(255, 255, 255)');
     assert.equal(await operationsSidebarButton.locator('svg').evaluate(icon=>getComputedStyle(icon).color),'rgb(198, 163, 93)');
-    assert.equal(await operationsSidebarButton.evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(32, 83, 71)');
+    const selectedSidebarBackground=await operationsSidebarButton.evaluate(async button=>{
+     await Promise.all(button.getAnimations().map(animation=>animation.finished));
+     return getComputedStyle(button).backgroundColor;
+    });
+    assert.equal(selectedSidebarBackground,'rgb(32, 83, 71)');
     await page.getByRole('button',{name:'Expand sidebar',exact:true}).click();
     await sidebarSections.click();
     await studyTabs.getByRole('button',{name:'Investment',exact:true}).click();
