@@ -15,7 +15,7 @@ export async function calculateAndSaveAssessment(request:AssessmentRequest,revis
  const {supabase,user}=await requireUser();const valuationDate=input.valuation_date??input.assessment_date;const priceMode=input.price_mode??'MANUAL';
  const {data:profile,error:pe}=await supabase.from('profiles').select('base_currency,zakat_method_id,nisab_standard').eq('id',user.id).single();if(pe)throw pe;const methodId=input.method_id??profile.zakat_method_id;if(!methodId)throw new Error('ZAKAT_METHOD_NOT_CONFIGURED');
  const {data:method,error:me}=await supabase.from('zakat_methods').select('*').eq('id',methodId).single();if(me)throw me;
- const {data:lots,error:le}=await supabase.from('lots').select('*,asset_accounts(id,name,asset_type,currency,is_zakatable,metadata,ownership_scope),transactions!lots_source_transaction_id_fkey(id,transaction_date)').eq('user_id',user.id);if(le)throw le;
+ const {data:lots,error:le}=await supabase.from('lots').select('*,asset_accounts(id,name,asset_type,currency,is_zakatable,metadata,ownership_scope),transactions!lots_source_transaction_id_fkey(id,transaction_date,transaction_type,sale_id:metadata->>sale_transaction_id)').eq('user_id',user.id);if(le)throw le;
  // Current residual lots cannot reconstruct a balance before a subsequent exit.
  const {data:futureExits,error:futureError}=await supabase.from('transactions').select('id').eq('user_id',user.id).gt('transaction_date',input.assessment_date).in('transaction_type',['SALE','WITHDRAWAL','TRANSFER_OUT','ZAKAT_PAYMENT','ADJUSTMENT','REVERSAL']).limit(1);
  if(futureError)throw futureError;if(futureExits?.length)throw new Error('HISTORICAL_BALANCE_RECONSTRUCTION_REQUIRED');
@@ -33,6 +33,13 @@ export async function calculateAndSaveAssessment(request:AssessmentRequest,revis
  const goldPrice=metalPrices.GOLD.price,silverPrice=metalPrices.SILVER.price;
  const nisabValue=nisabFromPrice(standard,metalPrices);
  const zakatableLots=(lots??[]).filter((l:any)=>l.asset_accounts?.is_zakatable===true&&l.asset_accounts?.ownership_scope!=='ORGANIZATION'&&Number(l.remaining_quantity)>0&&l.acquisition_date<=input.assessment_date);
+ const receiptPeriods=new Map<string,Array<{remaining_base:string;period_due:string;period_start:string}>>();
+ for(const lot of zakatableLots){
+  if(lot.hawl_start_date || lot.transactions?.transaction_type!=='ADD' || !lot.transactions.sale_id)continue;
+  const {data,error}=await supabase.rpc('gold_receipt_assessment_periods',{p_receipt:lot.source_transaction_id,p_calendar:method.calendar_type});
+  if(error)throw error;
+  if(data?.length)receiptPeriods.set(lot.id,data);
+ }
  const valuation=(l:any)=>frozenLotValuation(l,lots??[],baseCurrency,metalPrices);
  const marketValue=(l:any)=>valuation(l).marketValueBase;
  const poolValue=zakatableLots.reduce((s:any,l:any)=>s.add(marketValue(l)),new Decimal(0));
@@ -43,8 +50,15 @@ export async function calculateAndSaveAssessment(request:AssessmentRequest,revis
  const periods=new Map<string,any>((periodRows??[]).map((p:any)=>[p.lot_id,p]));
  const {data:coverageRows,error:coverageError}=await supabase.rpc('investment_zakat_lot_coverage',{p_calendar:method.calendar_type});if(coverageError)throw coverageError;
  const coverages=new Map<string,any>((coverageRows??[]).map((c:any)=>[c.lot_id,c]));
- const candidates=zakatableLots.filter((lot:any)=>!!lot.hawl_start_date).map((lot:any)=>{
+ const candidates=zakatableLots.filter((lot:any)=>!!lot.hawl_start_date||receiptPeriods.has(lot.id)).map((lot:any)=>{
   const account=lot.asset_accounts;const v=valuation(lot);
+  const parts=receiptPeriods.get(lot.id);
+  if(parts){
+   const receiptComponents=parts.map(part=>({remainingBase:part.remaining_base,hawlCompleted:part.period_due<=input.assessment_date}));
+   return {lotId:lot.id,assetName:account?.name,assetType:account?.asset_type,...v,quantity:lot.remaining_quantity,
+    receiptComponents,hawlCompleted:receiptComponents.some(part=>part.hawlCompleted),externalCoveredDays:0,hawlPeriodDays:0,
+    valuationSnapshot:{...v.valuationSnapshot,hawlDueDate:parts[0].period_due,valuationDate,receiptComponentPolicy:'SOURCE_PERIOD_V1'}};
+  }
   const period=periods.get(lot.id);if(!period)throw new Error('LOT_HAWL_PERIOD_REQUIRED');
   const coverage=coverages.get(lot.id);const institutionCoverage={policy:'CAPITAL_PERIOD_EXCLUSION_V1',coveredDays:coverage?.covered_days??0,periodDays:coverage?.period_days??0,intervals:coverage?.coverage_intervals??[]};
   const due=period.hawl_due_date;const following=calculateHawl(method.calendar_type==='GREGORIAN'?'GREGORIAN':'HIJRI_TABULAR',new Date(due+'T00:00:00Z'),new Date(input.assessment_date+'T00:00:00Z'));if(following.completed)throw new Error('MULTIPLE_UNASSESSED_HAWLS_REQUIRE_REVIEW');if(period.covered_through&&input.assessment_date<period.covered_through)throw new Error('ASSESSMENT_BEFORE_FINAL_COVERAGE');

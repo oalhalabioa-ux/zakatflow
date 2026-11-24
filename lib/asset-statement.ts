@@ -59,7 +59,7 @@ export function currentAssetValuation(input: {
  quantity: string; cost: string; date: string;
 }) {
  const {type,currency,baseCurrency,metadata,quantity,cost,date}=input;
- if (['CASH','BANK','RECEIVABLE'].includes(type)) return null;
+ if (['CASH','BANK','RECEIVABLE'].includes(type)||metadata.market_price_source==='ACQUISITION_COST') return null;
  const quote = nonnegative(metadata.market_price_per_unit ?? metadata.market_price);
  const quoteCurrency = typeof metadata.market_price_currency==='string' ? metadata.market_price_currency : currency;
  const quoteDate = typeof metadata.market_valuation_date==='string' ? metadata.market_valuation_date : null;

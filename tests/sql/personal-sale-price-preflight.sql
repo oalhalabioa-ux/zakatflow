@@ -35,9 +35,9 @@ begin
            (owner_id,other_asset,'OPENING_BALANCE','2025-01-01',10,'USD',100,'SAR',375,owner_id)
     returning *
   )
-  insert into public.lots(user_id,asset_account_id,source_transaction_id,acquisition_date,
+  insert into public.lots(user_id,asset_account_id,source_transaction_id,acquisition_date,hawl_start_date,
     original_quantity,remaining_quantity,original_value_base,remaining_value_base)
-  select owner_id,asset_account_id,id,transaction_date,quantity,quantity,base_value,base_value from opening;
+  select owner_id,asset_account_id,id,transaction_date,transaction_date,quantity,quantity,base_value,base_value from opening;
 
   sale:=public.post_sale_with_proceeds(owner_id,asset,bank,'2025-02-01',2,40,'USD','SAR',150);
   later:=public.post_sale_with_proceeds(owner_id,asset,cash,'2025-02-02',3,90,'USD','SAR',337.5);
@@ -120,12 +120,14 @@ begin
   end;
 
   reset role;
-  insert into public.zakat_methods(id,code,name_ar,name_en) values(method,'QA_471','QA 471','QA 471');
+  insert into public.zakat_methods(id,code,name_ar,name_en,calendar_type)
+    values(method,'QA_471','QA 471','QA 471','GREGORIAN');
   insert into public.zakat_assessments(id,user_id,assessment_date,valuation_date,method_id,nisab_standard,
-    nisab_quantity,nisab_value_base,zakat_rate,currency,assessment_kind)
-  values(assessment,owner_id,'2025-03-01','2025-03-01',method,'GOLD',85,100,0.025,'SAR','FINAL');
-  insert into public.zakat_assessment_lines(assessment_id,lot_id,quantity,eligibility_status,explanation)
-    values(assessment,cash_lot,225,'ELIGIBLE','Test final snapshot');
+    nisab_quantity,nisab_value_base,total_zakatable_value,zakat_rate,zakat_due,currency,assessment_kind)
+  values(assessment,owner_id,'2026-03-01','2026-03-01',method,'GOLD',85,100,225,0.025,5.625,'SAR','FINAL');
+  -- Supply the actual worth and due basis now checked by the cash-component trigger.
+  insert into public.zakat_assessment_lines(assessment_id,lot_id,quantity,market_value,eligible_value,zakat_amount,eligibility_status,explanation)
+    values(assessment,cash_lot,225,225,225,5.625,'ELIGIBLE','Test final snapshot');
   set local role authenticated;
   begin
     perform public.amend_personal_sale_price(sale_id,gen_random_uuid(),1,35,'Final assessment');

@@ -1,0 +1,125 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "private.personal_gold_receipt_hawl_sources.continuity_applies",
+      "fingerprint": "fa56500de2d6fb8f5d2ce2e52ced6e3f"
+    },
+    {
+      "category": "column",
+      "object_key": "private.personal_gold_receipt_hawl_sources.receipt_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.personal_gold_receipt_hawl_sources.receipt_lot_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.personal_gold_receipt_hawl_sources.sold_quantity",
+      "fingerprint": "cf7ea4b2bc926cdb0c5a79fea270e409"
+    },
+    {
+      "category": "column",
+      "object_key": "private.personal_gold_receipt_hawl_sources.source_hawl_start_date",
+      "fingerprint": "aed943be412fde2bc082da6a2222596b"
+    },
+    {
+      "category": "column",
+      "object_key": "private.personal_gold_receipt_hawl_sources.source_lot_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.personal_gold_receipt_hawl_sources.source_order",
+      "fingerprint": "69669da85f0ef99d77cc0b83b5be6a4c"
+    },
+    {
+      "category": "column",
+      "object_key": "private.personal_gold_receipt_hawl_sources.user_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.personal_gold_receipt_hawl_sources.personal_gold_receipt_hawl_sources_pkey",
+      "fingerprint": "998d68c2f890b993317e7f7e61fa18dc"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.personal_gold_receipt_hawl_sources.personal_gold_receipt_hawl_sources_receipt_id_fkey",
+      "fingerprint": "734b306a7dddfa32d06332d3c6a286b3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.personal_gold_receipt_hawl_sources.personal_gold_receipt_hawl_sources_receipt_id_source_order_key",
+      "fingerprint": "1b17c62fd3af9660cacd48f68e93737b"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.personal_gold_receipt_hawl_sources.personal_gold_receipt_hawl_sources_receipt_lot_id_fkey",
+      "fingerprint": "ee63039fc7666f7741d79802ecee8a8c"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.personal_gold_receipt_hawl_sources.personal_gold_receipt_hawl_sources_sold_quantity_check",
+      "fingerprint": "7de052fa6fddf0f3156bb7364f718009"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.personal_gold_receipt_hawl_sources.personal_gold_receipt_hawl_sources_source_lot_id_fkey",
+      "fingerprint": "e2c419d30a9b6b72c387fb6354c45618"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.personal_gold_receipt_hawl_sources.personal_gold_receipt_hawl_sources_source_order_check",
+      "fingerprint": "c35bc72bab51b8b262acf35b16f80575"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.personal_gold_receipt_hawl_sources.personal_gold_receipt_hawl_sources_user_id_fkey",
+      "fingerprint": "e41ecacf5ea41303b9738fd2f85bca99"
+    },
+    {
+      "category": "function",
+      "object_key": "private.capture_personal_gold_receipt_hawl_sources()",
+      "fingerprint": "a004b618fcf26b147e006885480fb335"
+    },
+    {
+      "category": "function",
+      "object_key": "public.personal_gold_receipt_hawl_sources(p_receipt_id uuid)",
+      "fingerprint": "643467be4d4255d72f31ece9137f12fd"
+    },
+    {
+      "category": "index",
+      "object_key": "private.personal_gold_receipt_hawl_sources.personal_gold_receipt_hawl_receipt_lot_idx",
+      "fingerprint": "eb0558db0bf321cda882f95d9c19bfa7"
+    },
+    {
+      "category": "index",
+      "object_key": "private.personal_gold_receipt_hawl_sources.personal_gold_receipt_hawl_source_lot_idx",
+      "fingerprint": "c2158307269025dd8eacacad6b2990d5"
+    },
+    {
+      "category": "index",
+      "object_key": "private.personal_gold_receipt_hawl_sources.personal_gold_receipt_hawl_sources_pkey",
+      "fingerprint": "03a47230110a7b4718619d2881ec99ba"
+    },
+    {
+      "category": "index",
+      "object_key": "private.personal_gold_receipt_hawl_sources.personal_gold_receipt_hawl_sources_receipt_id_source_order_key",
+      "fingerprint": "e25826b22c525aabd0e0900405ec2029"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.personal_gold_receipt_hawl_sources",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.lots.capture_personal_gold_receipt_hawl_sources",
+      "fingerprint": "c82db9b7379d8744df085f4b2e83dd85"
+    }
+  ]
+}

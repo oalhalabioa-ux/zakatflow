@@ -1,0 +1,60 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "private.personal_asset_exit_requests.fingerprint",
+      "fingerprint": "9fff0e93a1d7502b1b848e2daadec083"
+    },
+    {
+      "category": "column",
+      "object_key": "private.personal_asset_exit_requests.owner_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.personal_asset_exit_requests.request_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.personal_asset_exit_requests.result",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.personal_asset_exit_requests.personal_asset_exit_requests_owner_id_fkey",
+      "fingerprint": "50d81623a219dd2c5064b1dd59c06929"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.personal_asset_exit_requests.personal_asset_exit_requests_pkey",
+      "fingerprint": "9eb9329182f689201125b41243fd2e36"
+    },
+    {
+      "category": "function",
+      "object_key": "public.post_personal_asset_exit(p_request_id uuid, p_kind text, p_asset_id uuid, p_destination_id uuid, p_date date, p_quantity numeric, p_sale_value numeric, p_currency text, p_base_currency text, p_base_value numeric, p_notes text)",
+      "fingerprint": "fca2e14ef2b0b921b8feca1b8d13ad84"
+    },
+    {
+      "category": "index",
+      "object_key": "private.personal_asset_exit_requests.personal_asset_exit_requests_pkey",
+      "fingerprint": "3988635a684a5efa2f0b2fa33c180412"
+    },
+    {
+      "category": "policy",
+      "object_key": "private.personal_asset_exit_requests.personal_asset_exit_request_read",
+      "fingerprint": "8e0319f4d50aa99f577c727c5b31ced8"
+    },
+    {
+      "category": "policy",
+      "object_key": "private.personal_asset_exit_requests.personal_asset_exit_request_write",
+      "fingerprint": "a0e3ed2f6afd3c900a046e94a6b1dd60"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.personal_asset_exit_requests",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    }
+  ]
+}
