@@ -18,6 +18,7 @@ export default function AdvancedModelPanel({study,scenario,locale,onChange}:{
  study:FeasibilityStudy;scenario:Scenario;locale:string;onChange:(x:AdvancedAssumptions)=>void
 }){
  const ar=locale==='ar',t=(a:string,b:string)=>ar?a:b;
+ const usesProductionLines=study.sector==='INDUSTRIAL'&&!study.water&&study.productionPlan?.enabled;
  const a=study.advanced??emptyAdvanced(),result=evaluateAdvanced(study,scenario),sector=sectorTemplates[study.sector];
  const cashPolicy=a.workingCapitalPolicy??{mode:'MANUAL' as const,receivableDays:0,inventoryDays:0,payableDays:0};
  const update=(p:Partial<AdvancedAssumptions>)=>onChange({...a,...p});
@@ -26,6 +27,7 @@ export default function AdvancedModelPanel({study,scenario,locale,onChange}:{
  return <section className="card fs-panel">
   <h3>{t('النموذج المالي المتقدم — استرشادي','Advanced feasibility model — indicative')}</h3>
   <p className="fs-hint">{t('مستقل عن القيود والأرصدة الفعلية. النموذج الأساسي يبقى دون تغيير، ولا تظهر نتائج هذه الصفحة قبل إدخال الافتراضات الضرورية.', 'Separate from accounting ledgers. The basic model is unchanged; incomplete assumptions do not produce advanced returns.')}</p>
+  {usesProductionLines?<p className="fs-hint">{t('الحجم والإيراد والتكلفة تأتي من خطوط الإنتاج في تبويب التشغيل.', 'Volume, revenue and cost come from the production lines in Operations.')}</p>:<>
   <div className="fs-form-grid">
    <label className="fs-field"><span>{t('طريقة احتساب المبيعات','Volume method')}</span>
     <select value={a.mode} onChange={e=>update({mode:e.currentTarget.value as AdvancedAssumptions['mode']})}>
@@ -40,6 +42,7 @@ export default function AdvancedModelPanel({study,scenario,locale,onChange}:{
    </>}
   </div>
   <p className="fs-hint">{ar?sector.warningAr:sector.warningEn}</p>
+  </>}
   <h3>{t('الإهلاك والاسترداد','Depreciation and terminal recovery')}</h3>
   <p className="fs-hint">{t('العمر صفر يعني غير محدد. الأعمار المقترحة ليست معدلات ضريبية معتمدة.', 'Zero life means unspecified. Suggested lives are not statutory tax rates.')}</p>
   <div className="fs-form-grid">

@@ -2137,6 +2137,30 @@
       "expected_md5": "9c649561b6f325b522259e3b26c13d6a",
       "file_sha256": "4b85f8f8013affc1e195d60f56cdc6ecdc9b938831cf78245c8e7332fe16bbdb",
       "validation_project": "Isolated PostgreSQL mixed item review and persisted recipient feedback"
+    },
+    {
+      "path": "supabase/migrations/20261121180000_asset_edit_details.sql",
+      "version": "20261121180000",
+      "name": "asset_edit_details",
+      "expected_md5": "964ff0992bd196d74aec62022bc0dfa7",
+      "file_sha256": "c4d20530be5c48da2ff5891f21944d15758a9231b7ed04ad9ea4b02cde4e2949",
+      "validation_project": "Isolated Supabase with Chromium before-and-after asset edit and ledger integrity checks"
+    },
+    {
+      "path": "supabase/migrations/20261122010000_personal_gold_lot_sales.sql",
+      "version": "20261122010000",
+      "name": "personal_gold_lot_sales",
+      "expected_md5": "62e6567a8a4ef4ae1169e3916e9bcf2c",
+      "file_sha256": "f5e66d38bfae3bf7981d5593ee4bb34c6bd098dd68d804a2baac262c27280783",
+      "validation_project": "Isolated canonical bootstrap, access and rollback rehearsal, bilingual asset edit and grouped sale browsers"
+    },
+    {
+      "path": "supabase/migrations/20261122040000_independent_sale_destination_history.sql",
+      "version": "20261122040000",
+      "name": "independent_sale_destination_history",
+      "expected_md5": "af5c74ae5503551d34d4ea6eccae2aa6",
+      "file_sha256": "8a59dd7092198adb504f3bda38e0f0b6d96d54f72f9d32aaf69ad157e5ddb6ec",
+      "validation_project": "Isolated PostgreSQL independent sale destination history regression"
     }
   ]
 }

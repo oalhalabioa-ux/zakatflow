@@ -70,6 +70,7 @@ export async function runWaterFinancialPolicyBrowser({browser,cookies,check}){
    assert.equal(value(4,'Depreciation'),0);assert.equal(value(4,'Working capital liquidation'),60);assert.equal(value(4,'Net terminal sale proceeds'),200);
    assert.equal(value(4,'Project free cash flow'),740);assert.equal(value(4,'Operating cash before terminal proceeds'),480);assert.equal(value(4,'Working capital after liquidation'),0);
    assert.ok(Math.abs(value(4,'Debt service coverage (DSCR)')-480/110)<1e-9);
+   assert.equal(csv[4][headers.indexOf('Project free cash flow')],'740.00');
    evidence.assertions.push('UI policy PATCH/read/reload retained; legacy percentage stored but disabled; CSV flows -10100/640/600/740; operating DSCR 480/110 excludes exit 260');
 
    // Seed a separate public-land fixture with synthetic quantities and a narrow 15-column cash-flow table.

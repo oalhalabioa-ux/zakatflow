@@ -3,6 +3,7 @@ import {rawLandSchema} from './raw-land';
 import {monthlyLiquiditySchema} from './monthly-liquidity';
 import {landArrangementSchema,partnershipSchema} from './partnership';
 import {waterModelSchema} from './water-model';
+import {productionPlanSchema} from './production-lines';
 const amount=z.number().finite().min(0).max(1000000000000);
 const percent=z.number().finite().min(0).max(100000);
 const text=z.string().max(5000);
@@ -59,7 +60,7 @@ export const feasibilityDraftSchema=z.object({
    sellingCashCost:amount
   }).strict()).max(20)}).strict()
  ]).optional(),
- rawLand:rawLandSchema.optional(),water:waterModelSchema.optional(),monthlyLiquidity:monthlyLiquiditySchema.optional(),preparedBy:text.optional(),studyDate:z.string().max(30).optional(),notes:text.optional(),
+ productionPlan:productionPlanSchema.optional(),rawLand:rawLandSchema.optional(),water:waterModelSchema.optional(),monthlyLiquidity:monthlyLiquiditySchema.optional(),preparedBy:text.optional(),studyDate:z.string().max(30).optional(),notes:text.optional(),
  createdAt:date,updatedAt:date
 }).strict().refine(study=>!study.rawLand||(study.sector==='REAL_ESTATE'&&!study.water&&!study.sectorSchedule),
  {message:'Raw land requires its own real-estate model',path:['rawLand']});

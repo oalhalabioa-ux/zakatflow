@@ -1,0 +1,51 @@
+name: Asset statement isolated QA
+on:
+  pull_request:
+    paths:
+      - 'app/api/assets/**/statement/**'
+      - 'app/[locale]/assets/page.tsx'
+      - 'components/assets/AssetStatementPreview.tsx'
+      - 'lib/asset-statement*'
+      - 'services/asset-statement*'
+      - 'tests/assets-v2/**'
+      - '.github/workflows/asset-statement-qa.yml'
+permissions:
+  contents: read
+jobs:
+  asset-statement:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - name: Set up isolated Chromium and Supabase
+        run: |
+          npm install --prefix "$RUNNER_TEMP/assets-tools" --no-save --package-lock=false playwright@1.64.1
+          node "$RUNNER_TEMP/assets-tools/node_modules/playwright/cli.js" install --with-deps chromium
+          root="$RUNNER_TEMP/asset-statement-qa"
+          mkdir -p "$root"
+          npx --yes supabase@2.122.0 init --workdir "$root"
+          cp -a supabase/migrations "$root/supabase/migrations"
+          echo "ASSET_QA_ROOT=$root" >> "$GITHUB_ENV"
+          echo "ASSET_BROWSER_MODULE=$RUNNER_TEMP/assets-tools/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+          npx --yes supabase@2.122.0 start --workdir "$root" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta > "$RUNNER_TEMP/assets-start.log" 2>&1 || { tail -60 "$RUNNER_TEMP/assets-start.log"; exit 1; }
+      - name: Enable the canonical gold entry points on disposable QA
+        run: psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -X -v ON_ERROR_STOP=1 -f tests/sql/personal-gold-release-disabled.sql -f supabase/release/personal-gold-sales/enable.sql
+      - name: Verify source reconciliation, isolation and responsive card
+        run: node tests/assets-v2/statement-browser.mjs
+      - name: Upload Arabic and English review images
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: asset-statement-preview
+          path: asset-qa-preview/*.png
+      - name: Stop isolated database
+        if: always()
+        run: test -z "$ASSET_QA_ROOT" || npx --yes supabase@2.122.0 stop --workdir "$ASSET_QA_ROOT" --no-backup

@@ -633,7 +633,7 @@ try {
     const catalog=(await rpc(owner,'subscription_plan_catalog',{})).data,plan=catalog.plans.find(p=>p.code==='advanced_monthly');await modal.locator('[name="plan_id"]').selectOption(plan.id);assert.equal(await modal.locator('[name="max_users"]').inputValue(),'15');const saved=page.waitForResponse(r=>r.url()===appUrl+'/api/admin/trials'&&r.request().method()==='POST');await modal.getByRole('button',{name:'Apply and audit',exact:true}).click();assert.equal((await saved).status(),200);const state=(await rpc(owner,'organization_subscription',{p_organization_id:target})).data;assert.equal(state.status,'active');assert.equal(state.plan_id,plan.id);assert.equal(state.max_users,15);await context.close();
   });
   // Install the QA V2 entitlement RPC and policies before either browser suite uses them.
-  const strip = value => value.replace(/^begin;\s*/i, '').replace(/commit;\s*$/i, '');
+  const strip = value => value.replace(/^(?:--[^\n]*\n)*begin;\s*/i, '').replace(/commit;\s*$/i, '');
   const migrationFiles = [
     'docs/feasibility/qa-v2-sharing-compatibility.sql',
     'supabase/migrations/20261116194423_feasibility_organization_sharing.sql',
@@ -866,10 +866,18 @@ try {
     const recipientOrg = await makeOrg(recipient, 'Sharing browser recipient');
     enableCompanyFeasibility(sourceOrg);
     enableCompanyFeasibility(recipientOrg);
+    // Mirror the role catalog columns referenced by the already-released sharing schema.
+    sql(`alter table public.organization_roles add column permissions text[] not null default '{}';
+      create table public.organization_member_permission_overrides (
+        organization_id uuid, user_id uuid, permission text, effect text
+      );`);
     const sharingMigrations = [
       'supabase/migrations/20261117024046_feasibility_sharing_permissions.sql',
       'supabase/migrations/20261117064000_feasibility_share_proposals.sql',
       'supabase/migrations/20261117134000_feasibility_organization_share_audit.sql',
+      'supabase/migrations/20261117190000_feasibility_evidence_documents.sql',
+      'supabase/migrations/20261121155500_feasibility_company_invitations.sql',
+      'supabase/migrations/20261121174500_feasibility_delegated_permissions.sql',
     ];
     sql('begin;\n' + (await Promise.all(sharingMigrations.map(load))).map(strip).join('\n') + "\nnotify pgrst,'reload schema';\ncommit;");
     console.log('PASS installed notification and feasibility fixtures');

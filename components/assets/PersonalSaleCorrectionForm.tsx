@@ -168,7 +168,7 @@ export default function PersonalSaleCorrectionForm({sale, ar, busy, eligibility,
       <label>{t('نوع التصحيح','Correction type')}
         <select value={amountOnly?'price':'structure'} onChange={event=>setAmountOnly(event.target.value==='price')} disabled={busy}>
           <option value="price">{t('السعر والمبلغ','Price and amount')}</option>
-          <option value="structure">{t('الأصل أو الكمية أو التاريخ أو حساب القبض','Asset, quantity, date or proceeds account')}</option>
+          <option value="structure" disabled={eligibility.structural_block==='GROUPED_SALE_REVERSAL_UNAVAILABLE'}>{t('الأصل أو الكمية أو التاريخ أو حساب القبض','Asset, quantity, date or proceeds account')}</option>
         </select>
       </label>
       <p className="muted">{amountOnly?t('يُحفظ السعر على نفس السند ويُسوّى مبلغ القبض المرتبط مع بقاء الكمية وتخصيص الدفعات وسعر الصرف.',

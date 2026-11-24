@@ -1,6 +1,7 @@
 import {z} from 'zod';
 import {internalRateOfReturn, type FeasibilityStudy} from './engine';
 import {quantityBudgetSchema,evaluateQuantityBudget} from './quantity-costs';
+import {evaluateWaterPackMix,waterPackMixSchema} from './water-pack-mix';
 import {waterFinancingPolicySchema,waterDebtSchedule,waterFinancingReadiness,waterEquityReturns} from './water-financing';
 
 const amount=z.number().finite().min(0).max(1e12);
@@ -16,6 +17,7 @@ const waterUnitCosts=z.object({
 }).strict();
 export const emptyWaterUnitCosts={bottle:0,cap:0,label:0,carton:0,kwh:0,rawWaterM3:0,distributionKm:0};
 export const waterModelSchema=z.object({
+ packMix:waterPackMixSchema.optional(),
  financingPolicy:waterFinancingPolicySchema.optional(),
  financialPolicy:z.object({
   workingCapitalMode:z.enum(['PERCENT','CYCLE']),inventoryDays:z.number().int().min(0).max(3650),
@@ -103,7 +105,7 @@ const nominalWaterDemand=(ops:WaterModel['ops'])=>
  ops.bottlesHour*ops.hoursDay*ops.litersBottle/(1000*waterRecovery(ops.waterLossPct));
 
 export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'name'>){
- const effective=effectiveWaterInputs(model),{deal,capex,ops}=effective;
+ const effective=effectiveWaterInputs(model),{deal,capex,ops,mix}=effective;
  const hard=capex.buildings+capex.line+capex.treatment+capex.power+capex.lab+capex.vehicles+capex.others;
  const contingency=hard*capex.contingencyPct/100;
  const investment=hard+contingency+capex.licenses;
@@ -114,12 +116,14 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
  const investorEquity=cashRequired-shareholderLoan+(deal.extraType==='equity'?deal.extraFunding:0);
  const totalEquity=investorEquity+land;
  const totalLoan=shareholderLoan+(deal.extraType==='loan'?deal.extraFunding:0);
- const capacity=ops.bottlesHour*ops.hoursDay*ops.daysMonth*12/Math.max(1,ops.bottlesCarton);
- const waterDemand=nominalWaterDemand(ops);
+ const capacity=mix
+  ?(mix.ready?mix.daily.cartons*ops.daysMonth*12:0)
+  :ops.bottlesHour*ops.hoursDay*ops.daysMonth*12/Math.max(1,ops.bottlesCarton);
+ const waterDemand=mix?mix.daily.litres/(1000*waterRecovery(ops.waterLossPct)):nominalWaterDemand(ops);
  const initialPrice=ops.priceCarton*(scenario?.price??100)/100;
  const initialCost=ops.variableCarton*(scenario?.cost??100)/100;
  const returnRate=(model.operationsPlan?.returnsPct??0)/100;
- const finishedYield=model.quantityCosting?.productionEnabled?1-(model.operationsPlan?.finishedBottleLossPct??0)/100:1;
+ const finishedYield=mix||model.quantityCosting?.productionEnabled?1-(model.operationsPlan?.finishedBottleLossPct??0)/100:1;
  const dispatchContribution=initialPrice*finishedYield*(1-returnRate)-initialCost;
  // An imported study can retain the old rent after selecting an outright purchase.
  const landRent=deal.landMode==='purchase'?0:deal.leaseMonth;
@@ -134,8 +138,7 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
   const volume=capacity*utilization/100;
   const price=initialPrice*(1+ops.priceGrowth/100)**i;
   const unitCost=initialCost*(1+ops.costGrowth/100)**i;
-  const finishedLoss=model.quantityCosting?.productionEnabled?(model.operationsPlan?.finishedBottleLossPct??0)/100:0;
-  const saleableVolume=volume*(1-finishedLoss);
+  const saleableVolume=volume*finishedYield;
   const returnedVolume=saleableVolume*returnRate;
   const netVolume=saleableVolume-returnedVolume;
   const revenue=netVolume*price;
@@ -182,12 +185,12 @@ export function evaluateWater(model:WaterModel,scenario?:Omit<WaterScenario,'nam
  const equity=model.financingPolicy&&financingReadiness.inputReady?waterEquityReturns({investorEquity,land,shareholderLoan,annual,returnReady:financingReadiness.returnReady}):undefined;
  return {hard,contingency,investment,cashRequired,land,investorEquity,totalEquity,shareholderLoan,totalLoan,
   ...(model.financingPolicy?{financingReadiness,equity}:{}),
-  ...(model.quantityCosting||purchaseLand?{purchaseLand,costingReadiness:effective.readiness}:{}),
+  ...(model.quantityCosting||purchaseLand||mix?{purchaseLand,costingReadiness:effective.readiness}:{}),
   ...(policy?{financialReadiness:policyState}:{}),
   investorShare:totalEquity?investorEquity/totalEquity*100:null,partnerShare:totalEquity?land/totalEquity*100:null,
   capacity,waterDemand,annual,flows,npv,cashNpv:npv+land,irr:internalRateOfReturn(flows),payback,
   breakEven:dispatchContribution>0?initialFixed/dispatchContribution:null,
-  ready:investment>0&&capacity>0&&ops.bottlesCarton>0&&initialPrice>0&&annual.some(year=>year.netVolume>0)&&(!policy||policyState.inputReady)&&(!model.financingPolicy||financingReadiness.inputReady)};
+  ready:investment>0&&capacity>0&&(mix?effective.readiness.ready:ops.bottlesCarton>0)&&initialPrice>0&&annual.some(year=>year.netVolume>0)&&(!policy||policyState.inputReady)&&(!model.financingPolicy||financingReadiness.inputReady)};
 }
 
 /** Minimum additional cash after establishment, assuming interim surpluses are retained.
@@ -240,27 +243,38 @@ export function waterFinancialReadiness(model:WaterModel,capex:WaterModel['capex
 }
 
 export function effectiveWaterInputs(model:WaterModel){
- const q=model.quantityCosting,context={LAND_AREA:model.deal.landArea,BUILT_AREA:q?.builtArea??0,CAPACITY:model.ops.bottlesHour};
+ const q=model.quantityCosting;
+ const mix=model.packMix?.enabled?evaluateWaterPackMix(model.packMix,pack=>q?.materialsEnabled
+  ?waterVariableCostBreakdown(model,{bottlesCarton:pack.bottlesPerCarton,litersBottle:pack.litersPerBottle})?.total??0
+  :pack.costPerCarton):null;
+ const context={LAND_AREA:model.deal.landArea,BUILT_AREA:q?.builtArea??0,CAPACITY:mix?.hourly??model.ops.bottlesHour};
  const capital=evaluateQuantityBudget(q?.capital,context),fixed=evaluateQuantityBudget(q?.fixed,context);
  const capex={...model.capex};
  if(q?.capital.enabled){
   for(const key of waterCapexItemKeys)capex[key]=capital.rows.filter(x=>x.category===key).reduce((s,x)=>s+x.total,0);
  }
- const material=waterVariableCostBreakdown(model);
- const ops={...model.ops,...(q?.fixed.enabled?{fixedMonth:fixed.total}:{}),...(q?.materialsEnabled?{variableCarton:material?.total??0}:{})};
+ const material=mix?null:waterVariableCostBreakdown(model);
+ const ops={...model.ops,...(q?.fixed.enabled?{fixedMonth:fixed.total}:{}),
+  ...(mix?{
+   priceCarton:mix.daily.cartons>0?mix.daily.revenue/mix.daily.cartons:0,
+   variableCarton:mix.daily.cartons>0?mix.daily.cost/mix.daily.cartons:0
+  }:q?.materialsEnabled?{variableCarton:material?.total??0}:{})};
+ const demand=mix?mix.daily.litres/(1000*waterRecovery(ops.waterLossPct)):nominalWaterDemand(ops);
+ const licensedCheck=q?.productionEnabled||Boolean(mix&&ops.licensedWaterM3Day>0);
  const deal={...model.deal,...(q?.landByArea?{landValue:model.deal.landArea*q.landUnitPrice}:{})};
  const blockers=[...capital.blockers,...fixed.blockers,
   ...(q?.capital.enabled?capital.rows.filter(x=>!waterCapexItemKeys.includes(x.category as WaterCapexItemKey)).map(x=>'CATEGORY:'+x.id):[]),
-  ...(q?.materialsEnabled&&(!material||material.total<=0||!q.materialSource.trim())?['MATERIAL_INPUTS']:[]),
+  ...(q?.materialsEnabled&&((mix?mix.daily.cost:material?.total??0)<=0||!q.materialSource.trim())?['MATERIAL_INPUTS']:[]),
+  ...(mix&&(!mix.ready||ops.daysMonth<=0||ops.daysMonth>31||ops.waterLossPct>=100)?['PACK_MIX_INPUTS']:[]),
   ...(q?.landByArea&&(!(deal.landValue>0)||!q.landSource.trim())?['LAND_VALUATION']:[]),
   ...(q?.landByArea&&(!Number.isFinite(deal.landValue)||deal.landValue>1e12)?['LAND_LIMIT']:[]),
   ...(q?.productionEnabled&&(!model.operationsPlan?.sourceName.trim()||!model.operationsPlan.sourceType||!model.operationsPlan?.permitReference.trim()||model.ops.licensedWaterM3Day<=0)?['WATER_SOURCE_EVIDENCE']:[]),
   ...(q?.productionEnabled&&(['well','spring'].includes(model.operationsPlan?.sourceType??''))&&(!(model.operationsPlan?.pumpingM3Hour??0)||!(model.operationsPlan?.sourceHoursDay??0))?['PUMP_INPUTS']:[]),
-  ...(q?.productionEnabled&&(model.ops.hoursDay>24||model.ops.hoursDay<=0||model.ops.daysMonth>31||model.ops.daysMonth<=0||model.ops.litersBottle<=0||model.ops.waterLossPct>=100)?['OPERATING_INPUTS']:[]),
-  ...(q?.productionEnabled&&nominalWaterDemand(model.ops)>model.ops.licensedWaterM3Day?['LICENSED_WATER_CAPACITY']:[]),
-  ...(q?.productionEnabled&&model.operationsPlan?.pumpingM3Hour&&model.operationsPlan.sourceHoursDay&&nominalWaterDemand(model.ops)>model.operationsPlan.pumpingM3Hour*model.operationsPlan.sourceHoursDay?['PUMP_CAPACITY']:[]),
+  ...(!mix&&q?.productionEnabled&&(model.ops.hoursDay>24||model.ops.hoursDay<=0||model.ops.daysMonth>31||model.ops.daysMonth<=0||model.ops.litersBottle<=0||model.ops.waterLossPct>=100)?['OPERATING_INPUTS']:[]),
+  ...(licensedCheck&&demand>model.ops.licensedWaterM3Day?['LICENSED_WATER_CAPACITY']:[]),
+  ...((q?.productionEnabled||mix)&&model.operationsPlan?.pumpingM3Hour&&model.operationsPlan.sourceHoursDay&&demand>model.operationsPlan.pumpingM3Hour*model.operationsPlan.sourceHoursDay?['PUMP_CAPACITY']:[]),
  ];
- return {deal,capex,ops,capital,fixed,material,readiness:{ready:blockers.length===0,blockers}};
+ return {deal,capex,ops,capital,fixed,material,mix,readiness:{ready:blockers.length===0,blockers}};
 }
 
 export function waterProductionBalance(model:WaterModel){
@@ -270,22 +284,26 @@ export function waterProductionBalance(model:WaterModel){
  const licensedM3Day=ops.licensedWaterM3Day||null;
  const availableM3Day=pumpedM3Day!==null&&licensedM3Day!==null
   ?Math.min(pumpedM3Day,licensedM3Day):null;
- const requiredM3Day=nominalWaterDemand(ops);
- const nominalBottles=ops.bottlesHour*ops.hoursDay*ops.daysMonth;
+ const mix=model.packMix?.enabled?evaluateWaterPackMix(model.packMix,()=>0):null;
+ const requiredM3Day=mix?mix.daily.litres/(1000*waterRecovery(ops.waterLossPct)):nominalWaterDemand(ops);
+ const nominalBottles=(mix?.daily.bottles??ops.bottlesHour*ops.hoursDay)*ops.daysMonth;
  const finishedWaste=nominalBottles*(plan?.finishedBottleLossPct??0)/100;
  const saleableBottles=nominalBottles-finishedWaste;
  return {pumpedM3Day,licensedM3Day,availableM3Day,requiredM3Day,nominalBottles,finishedWaste,saleableBottles,
-  saleableCartons:ops.bottlesCarton>0?Math.floor(saleableBottles/ops.bottlesCarton):null};
+  saleableCartons:mix
+   ?(mix.ready?mix.lines.flatMap(line=>line.packs).reduce((sum,pack)=>sum+Math.floor(pack.cartons*ops.daysMonth*(1-(plan?.finishedBottleLossPct??0)/100)),0):null)
+   :ops.bottlesCarton>0?Math.floor(saleableBottles/ops.bottlesCarton):null};
 }
 
 export function waterOperationalRequirements(
  model:WaterModel,year:Pick<ReturnType<typeof evaluateWater>['annual'][number],'volume'>
 ){
- if(model.ops.bottlesCarton<=0)return null;
+ const mix=model.packMix?.enabled?evaluateWaterPackMix(model.packMix,()=>0):null;
+ if(mix?!mix.ready:model.ops.bottlesCarton<=0)return null;
  const plan=model.operationsPlan??emptyWaterOperationsPlan;
  const cartons=year.volume;
- const bottles=cartons*model.ops.bottlesCarton;
- const filledLitres=model.ops.litersBottle>0?bottles*model.ops.litersBottle:null;
+ const bottles=mix?cartons*mix.daily.bottles/mix.daily.cartons:cartons*model.ops.bottlesCarton;
+ const filledLitres=mix?cartons*mix.daily.litres/mix.daily.cartons:model.ops.litersBottle>0?bottles*model.ops.litersBottle:null;
  const packagingYield=1-plan.packagingLossPct/100;
  const trips=plan.cartonsPerTrip>0?Math.ceil(cartons/plan.cartonsPerTrip):null;
  return {
@@ -299,11 +317,12 @@ export function waterOperationalRequirements(
  };
 }
 
-export function waterVariableCostBreakdown(model:WaterModel){
+export function waterVariableCostBreakdown(model:WaterModel,dimensions:Pick<WaterModel['ops'],'bottlesCarton'|'litersBottle'>=model.ops){
  const plan=model.operationsPlan;
- if(!plan?.unitCosts||model.ops.bottlesCarton<=0)return null;
+ if(!plan?.unitCosts||dimensions.bottlesCarton<=0)return null;
  const units=plan.unitCosts;
- const {bottlesCarton,litersBottle,waterLossPct}=model.ops;
+ const {bottlesCarton,litersBottle}=dimensions;
+ const {waterLossPct}=model.ops;
  const yieldRate=1-plan.packagingLossPct/100;
  const packaging=((units.bottle+units.cap+units.label)*bottlesCarton+units.carton)/yieldRate;
  const electricity=bottlesCarton*plan.kwhPerThousandBottles/1000*units.kwh;
