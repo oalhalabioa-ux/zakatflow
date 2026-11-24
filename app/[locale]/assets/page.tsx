@@ -1,5 +1,6 @@
 "use client";
 import "./asset-entry.css";
+import "./asset-card.css";
 import AssetEntrySettings from '@/components/assets/AssetEntrySettings';
 import {assetEntryTaxSettings} from '@/lib/asset-entry-tax';
 import {assetEntryAmount} from '@/lib/asset-entry';
@@ -35,14 +36,15 @@ import AssetsPageToolbar from "@/components/assets/AssetsPageToolbar";
 import ActionButton,{ActionIconGlyph} from "@/components/ActionButton";
 import DetailsDialog from "@/components/assets/DetailsDialog";
 import AssetDetails from "@/components/assets/AssetDetails";
-import AssetStatementPreview from '@/components/assets/AssetStatementPreview';
+import AssetStatementPreview,{type AssetCardSection} from '@/components/assets/AssetStatementPreview';
 import AssetEditForm from "@/components/assets/AssetEditForm";
-import AssetEditActions, {type AssetEditMode} from "@/components/assets/AssetEditActions";
+import AssetEditActions, {useAssetEditPolicy} from "@/components/assets/AssetEditActions";
 import AssetPurchasePanel from "@/components/assets/AssetPurchasePanel";
 import {assetPurchaseAmounts,assetPurchaseStatus} from "@/lib/asset-purchase-workspace";
 import {isAssetPurchaseAllowed} from "@/lib/assets-acquisition";
 import AssetFinancialReview from "@/components/assets/AssetFinancialReview";
-import AssetLifecyclePanel from "@/components/assets/AssetLifecyclePanel";
+import AssetLifecyclePanel,{assetCanDepreciate,type AssetLifecycleOperation} from "@/components/assets/AssetLifecyclePanel";
+import PersonalAssetExit, {pendingPersonalAssetExit} from "@/components/assets/PersonalAssetExit";
 type T =
   | "CASH"
   | "BANK"
@@ -117,16 +119,18 @@ export default function Assets({
 }) {
   const { locale } = use(params),
     ar = locale === "ar";
-  const [assetScope,setAssetScope]=useWorkspaceScope();
+  const [assetScope]=useWorkspaceScope();
   const [rows, setRows] = useState<any[]>([]),
     [form, setForm] = useState<any>(empty),
     [editAsset, setEditAsset] = useState<any>(null),
     [formOpen,setFormOpen]=useState(false),
     [saving, setSaving] = useState(false),
     [requestId,setRequestId]=useState(""),
-    [operationAsset,setOperationAsset]=useState<any>(null),
+    [detailPanel,setDetailPanel]=useState<AssetCardSection>('summary'),
+    [detailOperation,setDetailOperation]=useState<AssetLifecycleOperation|null>(null),
+    [detailRevision,setDetailRevision]=useState(0),
     [detailAsset,setDetailAsset]=useState<any>(null),
-    [reviewEvent,setReviewEvent]=useState<{id:string;name:string}|null>(null),
+    [reviewEvent,setReviewEvent]=useState<string|null>(null),
     [msg, setMsg] = useState(""),
     [loadError, setLoadError] = useState(""),
     [loading, setLoading] = useState(true),
@@ -150,7 +154,15 @@ export default function Assets({
       column: AssetSortColumn;
       direction: AssetSortDirection;
     }>({ column: "current", direction: "desc" });
-  useEffect(()=>{setScopeEntityId("");setScopeCostCenterId("");setClassFilter("ALL");setTypeFilter("ALL");setDetailAsset(null);setOperationAsset(null);setFormOpen(false);setEditAsset(null)},[assetScope]);
+  useEffect(()=>{setScopeEntityId("");setScopeCostCenterId("");setClassFilter("ALL");setTypeFilter("ALL");setDetailAsset(null);setDetailPanel('summary');setDetailOperation(null);setReviewEvent(null);setFormOpen(false);setEditAsset(null)},[assetScope]);
+  useEffect(()=>{
+    setFormOpen(false);
+    setEditAsset(null);
+    setDetailAsset(null);
+    setDetailPanel('summary');
+    setDetailOperation(null);
+    setReviewEvent(null);
+  },[scopeOrgId,scopeGroup,scopeEntityId,scopeCostCenterId]);
   const baseCurrency=assetScope==="ORGANIZATION"?catalog.organizations.find((o:any)=>o.id===scopeOrgId)?.base_currency||"SAR":catalog.base_currency||"SAR";
   const cur = baseCurrency, cv = (n: any) => Number(n || 0);
   const loadVersion=useRef(0),loadBusy=useRef(false),catalogLoaded=useRef(false);
@@ -376,14 +388,53 @@ export default function Assets({
           ? "البيانات غير متاحة"
           : "Data unavailable"
         : source;
-  const editRow = (asset: any, mode: AssetEditMode) => {
-    closeAssetForm();
-    setEditAsset({...asset, mode});
+  const closeDetails = () => {
     setDetailAsset(null);
+    setDetailPanel('summary');
+    setDetailOperation(null);
+    setEditAsset(null);
+    setReviewEvent(null);
   };
-  const assetEditActions = detailAsset && <AssetEditActions key={detailAsset.id} asset={detailAsset}
-    ar={ar} locale={locale} onEdit={mode => editRow(detailAsset,mode)}
-    onReview={id=>{setReviewEvent({id,name:detailAsset.name});setDetailAsset(null);}}/>;
+  const openAssetDetails = (asset: any) => {
+    setDetailAsset(asset);
+    setDetailPanel('summary');
+    setDetailOperation(null);
+    setEditAsset(null);
+    setReviewEvent(null);
+  };
+  const returnToStatement = () => {
+    setDetailPanel('statement');
+    setDetailOperation(null);
+    setEditAsset(null);
+    setReviewEvent(null);
+  };
+  const refreshDetail = () => {
+    setDetailRevision(value=>value+1);
+    void load(true,true);
+  };
+  const refreshDetailStatement = () => {
+    returnToStatement();
+    refreshDetail();
+  };
+  const {policy:detailPolicy,failed:detailPolicyFailed}=useAssetEditPolicy(detailAsset?.id??null,detailRevision);
+  const editDetail=(mode:'registration'|'valuation')=>setEditAsset({id:detailAsset.id,mode});
+  const isInstitutionalDetail=detailAsset?.ownership_scope==='ORGANIZATION'||!!detailAsset?.organization_id;
+  const pendingExit=detailAsset&&!isInstitutionalDetail&&pendingPersonalAssetExit(detailAsset.id);
+  const hasExitAction=detailAsset&&!!detailPolicy&&detailPolicy.registration_lock?.code!=='ACCESS'&&(isInstitutionalDetail
+    ?detailAsset.current_quantity>0
+    :!['CASH','BANK','RECEIVABLE'].includes(detailAsset.asset_type)&&(detailAsset.current_quantity>0||pendingExit));
+  const canDepreciate=hasExitAction&&isInstitutionalDetail&&assetCanDepreciate(detailAsset);
+  const detailStatus=detailAsset?.lifecycle_status??'ACTIVE';
+  const detailStatusLabel=detailStatus==='ACTIVE'?(ar?'نشط':'Active'):
+    detailStatus==='SOLD'?(ar?'مباع':'Sold'):detailStatus==='DISPOSED'?(ar?'مستبعد':'Disposed'):detailStatus;
+  const detailRegistration=detailPolicy?.asset_registration_can_edit&&<ActionButton icon="edit" showLabel
+    className="asset-card-primary" label={ar?'تعديل بيانات الأصل':'Edit asset details'} onClick={()=>editDetail('registration')}/>;
+  const currentReviewEvents=detailAsset?.financial_review_events??[];
+  const detailReviewActions=currentReviewEvents.map((event:{id:string},index:number)=><ActionButton key={event.id}
+    icon="history" showLabel label={`${ar?'المراجعة والسجل المالي':'Financial review and history'}${currentReviewEvents.length>1?` (${index+1})`:''}`}
+    onClick={()=>setReviewEvent(event.id)}/>);
+  const detailEditInfo=detailAsset&&<AssetEditActions asset={detailAsset} ar={ar} locale={locale} onEdit={editDetail} onReview={setReviewEvent}
+    policy={detailPolicy} failed={detailPolicyFailed}/>;
   const columnLabel = (column: AssetColumn) => {
     if (column === "date" && assetScope === "ORGANIZATION") return ar ? "تاريخ الاقتناء" : "Acquisition date";
     const definition = ASSET_COLUMNS.find(([key]) => key === column)!;
@@ -421,7 +472,7 @@ export default function Assets({
             <div className="asset-name-meta"><span className="asset-detail-type">{typeName(row)}</span>
             {row.metadata?.register_source&&<small>{ar?"رصيد مباشر من السجل المالي":"Live financial register balance"}</small>}</div>
             {row.financial_event_id&&!orderedColumns.includes("status")&&<span className="pill asset-state">{assetPurchaseStatus(row.financial_event_status||"DRAFT",ar)}</span>}
-            {!orderedColumns.includes("action")&&<ActionButton icon="details" label={ar?"التفاصيل والإجراءات":"Details and actions"} onClick={()=>{if(row.metadata?.register_source)window.location.href=`/${locale}/${row.metadata.register_source}?scope=ORGANIZATION`;else if(row.metadata?.investment_id)window.location.href=`/${locale}/investments?investment_id=${row.metadata.investment_id}`;else setDetailAsset(row);}}/>}
+            {!orderedColumns.includes("action")&&<ActionButton icon="details" label={ar?"التفاصيل والإجراءات":"Details and actions"} onClick={()=>{if(row.metadata?.register_source)window.location.href=`/${locale}/${row.metadata.register_source}?scope=ORGANIZATION`;else if(row.metadata?.investment_id)window.location.href=`/${locale}/investments?investment_id=${row.metadata.investment_id}`;else openAssetDetails(row);}}/>}
             {assetDisplayClass(row)==="UNCLASSIFIED"&&<small className="muted">{ar?"استكمال التصنيف":"Awaiting classification"}</small>}
             {row.lifecycle_status==="SOLD" && <span className="pill" style={{marginInlineStart:8}}>{ar?"مباع":"Sold"}</span>}
             {row.lifecycle_status==="DISPOSED" && <span className="pill" style={{marginInlineStart:8}}>{ar?"مستغنى عنه":"Disposed"}</span>}
@@ -476,12 +527,12 @@ export default function Assets({
           />
         );
       case "action":
-        return <ActionButton icon="details" label={ar?"التفاصيل والإجراءات":"Details and actions"} onClick={()=>{if(row.metadata?.register_source)window.location.href=`/${locale}/${row.metadata.register_source}?scope=ORGANIZATION`;else if(row.metadata?.investment_id)window.location.href=`/${locale}/investments?investment_id=${row.metadata.investment_id}`;else{setDetailAsset(row);setReviewEvent(null);setOperationAsset(null);}}}/>;
+        return <ActionButton icon="details" label={ar?"التفاصيل والإجراءات":"Details and actions"} onClick={()=>{if(row.metadata?.register_source)window.location.href=`/${locale}/${row.metadata.register_source}?scope=ORGANIZATION`;else if(row.metadata?.investment_id)window.location.href=`/${locale}/investments?investment_id=${row.metadata.investment_id}`;else openAssetDetails(row);}}/>;
 
     }
   };
   const [submitted,setSubmitted]=useState(false);
-  const [quickAdd,setQuickAdd]=useState<'SUPPLIER'|'CENTER'|null>(null);
+  const [quickAdd,setQuickAdd]=useState(false);
   const [manageSuppliers,setManageSuppliers]=useState(false);
   const [fxQuote,setFxQuote]=useState<{key:string;rate:number|null;error:string;loading:boolean}>({key:'',rate:null,error:'',loading:false});
   const fxKey=JSON.stringify([form.currency,form.purchase_date,form.ownership_scope==='ORGANIZATION'?form.organization_id:null]);
@@ -586,7 +637,7 @@ export default function Assets({
       <style>{`.asset-detail-type{font-size:11px;margin-inline-start:8px}.asset-owner-switch{display:flex;gap:6px;flex-wrap:wrap}.asset-scope-bar{display:grid;grid-template-columns:minmax(180px,.8fr) minmax(220px,1.2fr) minmax(200px,1fr) minmax(200px,1fr);gap:12px;align-items:end;padding:16px 18px}.asset-scope-bar label{display:grid;gap:6px;font-size:12px;font-weight:700}.asset-scope-bar select{width:100%}.asset-scope-title{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px}.asset-scope-title strong{font-size:14px}.asset-scope-title span{font-size:11px;color:var(--muted)}@media(max-width:900px){.asset-scope-bar{grid-template-columns:1fr 1fr}}@media(max-width:620px){.asset-scope-bar{grid-template-columns:1fr}}.asset-report-table[data-size=compact] th,.asset-report-table[data-size=compact] td{padding:7px 8px;font-size:11px}.asset-report-table[data-size=normal] th,.asset-report-table[data-size=normal] td{padding:12px;font-size:13px}.asset-report-table[data-size=wide] th,.asset-report-table[data-size=wide] td{padding:17px 20px;font-size:14px}.asset-report-table th{min-width:105px;white-space:nowrap}.asset-report-table th[data-column=asset]{min-width:180px}.hawl-badges{display:inline-flex;gap:5px;white-space:nowrap}.hawl-cycle,.hawl-days{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:8px}.hawl-cycle{background:var(--brand-surface-soft);color:var(--brand-primary)}.hawl-days{background:var(--brand-surface-soft);color:var(--brand-text)}.zakat-formula{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--brand-surface-soft);color:var(--brand-text);min-width:280px}.zakat-formula-title{font-weight:700;margin-bottom:5px}.zakat-formula-eq{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;direction:ltr;text-align:left;white-space:normal;line-height:1.7}.zakat-formula-result{font-weight:800;margin-top:5px}`}</style>
       <div className="asset-page-header">
         <div className="asset-page-heading"><h1><span className="page-title-icon" aria-hidden="true">▥</span> {ar?"الأصول":"Assets"}</h1></div>
-        <AssetsPageToolbar ar={ar} onAdd={()=>{if(editAsset){document.getElementById('asset-entry-title')?.focus();return;}if(!formOpen){setEditAsset(null);setRequestId("");setMsg("");setSubmitted(false);setForm({...empty,purchase_date:entryToday(),ownership_scope:assetScope,organization_id:assetScope==='ORGANIZATION'?scopeOrgId||null:null,entity_id:assetScope==='ORGANIZATION'?scopeEntityId||null:null,cost_center_id:assetScope==='ORGANIZATION'?scopeCostCenterId||null:null,currency:baseCurrency});setFormOpen(true);}else document.getElementById('asset-entry-title')?.focus();}}/>
+        <AssetsPageToolbar ar={ar} onAdd={()=>{if(editAsset){document.getElementById('asset-entry-title')?.focus();return;}if(!formOpen){setQuickAdd(false);setManageSuppliers(false);if(assetScope==='ORGANIZATION'&&(!scopeOrgId||scopeGroup)){setMsg(ar?"اختر شركة واحدة من البنر لإضافة أصل.":"Choose one organization in the main banner to add an asset.");return;}setEditAsset(null);setRequestId("");setMsg("");setSubmitted(false);setForm({...empty,purchase_date:entryToday(),ownership_scope:assetScope,organization_id:assetScope==='ORGANIZATION'?scopeOrgId||null:null,entity_id:assetScope==='ORGANIZATION'?scopeEntityId||null:null,cost_center_id:assetScope==='ORGANIZATION'?scopeCostCenterId||null:null,currency:baseCurrency});setFormOpen(true);}else document.getElementById('asset-entry-title')?.focus();}}/>
       </div>
       <div className="asset-page-subtitle"><p className="muted">{assetScope === "ORGANIZATION" ? (ar ? "سجل الأصول المؤسسية وتقييمها؛ مراجعة الزكاة ضمن نماذج تقييم المنشأة." : "Corporate asset register and valuations; review Zakat in organization assessment models.") : ar?"نطاق الدورات المحدد ينعكس على مؤشرات الزكاة والجدول. الشامل يجمع النهائي المثبّت وآخر تقدير للمفتوحة، والسداد يُخصم من دورته.":"Cycle scope updates Zakat indicators and the table. Comprehensive combines frozen finals and latest open estimates; payments reduce their own cycle."}</p><span className="pill">{ar?"عملة الأساس: ":"Base currency: "}{baseCurrency}</span></div>
       {assetScope==='ORGANIZATION'&&<TopbarOrganizationControls>
@@ -622,26 +673,56 @@ export default function Assets({
         <div style={{overflowX:'auto'}}><table className="table"><thead><tr><th>{ar?"الأصل":"Asset"}</th><th>{ar?"النوع":"Type"}</th><th>{selectedMetric.title}</th></tr></thead><tbody>{selectedMetric.rows.map(r=><tr key={r.id}><td>{r.name}</td><td>{typeName(r)}</td><td>{selectedMetric.detail(r)}</td></tr>)}</tbody></table></div>
         {!selectedMetric.rows.length&&<p className="muted">{ar?"لا توجد أصول مطابقة لهذا المؤشر.":"No matching assets for this indicator."}</p>}
       </section>}
-      {detailAsset&&<DetailsDialog label={ar?"تفاصيل الأصل والإجراءات":"Asset details and actions"} onClose={()=>setDetailAsset(null)}>{(detailAsset.financial_event_id?<AssetPurchasePanel key={detailAsset.id} assetId={detailAsset.id} ar={ar} onChanged={()=>void load()} onClose={()=>setDetailAsset(null)} supplementalDetails={<AssetStatementPreview assetId={detailAsset.id} ar={ar} onSaved={()=>void load(true,true)}/>} extraActions={<>{assetEditActions}{detailAsset.current_quantity>0&&<ActionButton icon="operations" label={ar?"بيع أو إهلاك أو استبعاد":"Sale, depreciation or disposal"} onClick={()=>{setOperationAsset(detailAsset);setDetailAsset(null);}}/>}{detailAsset.financial_review_events?.map((e:any,i:number)=><ActionButton icon="history" key={e.id} label={`${ar?"السجل والمراجعة المالية":"Financial review and history"}${detailAsset.financial_review_events.length>1?` (${i+1})`:''}`} onClick={()=>{setReviewEvent({id:e.id,name:detailAsset.name});setDetailAsset(null);}}/>)}</>}/>:<AssetDetails key={detailAsset.id} asset={detailAsset} ar={ar} onOpeningChanged={()=>{setDetailAsset(null);void load();}} onClose={()=>setDetailAsset(null)} editActions={assetEditActions} onLifecycle={()=>{if(detailAsset.ownership_scope==="ORGANIZATION")setOperationAsset(detailAsset);else window.location.href=`/${locale}/transactions`;setDetailAsset(null);}} onReview={id=>{setReviewEvent({id,name:detailAsset.name});setDetailAsset(null);}}/>)}{!detailAsset.financial_event_id&&<AssetStatementPreview assetId={detailAsset.id} ar={ar} onSaved={()=>void load(true,true)}/>}</DetailsDialog>}
-      {reviewEvent&&<section className="card section"><div className="page-head"><h3>{reviewEvent.name}</h3><ActionButton icon="close" label={ar?"إغلاق المراجعة":"Close review"} onClick={()=>setReviewEvent(null)}/></div><AssetFinancialReview key={reviewEvent.id} eventId={reviewEvent.id} ar={ar} onChanged={()=>void load()} initialOpen/></section>}
-      {operationAsset&&<AssetLifecyclePanel key={operationAsset.id} asset={operationAsset} locale={locale} counterparties={catalog.counterparties||[]} onClose={()=>setOperationAsset(null)} onSaved={()=>void load()}/>}
-      {editAsset&&<AssetEditForm key={editAsset.id} asset={editAsset} mode={editAsset.mode} ar={ar}
-        onClose={()=>setEditAsset(null)} onSaved={()=>{
-          setEditAsset(null);
-          setMsg(ar?"تم حفظ تعديل بيانات الأصل.":"Asset details saved.");
-          void load(false,true);
-        }}/>}
+      {detailAsset&&<DetailsDialog label={ar?"تفاصيل الأصل والإجراءات":"Asset details and actions"} onClose={closeDetails} className="asset-card-dialog">
+        <AssetStatementPreview key={detailAsset.id} assetId={detailAsset.id} name={detailAsset.name} typeName={typeName(detailAsset)}
+          icon={assetTypeIcon(detailAsset.asset_type_code||detailAsset.asset_type)} status={detailStatusLabel} active={detailStatus==='ACTIVE'}
+          organizational={isInstitutionalDetail} ar={ar} revision={detailRevision} section={detailPanel}
+          onSection={setDetailPanel} onClose={closeDetails} onSaved={refreshDetail} hawlLots={detailAsset.lots??[]} zakatable={!!detailAsset.is_zakatable}
+          toolbar={<>{detailRegistration}
+            {hasExitAction&&<>
+              {(!pendingExit||pendingExit.transaction_type==='SALE')&&
+                <ActionButton icon="collect" showLabel className="asset-card-primary" label={ar?'بيع':'Sell'} onClick={()=>setDetailOperation('SALE')}/>}
+              {(!pendingExit||pendingExit.transaction_type==='ADJUSTMENT')&&
+                <ActionButton icon="delete" showLabel label={ar?'استبعاد':'Dispose'} onClick={()=>setDetailOperation('DISPOSAL')}/>}
+            </>}
+            {canDepreciate&&<ActionButton icon="operations" showLabel label={ar?'إهلاك':'Depreciate'} onClick={()=>setDetailOperation('DEPRECIATION')}/>}
+          </>}
+          content={detailPanel==='summary'?<>
+            <AssetDetails asset={detailAsset} ar={ar} onOpeningChanged={refreshDetailStatement}/>
+            {detailEditInfo}
+          </>:detailPanel==='valuation'?detailEditInfo
+          :detailPanel==='documents'?(detailAsset.financial_event_id
+            ?<AssetPurchasePanel assetId={detailAsset.id} ar={ar} onChanged={refreshDetail} onClose={()=>setDetailPanel('summary')}/>
+            :<div className="asset-card-notes"><p>{ar?'تجد السندات المرتبطة بكل عملية في كشف حركة الأصل.':'Open the movement statement to review each linked voucher.'}</p>
+              <ActionButton icon="history" showLabel label={ar?'فتح كشف الحركة':'Open movement statement'} onClick={()=>setDetailPanel('statement')}/>
+            </div>)
+          :detailPanel==='actions'?<div className="asset-detail-actions">{detailReviewActions.length?detailReviewActions:<p>{ar?'تظهر هنا المراجعات المالية المرتبطة بالأصل عند توفرها.':'Linked financial reviews appear here when available.'}</p>}</div>:null}
+          work={editAsset?<AssetEditForm key={editAsset.mode} asset={detailAsset} mode={editAsset.mode} ar={ar}
+            onClose={()=>setEditAsset(null)} onSaved={refreshDetailStatement}/>
+          :reviewEvent?<section className="card section">
+            <div className="page-head"><h3>{detailAsset.name}</h3><ActionButton icon="close"
+              label={ar?'العودة إلى التفاصيل':'Return to details'} onClick={()=>setReviewEvent(null)}/></div>
+            <AssetFinancialReview key={reviewEvent} eventId={reviewEvent} ar={ar} onChanged={refreshDetail} initialOpen/>
+          </section>
+          :detailOperation?(isInstitutionalDetail
+            ?<AssetLifecyclePanel key={detailOperation} asset={detailAsset} locale={locale} initialOperation={detailOperation}
+              counterparties={catalog.counterparties||[]} onClose={returnToStatement} onSaved={refreshDetail} onPosted={refreshDetailStatement}/>
+            :<PersonalAssetExit key={detailOperation} asset={detailAsset} accounts={rows} initialOperation={detailOperation==='DISPOSAL'?'DISPOSAL':'SALE'}
+              baseCurrency={catalog.base_currency??detailAsset.current_value_currency} ar={ar} onClose={returnToStatement} onSaved={refreshDetailStatement}/>)
+          :null}/>
+      </DetailsDialog>}
       {formOpen&&<section className="card section asset-entry" aria-labelledby="asset-entry-title">
-        <div className="asset-entry-header"><div><span className="asset-entry-eyebrow">{ar?"سجل الأصول":"Asset register"}</span><h3 id="asset-entry-title" tabIndex={-1}>{ar?"إضافة أصل":"Add asset"}</h3><p>{ar?"حدّد الأصل وملكيته، ثم راجع القيم قبل الحفظ.":"Define the asset and its ownership, then review the values."}</p></div><ActionButton icon="close" label={ar?"إغلاق النموذج":"Close form"} disabled={saving} onClick={closeAssetForm}/></div>
+        <div className="asset-entry-header"><div><span className="asset-entry-eyebrow">{ar?"سجل الأصول":"Asset register"}</span><h3 id="asset-entry-title" tabIndex={-1}>{ar?"إضافة أصل":"Add asset"}</h3><p>{ar?"أدخل بيانات الأصل وراجع القيم قبل الحفظ.":"Enter the asset details and review the values before saving."}</p></div><ActionButton icon="close" label={ar?"إغلاق النموذج":"Close form"} disabled={saving} onClick={closeAssetForm}/></div>
         <form noValidate data-language={ar?'ar':'en'} className={submitted?'is-submitted':''} onInput={e=>{const control=e.target as HTMLInputElement;if(control.validity?.valid)control.removeAttribute('aria-invalid');}} onSubmit={e=>{e.preventDefault();setSubmitted(true);const controls=Array.from(e.currentTarget.querySelectorAll<HTMLInputElement|HTMLSelectElement>('input,select'));const invalid=controls.filter(c=>!c.disabled&&!c.validity.valid);controls.forEach(c=>{if(invalid.includes(c))c.setAttribute('aria-invalid','true');else c.removeAttribute('aria-invalid');});if(invalid.length){invalid.forEach(control=>{let parent:HTMLElement|null=control.parentElement;while(parent&&parent!==e.currentTarget){if(parent instanceof HTMLDetailsElement)parent.open=true;parent=parent.parentElement;}});setMsg(ar?'راجع الحقول المحددة باللون الأحمر وأكمل البيانات المطلوبة.':'Check the highlighted fields and complete the required information.');invalid[0].focus();invalid[0].scrollIntoView({block:'center',behavior:'smooth'});return;}void save();}} aria-busy={saving}>
           <fieldset className="asset-entry-fields" disabled={saving}>
-<details className="asset-entry-group" open><summary><span aria-hidden="true">01</span>{ar?"الملكية وطريقة الاقتناء":"Ownership & acquisition"}<span className="asset-entry-chevron" aria-hidden="true">−</span></summary><div className="asset-entry-section-body"><p className="asset-entry-hint">{ar?"سيُسجّل الأصل باسم المالك المحدد أدناه.":"The asset will be recorded under the owner below."}</p><div className="form-grid">          <label>{ar?"ملكية الأصل *":"Asset ownership"}<select required value={form.ownership_scope} onChange={e=>setForm({...form,ownership_scope:e.target.value,debt_category:"",organization_id:e.target.value==="ORGANIZATION"?scopeOrgId||null:null,entity_id:e.target.value==="ORGANIZATION"?scopeEntityId||null:null,cost_center_id:e.target.value==="ORGANIZATION"?scopeCostCenterId||null:null,counterparty_id:"",funding_account_id:"",currency:e.target.value==="ORGANIZATION"?(catalog.organizations.find((o:any)=>o.id===scopeOrgId)?.base_currency||"SAR"):(catalog.base_currency||"SAR"),fx_rate:"1"})}><option value="">{ar?"اختر المالك":"Choose owner"}</option><option value="PERSONAL">{ar?"♙ شخصي — باسمي":"♙ Personal — owned by me"}</option><option value="ORGANIZATION">{ar?"▥ مؤسسي — باسم شركة":"▥ Organization — company owned"}</option></select></label>
-          {form.ownership_scope==="ORGANIZATION"&&<>
-            <label>{ar?"الشركة المالكة *":"Owning organization"}<select required value={form.organization_id||""} onChange={e=>{const org=catalog.organizations.find((o:any)=>o.id===e.target.value);setForm({...form,organization_id:e.target.value||null,entity_id:null,cost_center_id:null,counterparty_id:"",currency:org?.base_currency||"SAR",fx_rate:"1"});}}><option value="">{ar?"اختر الشركة المالكة":"Choose owning organization"}</option>{catalog.organizations.map((o:any)=><option key={o.id} value={o.id}>{o.name}</option>)}</select></label>
-            <label>{ar?"الفرع المالك":"Owning entity"}<select value={form.entity_id||""} onChange={e=>setForm({...form,entity_id:e.target.value||null,cost_center_id:null})}><option value="">{ar?"الجهة الرئيسية":"Main organization"}</option>{catalog.entities.filter((x:any)=>x.organization_id===form.organization_id).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-            {!financialOpening&&<label>{ar?"مركز تكلفة الأصل":"Asset cost center"}<span className="asset-entry-select-add"><select value={form.cost_center_id||""} onChange={e=>setForm({...form,cost_center_id:e.target.value||null})}><option value="">{ar?"غير محدد":"Not specified"}</option>{catalog.cost_centers.filter((x:any)=>x.organization_id===form.organization_id).map((x:any)=><option key={x.id} value={x.id}>{x.name}</option>)}</select><button type="button" className="asset-entry-plus" aria-label={ar?"إضافة مركز تكلفة":"Add cost center"} title={ar?"إضافة مركز تكلفة":"Add cost center"} disabled={saving||!form.organization_id} onClick={()=>setQuickAdd('CENTER')}>+</button></span></label>}
-          </>}
-</div></div></details>          {<details className="asset-entry-modes" open><summary>{ar?"طريقة الاقتناء":"Acquisition method"}<span className="asset-entry-chevron" aria-hidden="true">−</span></summary><div className="asset-entry-section-body">
+<div className="asset-entry-hint">
+  {ar?'نطاق التسجيل من البنر':'Registration scope from the main banner'} · {form.ownership_scope==='ORGANIZATION'
+    ?[catalog.organizations.find((item:any)=>item.id===form.organization_id)?.name,
+      catalog.entities.find((item:any)=>item.id===form.entity_id)?.name,
+      catalog.cost_centers.find((item:any)=>item.id===form.cost_center_id)?.name].filter(Boolean).join(' · ')
+    :(ar?'شخصي':'Personal')}
+</div>
+          {<details className="asset-entry-modes" open><summary>{ar?"طريقة الاقتناء":"Acquisition method"}<span className="asset-entry-chevron" aria-hidden="true">−</span></summary><div className="asset-entry-section-body">
             {([['OPENING_BALANCE',ar?'أصل موجود / رصيد افتتاحي':'Existing asset / opening balance',ar?'تسجيل أصل تملكه مسبقاً، دون عملية شراء جديدة.':'Record an asset already owned, without a new purchase.'],['PURCHASE',ar?'شراء أصل جديد':'Purchase new asset',ar?'تسجيل شراء مع بيانات المورد أو حساب الدفع الشخصي.':'Record a purchase with supplier or personal payment details.']] as const).map(([value,title,description])=><label key={value} className={`asset-entry-mode ${form.acquisition_mode===value?'is-selected':''}`}><input type="radio" name="asset-acquisition" value={value} checked={form.acquisition_mode===value} disabled={value==='PURCHASE'&&Boolean(form.asset_type_code)&&!isAssetPurchaseAllowed(catalog.types.find((x:any)=>x.code===form.asset_type_code))} onChange={()=>setForm({...form,acquisition_mode:value,funding_account_id:""})}/><span><strong>{title}</strong><small>{form.acquisition_mode===value&&<span className="asset-entry-selected-check" aria-hidden="true">✓</span>}{description}</small></span></label>)}
             {form.asset_type_code&&!isAssetPurchaseAllowed(catalog.types.find((x:any)=>x.code===form.asset_type_code))&&<p className="muted">{ar?'هذا النوع له مسار مستقل ولا يُشترى من هذا السند.':'This type uses a dedicated workflow and cannot be purchased here.'}</p>}
           </div></details>}
@@ -681,7 +762,7 @@ export default function Assets({
             </select>
           </label>}
           {form.acquisition_mode==="PURCHASE"&&form.ownership_scope==="ORGANIZATION"&&<>
-            <label>{ar?"المورد":"Supplier"}<span className="asset-entry-select-add"><select required value={form.counterparty_id} onChange={e=>setForm({...form,counterparty_id:e.target.value})}><option value="">{ar?"اختر المورد":"Choose supplier"}</option>{(catalog.suppliers||[]).filter((x:any)=>x.organization_id===form.organization_id&&["SUPPLIER","BOTH"].includes(x.party_type)).map((x:any)=><option value={x.id} key={x.id}>{x.name}</option>)}</select><button type="button" className="asset-entry-plus" aria-label={ar?"إضافة مورد":"Add supplier"} title={ar?"إضافة مورد":"Add supplier"} disabled={saving||!form.organization_id} onClick={()=>setQuickAdd('SUPPLIER')}>+</button></span><button type="button" className="asset-entry-manage-link" disabled={!form.organization_id||saving} onClick={()=>setManageSuppliers(true)}>{ar?"إدارة الموردين":"Manage suppliers"}</button></label>
+            <label>{ar?"المورد":"Supplier"}<span className="asset-entry-select-add"><select required value={form.counterparty_id} onChange={e=>setForm({...form,counterparty_id:e.target.value})}><option value="">{ar?"اختر المورد":"Choose supplier"}</option>{(catalog.suppliers||[]).filter((x:any)=>x.organization_id===form.organization_id&&["SUPPLIER","BOTH"].includes(x.party_type)).map((x:any)=><option value={x.id} key={x.id}>{x.name}</option>)}</select><button type="button" className="asset-entry-plus" aria-label={ar?"إضافة مورد":"Add supplier"} title={ar?"إضافة مورد":"Add supplier"} disabled={saving||!form.organization_id} onClick={()=>setQuickAdd(true)}>+</button></span><button type="button" className="asset-entry-manage-link" disabled={!form.organization_id||saving} onClick={()=>setManageSuppliers(true)}>{ar?"إدارة الموردين":"Manage suppliers"}</button></label>
 
             </>}
 </div></div>}</div></details>{financialOpening&&<details className="asset-entry-group" open><summary>{ar?'بيانات الرصيد الافتتاحي':'Opening balance details'}<span className="asset-entry-chevron" aria-hidden="true">−</span></summary><div className="asset-entry-section-body"><div className="form-grid">
@@ -715,8 +796,15 @@ export default function Assets({
         </form>
         {<p className="asset-entry-links">{ar?"تريد إضافة حساب أو ذمة؟":"Adding an account or receivable?"} <Link href={`/${locale}/cash-and-banks`}>{ar?"النقد والبنوك":"Cash & banks"}</Link> · <Link href={`/${locale}/receivables`}>{ar?"الذمم":"Receivables"}</Link></p>}
       </section>}
-      {manageSuppliers&&form.organization_id&&<DebtPartyManager scope="ORGANIZATION" organizationId={form.organization_id} onClose={()=>{setManageSuppliers(false);void refreshEntryCatalog();}} onChanged={()=>void refreshEntryCatalog()}/>}
-      {quickAdd&&form.organization_id&&<AssetEntryQuickAdd key={`${quickAdd}:${form.organization_id}`} kind={quickAdd} organizationId={form.organization_id} organizationName={catalog.organizations.find((o:any)=>o.id===form.organization_id)?.name||""} partyTypes={(catalog.party_types||[]).filter((t:any)=>t.organization_id===form.organization_id)} ar={ar} onClose={()=>setQuickAdd(null)} onSaved={item=>{if(quickAdd==='CENTER'){setCatalog((c:any)=>({...c,cost_centers:[...c.cost_centers,item]}));setForm((f:any)=>({...f,cost_center_id:item.id}));}else{setCatalog((c:any)=>({...c,suppliers:[...(c.suppliers||[]),item],counterparties:[...(c.counterparties||[]),item]}));setForm((f:any)=>({...f,counterparty_id:item.id}));}setQuickAdd(null);}}/>}
+      {formOpen&&manageSuppliers&&form.organization_id&&<DebtPartyManager scope="ORGANIZATION" organizationId={form.organization_id} onClose={()=>{setManageSuppliers(false);void refreshEntryCatalog();}} onChanged={()=>void refreshEntryCatalog()}/>}
+      {formOpen&&quickAdd&&form.organization_id&&<AssetEntryQuickAdd key={form.organization_id} kind="SUPPLIER"
+        organizationId={form.organization_id} organizationName={catalog.organizations.find((item:any)=>item.id===form.organization_id)?.name||""}
+        partyTypes={(catalog.party_types||[]).filter((item:any)=>item.organization_id===form.organization_id)} ar={ar}
+        onClose={()=>setQuickAdd(false)} onSaved={item=>{
+          setCatalog((current:any)=>({...current,suppliers:[...(current.suppliers||[]),item],counterparties:[...(current.counterparties||[]),item]}));
+          setForm((current:any)=>({...current,counterparty_id:item.id}));
+          setQuickAdd(false);
+        }}/>}
       {msg&&!formOpen&&!editAsset&&<p role="status" className="muted">{msg}</p>}
       <section className="section">
 

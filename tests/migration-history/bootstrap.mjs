@@ -89,6 +89,9 @@ try{
    'grouped-gold-release-schema-delta',
    'independent-sale-destination-schema-delta',
    'feasibility-invitation-preferences-schema-delta',
+   'personal-asset-exit-requests-schema-delta',
+   'personal-gold-receipt-hawl-schema-delta',
+   'personal-gold-receipt-remaining-schema-delta',
   ];
   const deltas=await Promise.all(deltaNames.map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
   for(const delta of deltas){
@@ -151,9 +154,13 @@ try{
   const qa=sql(await load('tests/sql/personal-sale-price-preflight.sql'));
   assert.match(qa,/PASS historical sale repriced/);
  });
+ await check('idempotent personal exits roll back audit failures and isolate saved requests by owner',async()=>{
+  const qa=sql(await load('tests/sql/personal-sale-exit-retry.sql'));
+  assert.match(qa,/personal_exit_rollback_replay_and_isolation_pass/);
+ });
  await check('bootstrap contains no customer, owner, membership or subscription records',async()=>{
   assert.equal(sql('select (select count(*) from auth.users)+(select count(*) from organizations)+(select count(*) from organization_members)+(select count(*) from platform_admins)+(select count(*) from platform_subscriptions)'), '0');
-  assert.equal(sql('select count(*) from pg_policies where schemaname in (\'public\',\'private\',\'subscription_private\')'),'195');
+  assert.equal(sql('select count(*) from pg_policies where schemaname in (\'public\',\'private\',\'subscription_private\')'),'197');
   assert.equal(sql('select count(*) from subscription_private.guard_coverage'),'103');
  });
  const admin=createClient(status.API_URL,status.SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});

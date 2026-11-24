@@ -29,10 +29,10 @@ async function user(){
  return {id:user.id,cookies:[...cookies.values()],client};
 }
 
-async function seed(owner,organization_id=null,manualGold=false){
+async function seed(owner,organization_id=null,manualGold=false,name){
  const src=organization_id?admin:owner.client;
  const {id}=value(await src.from('asset_accounts').insert({
-  user_id:owner.id,name:organization_id?'QA Equipment Register':manualGold?'QA 18K Gold':'QA Gold Statement',
+  user_id:owner.id,name:name??(organization_id?'QA Equipment Register':manualGold?'QA 18K Gold':'QA Gold Statement'),
   metadata:manualGold?{karat:18,market_price_per_unit:410,market_price_currency:'SAR',market_value_auto:true,
    market_price_source:'USER_MANUAL',market_valuation_date:'2025-07-01'}:{},
   asset_type:organization_id?'OTHER':'GOLD',unit:organization_id?'unit':'g',currency:'SAR',
@@ -76,6 +76,141 @@ function today(){
  return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 }
 
+async function verifyJuneZakatPayment(browser) {
+ // This module is pending promotion. Install it only on the disposable CI database,
+ // after the existing statement tests have finished.
+ execFileSync('psql', [
+  'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
+  '-X', '-v', 'ON_ERROR_STOP=1', '-f', 'supabase/modules/assets/gold_receipt_assessment_components.sql',
+  '-c', "NOTIFY pgrst, 'reload schema'",
+ ], {stdio:'inherit'});
+
+ const owner = await user();
+ const client = owner.client;
+ const bankName = 'QA June Zakat Bank';
+ const assessDate = '2026-06-12';
+ const paymentDate = '2026-06-13';
+ value(await admin.from('profiles').update({base_currency:'SAR'}).eq('id',owner.id));
+ const method = value(await client.from('zakat_methods').select('id').eq('code','INDEPENDENT_LOTS').single());
+ async function asset(name, type, unit, metadata={}) {
+  return value(await client.from('asset_accounts').insert({
+   user_id:owner.id, name, asset_type:type, unit, metadata, currency:'SAR',
+   ownership_scope:'PERSONAL', is_zakatable:true,
+  }).select('id').single()).id;
+ }
+ async function opening(account, date, quantity, cost) {
+  const tx = value(await client.from('transactions').insert({
+   user_id:owner.id, asset_account_id:account, transaction_type:'OPENING_BALANCE',
+   transaction_date:date, quantity, unit_price:cost/quantity, currency:'SAR',
+   base_currency:'SAR', gross_value:cost, base_value:cost, created_by:owner.id,
+  }).select('id').single());
+  return value(await client.from('lots').insert({
+   user_id:owner.id, asset_account_id:account, source_transaction_id:tx.id,
+   acquisition_date:date, hawl_start_date:date, original_quantity:quantity,
+   remaining_quantity:quantity, original_value_base:cost, remaining_value_base:cost,
+  }).select('id').single()).id;
+ }
+ const bank = await asset(bankName,'BANK','unit');
+ const gold = await asset('QA June 18K Gold','GOLD','g',{karat:18});
+ const oldCash = await opening(bank,'2025-12-12',1550,1550);
+ await opening(gold,'2025-06-12',2,600);
+ const remainingGold = await opening(gold,assessDate,8,3200);
+ value(await client.rpc('post_sale_with_proceeds',{
+  p_user_id:owner.id, p_asset_account_id:gold, p_destination_account_id:bank,
+  p_date:assessDate, p_quantity:2, p_sale_value:900, p_currency:'SAR',
+  p_base_currency:'SAR', p_base_value:900,
+ }));
+
+ const ctx = await context(browser,owner,{width:1440,height:960});
+ try {
+  const page = await ctx.newPage();
+  async function json(response) {
+   assert.ok(response.ok(), await response.text());
+   return response.json();
+  }
+  async function get(path) {
+   return json(await ctx.request.get(app+path));
+  }
+  async function clickForPost(path, button) {
+   const response = page.waitForResponse(r=>new URL(r.url()).pathname===path && r.request().method()==='POST',{timeout:45000});
+   await page.getByRole('button',{name:button,exact:true}).click();
+   return response;
+  }
+  async function bankBalance() {
+   return (await get('/api/payments/accounts')).accounts.find(account=>account.id===bank)?.balance;
+  }
+
+  assert.equal(await bankBalance(),2450);
+  await page.goto(app+'/ar/assessments?scope=PERSONAL',{waitUntil:'domcontentloaded'});
+  await page.locator('label').filter({hasText:/^المنهج/}).locator('select').selectOption(method.id);
+  await page.getByLabel('تاريخ الاحتساب',{exact:true}).fill(assessDate);
+  await page.getByLabel('تاريخ بلوغ المحفظة للنصاب',{exact:true}).fill('2025-06-12');
+  await page.getByLabel('سعر الذهب الخالص / g',{exact:true}).fill('400');
+  await page.getByLabel('سعر الفضة الخالصة / g',{exact:true}).fill('4');
+  const {assessment,lines} = await json(await clickForPost('/api/assessments','إجراء احتساب جديد'));
+  assert.equal(Number(assessment.total_zakatable_value),900);
+  assert.equal(Number(assessment.zakat_due),22.5);
+  assert.equal(lines.length,3);
+  for(const [id,due] of [[oldCash,'2026-12-02'],[remainingGold,'2027-06-02']]){
+   const line = lines.find(line=>line.lot_id===id);
+   assert.equal(Number(line.eligible_value),0);
+   assert.equal(line.valuation_snapshot.hawlDueDate,due);
+  }
+  const inheritedCash = lines.find(line=>Number(line.eligible_value)===900);
+  assert.equal(inheritedCash.valuation_snapshot.hawlDueDate,'2026-06-01');
+  assert.equal(inheritedCash.valuation_snapshot.receiptComponentPolicy,'SOURCE_PERIOD_V1');
+
+  page.once('dialog',dialog=>dialog.accept());
+  await json(await clickForPost('/api/assessments/confirm','اعتماد الاحتساب النهائي'));
+  await page.reload({waitUntil:'domcontentloaded'});
+  const finalRow = page.getByRole('row').filter({hasText:'FINAL'}).filter({hasText:assessDate});
+  await finalRow.getByRole('cell').filter({hasText:/22\.50/}).waitFor();
+  await finalRow.scrollIntoViewIfNeeded();
+  await page.screenshot({path:'asset-qa-preview/june-zakat-final-ar.png'});
+
+  await page.goto(app+'/ar/payments?scope=PERSONAL',{waitUntil:'domcontentloaded'});
+  await page.locator('label').filter({hasText:/^الدورة الزكوية/}).locator('select').selectOption(assessment.hawl_cycle_id);
+  await page.locator('label').filter({hasText:/^البنك أو الصندوق المسدد منه/}).locator('select').selectOption(bank);
+
+  const paymentForm = page.locator('section').filter({
+   has:page.getByRole('heading',{name:'تسجيل دفعة زكاة',exact:true}),
+  });
+  await paymentForm.getByLabel('تاريخ السداد',{exact:true}).fill(paymentDate);
+  await paymentForm.getByLabel('مبلغ السداد',{exact:true}).fill('22.50');
+  const savePayment = paymentForm.getByRole('button',{name:/حفظ/});
+  assert.equal(await savePayment.count(),1,JSON.stringify(await paymentForm.getByRole('button').allTextContents()));
+  const response = page.waitForResponse(r=>new URL(r.url()).pathname==='/api/payments' && r.request().method()==='POST',{timeout:45000});
+  await savePayment.click();
+  const paymentResponse = await response;
+  const paymentRequest = paymentResponse.request().postDataJSON();
+  const payment = await json(paymentResponse);
+  assert.equal(payment.payment_date,paymentDate);
+  const repeated = await json(await ctx.request.post(app+'/api/payments',{data:paymentRequest}));
+  assert.equal(repeated.id,payment.id);
+
+  await page.reload({waitUntil:'domcontentloaded'});
+  const paidRow = page.getByRole('row').filter({hasText:paymentDate}).filter({hasText:bankName});
+  const number = paidRow.locator('bdi').first();
+  await number.waitFor();
+  const voucher = await number.innerText();
+  assert.match(voucher,/^ZP-/);
+  assert.equal(await paidRow.count(),1);
+  assert.match(await paidRow.innerText(),/22\.50/);
+  await paidRow.scrollIntoViewIfNeeded();
+  await page.screenshot({path:'asset-qa-preview/june-zakat-payment-ar.png'});
+  const payments = await get('/api/payments');
+  assert.equal(payments.length,1);
+  assert.equal(payments[0].id,payment.id);
+  assert.equal(Number(payments[0].allocated_amount),22.5);
+  assert.equal(await bankBalance(),2427.5);
+  const movements = value(await client.from('transactions').select('id').eq('asset_account_id',bank).eq('transaction_type','ZAKAT_PAYMENT'));
+  assert.equal(movements.length,1);
+  console.log('PASS June Zakat browser save, finalize and reload:', voucher, payment.payment_date, 'one SAR 22.50 payment, bank SAR 2450 → 2427.50');
+ } finally {
+  await ctx.close();
+ }
+}
+
 let server,browser;
 try{
  const owner=await user(),stranger=await user();
@@ -96,8 +231,10 @@ try{
  const ar=await context(browser,owner,{width:390,height:844});
  const en=await context(browser,owner,{width:1440,height:960});
  const foreign=await context(browser,stranger,{width:390,height:844});
- async function statement(ctx,id,date=today(),offset=0,limit=30){
-  const response=await ctx.request.get(app+'/api/assets/'+id+'/statement?'+new URLSearchParams({asOf:date,offset:String(offset),limit:String(limit)}));
+ async function statement(ctx,id,date=today(),offset=0,limit=30,impact=false){
+  const query=new URLSearchParams({asOf:date,offset:String(offset),limit:String(limit)});
+  if(impact)query.set('impact','1');
+  const response=await ctx.request.get(app+'/api/assets/'+id+'/statement?'+query);
   const payload=await response.json();
   return {status:response.status(),payload};
  }
@@ -136,6 +273,8 @@ try{
   await dialog.getByText(summary,{exact:true}).click();
   const table=dialog.getByRole('table');
   await table.getByText('2400',{exact:true}).first().waitFor({timeout:20000});
+  await table.locator('tr[data-movement="OPENING_BALANCE"]').getByRole('cell',{name:'300.00',exact:true}).waitFor();
+  await table.locator('tr[data-movement="SALE"]').getByRole('cell',{name:'400.00',exact:true}).waitFor();
   assert.equal(await page.getByRole('dialog').count(),1);
   assert.equal(new URL(page.url()).pathname,'/'+locale+'/assets');
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));
@@ -145,26 +284,174 @@ try{
   await dialog.getByText(new RegExp('10 .* × 300 = 3,000 SAR')).waitFor({timeout:20000});
   await dialog.locator('[data-asset-movement="SALE"] > summary').click();
   await dialog.getByText(new RegExp('2 .* × 400 = 800 SAR')).waitFor({timeout:20000});
-  await dialog.getByText('200 SAR',{exact:true}).waitFor({timeout:20000});
+  await dialog.getByRole('region',{name:locale==='ar'?'ملخص رصيد الأصل':'Asset balance summary'}).getByText('200 SAR',{exact:true}).waitFor({timeout:20000});
+  const download=page.waitForEvent('download');
+  await dialog.getByRole('button',{name:locale==='ar'?'تصدير كشف الحركة CSV':'Export movement statement CSV',exact:true}).click();
+  const csv=await (await download).createReadStream();
+  let contents='';
+  for await(const chunk of csv)contents+=chunk.toString('utf8');
+  assert.ok(contents.includes('"800"')&&contents.includes('"2400"'));
+  assert.ok(contents.includes(gold.payload.rows.find(row=>row.type==='SALE').voucher));
+  const popup=page.waitForEvent('popup');
+  await dialog.getByRole('button',{name:locale==='ar'?'طباعة كشف الحركة':'Print movement statement',exact:true}).click();
+  const print=await popup;
+  const printedSale=print.getByRole('row').filter({hasText:gold.payload.rows.find(row=>row.type==='SALE').voucher});
+  const printedProceeds=printedSale.getByRole('cell').nth(11);
+  await printedProceeds.waitFor();
+  assert.equal(await printedProceeds.textContent(),'800');
+  assert.equal(await printedSale.getByRole('cell').nth(6).textContent(),'400.00');
+  assert.equal(await print.locator('html').getAttribute('dir'),locale==='ar'?'rtl':'ltr');
+  await print.close();
   await page.screenshot({path:`asset-qa-preview/statement-${locale}.png`});
+ }
+ // Verify direction, same-card navigation and recorded cash on all language/layout combinations.
+ for(const locale of ['ar','en'])for(const viewport of [{width:390,height:844},{width:1440,height:960}]){
+  const arabic=locale==='ar';
+  const ctx=await context(browser,owner,viewport);
+  const page=await ctx.newPage();
+  await page.goto(app+'/'+locale+'/assets?scope=PERSONAL',{waitUntil:'domcontentloaded'});
+  const trigger=page.getByRole('row').filter({hasText:'QA 18K Gold'}).getByRole('button',{
+   name:arabic?'التفاصيل والإجراءات':'Details and actions',exact:true,
+  });
+  await trigger.click();
+  const dialog=page.getByRole('dialog');
+  const original=await dialog.boundingBox();
+  await dialog.getByRole('button',{name:arabic?'أثر العمليات على الزكاة':'Zakat impact of operations',exact:true}).click();
+  const impact=dialog.getByRole('region',{name:arabic?'أثر العمليات على الزكاة':'Zakat impact of operations'});
+  await impact.getByText('QA Gold Proceeds',{exact:true}).waitFor({timeout:20000});
+  await impact.getByText('800 SAR',{exact:true}).waitFor();
+  await impact.getByText(arabic?'لا يوجد حول موروث مسجّل لهذه الدفعة':
+   'No inherited Hawl is recorded for this lot').waitFor();
+  assert.equal(await page.getByRole('dialog').count(),1);
+  const moved=await dialog.boundingBox();
+  assert.deepEqual([moved.x,moved.y,moved.width],[original.x,original.y,original.width]);
+  assert.equal(await dialog.locator('.asset-card').getAttribute('dir'),arabic?'rtl':'ltr');
+  await dialog.getByRole('button',{name:arabic?'كشف حركة الأصل':'Asset movement statement',exact:true}).click();
+  const table=dialog.getByRole('table');
+  await table.getByText('2400',{exact:true}).first().waitFor();
+  assert.equal(await table.evaluate(el=>el.parentElement.scrollWidth>=el.offsetWidth),true);
+  assert.equal(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1),true);
+  await page.screenshot({path:`asset-qa-preview/card-${locale}-${viewport.width}.png`});
+  await page.keyboard.press('Escape');
+  assert.equal(await dialog.count(),0);
+  assert.equal(await trigger.evaluate(el=>document.activeElement===el),true);
+  await ctx.close();
+ }
+ // Save a new personal sale inside the card and reconcile the asset and its single receipt.
+ {
+  const personal=await seed(owner,null,true,'QA Card Sale');
+  const bank=value(await owner.client.from('asset_accounts').insert({user_id:owner.id,
+   name:'QA destination for in-card sale',asset_type:'BANK',currency:'SAR',ownership_scope:'PERSONAL'}).select('id').single());
+  const page=await en.newPage();
+  const dialog=page.getByRole('dialog');
+  const open=()=>page.getByRole('row').filter({hasText:'QA Card Sale'}).getByRole('button',{name:'Details and actions',exact:true}).click();
+  await page.goto(app+'/en/assets?scope=PERSONAL');
+  await open();
+  await dialog.getByRole('button',{name:'Sell',exact:true}).click();
+  await dialog.getByLabel('Quantity',{exact:true}).fill('2');
+  await dialog.getByLabel('Sale price per unit').fill('450');
+  await dialog.getByLabel('Proceeds account').selectOption(bank.id);
+  let command,first;
+  const url=app+'/api/transactions';
+  await page.route(url,async route=>{
+   if(route.request().method()!=='POST'){await route.continue();return;}
+   command=route.request().postDataJSON();
+   assert.ok(command.request_id);
+   const [initial,concurrent]=await Promise.all([route.fetch(),en.request.post(url,{data:command})]);
+   assert.equal(initial.status(),201,await initial.text());
+   assert.equal(concurrent.status(),201,await concurrent.text());
+   first=await initial.json();
+   assert.deepEqual(await concurrent.json(),first);
+   await route.abort();
+  });
+  await dialog.getByRole('button',{name:'Save operation',exact:true}).click();
+  await dialog.getByRole('alert').getByText(/save outcome is uncertain/i).waitFor();
+  await page.unroute(url);
+  await page.reload();
+  await open();
+  await dialog.getByRole('button',{name:'Sell',exact:true}).click();
+  const saved=page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/transactions');
+  await dialog.getByRole('button',{name:'Retry same request',exact:true}).click();
+  const response=await saved;
+  assert.equal(response.status(),201,await response.text());
+  const result=await response.json();
+  assert.equal(response.request().postDataJSON().request_id,command.request_id);
+  assert.deepEqual(result,first);
+  await dialog.getByRole('region',{name:'Asset balance summary'}).getByText('1,800 SAR',{exact:true}).waitFor();
+  assert.equal(await page.getByRole('dialog').count(),1);
+  assert.equal(new URL(page.url()).pathname,'/en/assets');
+  const operations=value(await owner.client.from('transactions').select('id,asset_account_id,base_value').eq('transfer_id',result.transfer_id));
+  assert.equal(operations.length,2);
+  assert.equal(Number(operations.find(row=>row.asset_account_id===bank.id).base_value),900);
+  await page.reload();
+  await open();
+  await dialog.getByText('Asset movement statement',{exact:true}).click();
+  await dialog.getByRole('region',{name:'Asset balance summary'}).getByText('1,800 SAR',{exact:true}).waitFor();
+  const persisted=(await statement(en,personal)).payload;
+  assert.deepEqual(persisted.closing,{quantity:'6',cost:'1800',currency:'SAR'});
+  assert.deepEqual(persisted.rows.find(row=>row.source_id===result.sale_transaction_id).sale,
+   {proceeds:'900',cost:'600',realized:'300'});
+  const conflict=await en.request.post(url,{data:{...command,unit_price:451}});
+  assert.equal(conflict.status(),400);
+  assert.deepEqual(await conflict.json(),{error:'PERSONAL_ASSET_EXIT_REQUEST_CONFLICT'});
+  const saleAudit=value(await owner.client.from('audit_logs').select('id').eq('entity_id',result.sale_transaction_id).eq('action','CREATE'));
+  assert.equal(saleAudit.length,1);
+  const bankMovements=value(await owner.client.from('transactions').select('id').eq('asset_account_id',bank.id));
+  assert.deepEqual(bankMovements,[{id:result.proceeds_transaction_id}]);
+  const affectedSales=value(await owner.client.from('transactions').select('id').eq('asset_account_id',personal).eq('transaction_type','SALE'));
+  assert.equal(affectedSales.length,2); // Seed sale plus this command.
+
+  // Discard a response to a full disposal. The exited asset must still offer recovery.
+  await dialog.getByRole('button',{name:'Asset summary',exact:true}).click();
+  await dialog.getByRole('button',{name:'Dispose',exact:true}).click();
+  assert.equal(await dialog.getByRole('combobox',{name:/^Action/}).inputValue(),'DISPOSAL');
+  await dialog.getByLabel('Quantity',{exact:true}).fill('6');
+  let disposalId;
+  await page.route(url,async route=>{
+   if(route.request().method()!=='POST'){await route.continue();return;}
+   const disposal=await route.fetch();
+   assert.equal(disposal.status(),201,await disposal.text());
+   disposalId=await disposal.json();
+   await route.abort();
+  });
+  await dialog.getByRole('button',{name:'Save operation',exact:true}).click();
+  await dialog.getByRole('alert').getByText(/save outcome is uncertain/i).waitFor();
+  await page.unroute(url);
+  await page.reload();
+  await page.locator('.asset-lifecycle-tabs').getByRole('button',{name:'All',exact:true}).click();
+  await open();
+  await dialog.getByRole('button',{name:'Dispose',exact:true}).click();
+  const repeated=page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/transactions');
+  await dialog.getByRole('button',{name:'Retry same request',exact:true}).click();
+  const disposalReplay=await repeated;
+  assert.equal(disposalReplay.status(),201,await disposalReplay.text());
+  assert.equal(await disposalReplay.json(),disposalId);
+  const disposed=(await statement(en,personal)).payload;
+  assert.deepEqual(disposed.closing,{quantity:'0',cost:'0',currency:'SAR'});
+  assert.equal(disposed.rows.filter(row=>row.type==='DISPOSAL').length,1);
+  const disposalAudit=value(await owner.client.from('audit_logs').select('id').eq('entity_id',disposalId).eq('action','CREATE'));
+  assert.equal(disposalAudit.length,1);
+  assert.deepEqual(value(await owner.client.from('transactions').select('id').eq('asset_account_id',bank.id)),bankMovements);
+  console.log('Personal exit replay: one sale, 900 SAR receipt and one audit after concurrent requests and reload; full disposal replay has one voucher and no proceeds.');
+
  }
  // Correct the independent sale after the destination asset's existing history.
  {
   const page=await en.newPage();
   const open=async name=>{
    await page.getByRole('row').filter({hasText:name}).getByRole('button',{name:'Details and actions',exact:true}).click();
-   await page.getByText('Asset movement statement',{exact:true}).click();
   };
   const bank=value(await owner.client.from('asset_accounts').insert({user_id:owner.id,
    name:'QA corrected proceeds',asset_type:'BANK',currency:'SAR',ownership_scope:'PERSONAL'}).select('id').single());
   await page.goto(app+'/en/assets?scope=PERSONAL');
   await open('QA 18K Gold');
   const sourceDialog=page.getByRole('dialog');
-  const cardValue=(label,amount)=>sourceDialog.locator('dl > div').filter({
+  const cardValue=(label,amount)=>sourceDialog.getByRole('region',{name:'Asset balance summary'}).locator('.asset-card-kpi').filter({
    has:page.getByText(label,{exact:true}),
-  }).locator('dd').filter({hasText:new RegExp('^'+amount+'$')});
-  await cardValue('Current quantity','8').waitFor();
-  await cardValue('Book cost','2,400').waitFor();
+  }).getByText(amount,{exact:true});
+  await cardValue('Remaining quantity','8 g').waitFor();
+  await cardValue('Remaining cost','2,400 SAR').waitFor();
+  await sourceDialog.getByRole('button',{name:'Asset movement statement',exact:true}).click();
   await sourceDialog.getByRole('table').getByRole('button',{name:gold.payload.rows.find(r=>r.type==='SALE').voucher,exact:true}).click();
   await page.getByRole('button',{name:'Review sale correction'}).click();
   await page.getByLabel('Correction type').selectOption('structure');
@@ -180,11 +467,13 @@ try{
   const replacement=await response.json();
   await page.getByText('Asset movement statement',{exact:true}).waitFor();
   await sourceDialog.getByRole('region',{name:'Asset balance summary'}).getByText('3,000 SAR',{exact:true}).waitFor();
-  await cardValue('Current quantity','10').waitFor();
-  await cardValue('Book cost','3,000').waitFor();
+  await sourceDialog.getByRole('button',{name:'Asset summary',exact:true}).click();
+  await cardValue('Remaining quantity','10 g').waitFor();
+  await cardValue('Remaining cost','3,000 SAR').waitFor();
   assert.equal(await page.getByRole('dialog').count(),1);
   assert.equal(new URL(page.url()).pathname,'/en/assets');
   await page.reload();await open('QA Gold Statement');
+  await sourceDialog.getByRole('button',{name:'Asset movement statement',exact:true}).click();
   const current=(await statement(en,asset)).payload;
   const row=current.rows.find(r=>r.source_id===replacement.id);
   assert.ok(row.voucher);assert.equal(row.amount,'1350');assert.equal(row.sale.cost,'960');
@@ -198,12 +487,18 @@ try{
  for(const locale of ['ar','en']){
   const account=await user(), arabic=locale==='ar';
   const ctx=await context(browser,account,arabic?{width:390,height:844}:{width:1440,height:960});
-  const sources=[];
+  const sources=[], sourceLots=[];
+  const hawlDates=['2024-06-11','2024-11-12'];
   for(const [name,quantity,cost,date] of [['Alpha',4,1200,'2025-01-01'],['Beta',6,2040,'2025-02-01']]){
    const asset=value(await account.client.from('asset_accounts').insert({user_id:account.id,name,asset_type:'GOLD',currency:'SAR',unit:'g',ownership_scope:'PERSONAL',metadata:{karat:18}}).select('id').single());
    const tx=value(await account.client.from('transactions').insert({user_id:account.id,asset_account_id:asset.id,transaction_type:'OPENING_BALANCE',transaction_date:date,quantity,currency:'SAR',base_currency:'SAR',base_value:cost,gross_value:cost,created_by:account.id}).select('id').single());
-   value(await account.client.from('lots').insert({user_id:account.id,asset_account_id:asset.id,source_transaction_id:tx.id,acquisition_date:date,original_quantity:quantity,remaining_quantity:quantity,original_value_base:cost,remaining_value_base:cost}));
+   const lot=value(await account.client.from('lots').insert({
+    user_id:account.id,asset_account_id:asset.id,source_transaction_id:tx.id,acquisition_date:date,
+    hawl_start_date:hawlDates[sources.length],original_quantity:quantity,remaining_quantity:quantity,
+    original_value_base:cost,remaining_value_base:cost,
+   }).select('id').single());
    sources.push(asset.id);
+   sourceLots.push(lot.id);
   }
   const bank=value(await account.client.from('asset_accounts').insert({user_id:account.id,name:'QA Bank',asset_type:'BANK',currency:'SAR',ownership_scope:'PERSONAL'}).select('id').single());
   const page=await ctx.newPage();
@@ -237,12 +532,41 @@ try{
   assert.equal(docs.length,2);
   const number=docs.find(d=>d.source_id===sale.sale_transaction_id).document_number;
   await page.getByRole('dialog').getByText(number,{exact:true}).first().waitFor();
+  const selectedQuantities=arabic?[1,5]:[4,2];
+  async function reconcileReceipt(unitPrice){
+   const result=await Promise.all(sources.map(id=>statement(ctx,id,today(),0,30,true)));
+   for(const [i,{status,payload}] of result.entries()){
+    assert.equal(status,200,JSON.stringify(payload));
+    assert.equal(payload.reconciliation,'MATCHED');
+    const receipt=payload.rows.find(r=>r.voucher===number).cashImpact.receipt;
+    assert.deepEqual(receipt.inheritedHawlDates,[hawlDates[i]]);
+    assert.deepEqual(receipt.sources.map(source=>({
+     id:source.lotId,quantity:Number(source.quantity),proceeds:Number(source.proceeds),
+    })),[{id:sourceLots[i],quantity:selectedQuantities[i],proceeds:selectedQuantities[i]*unitPrice}]);
+   }
+  }
   for(const [i,id] of sources.entries()){
    const current=(await statement(ctx,id)).payload;
    assert.equal(current.reconciliation,'MATCHED');
    assert.equal(current.rows.find(r=>r.voucher===number).sale.realized,String((arabic?[100,300]:[400,120])[i]));
   }
+  await reconcileReceipt(400);
+  assert.deepEqual(value(await stranger.client.rpc('personal_gold_receipt_hawl_sources',{
+   p_receipt_id:sale.proceeds_transaction_id,
+  })),[]);
   assert.equal(value(await account.client.from('lots').select('remaining_quantity').eq('asset_account_id',bank.id)).length,1);
+  const impactLabel=arabic?'أثر العمليات على الزكاة':'Zakat impact of operations';
+  const impactPanel=page.getByRole('region',{name:impactLabel});
+  const shownAsset=arabic?0:1;
+  await page.getByRole('dialog').getByRole('button',{name:impactLabel,exact:true}).click();
+  const sourcesShown=impactPanel.locator('.asset-card-hawl-sources');
+  await sourcesShown.getByText(hawlDates[shownAsset],{exact:true}).waitFor();
+  assert.equal(await sourcesShown.getByText(hawlDates[1-shownAsset],{exact:true}).count(),0);
+  await sourcesShown.getByText(arabic?'400 SAR':'800 SAR',{exact:true}).waitFor();
+  await page.screenshot({path:'asset-qa-preview/grouped-hawl-'+locale+'.png'});
+  await page.getByRole('dialog').getByRole('button',{
+   name:arabic?'كشف حركة الأصل':'Asset movement statement',exact:true,
+  }).click();
   await page.screenshot({path:'asset-qa-preview/grouped-'+locale+'.png'});
   console.log('GROUPED_VOUCHERS',locale,JSON.stringify(docs));
   const balances=async()=>value(await account.client.from('lots').select('id,asset_account_id,remaining_quantity,remaining_value_base').eq('user_id',account.id).order('id'));
@@ -271,6 +595,7 @@ try{
    assert.deepEqual(value(await amend(rev,price,key)),accepted);
    assert.deepEqual(await allocations(),original);
    assert.equal(Number((await balances()).find(l=>l.asset_account_id===bank.id).remaining_quantity),6*price);
+   await reconcileReceipt(price);
   }
   const prior=await balances();
   const reversal=await account.client.rpc('reverse_transaction',{p_user_id:account.id,p_transaction_id:sale.sale_transaction_id});
@@ -308,14 +633,17 @@ try{
   const reversed=await reversalResponse;
   assert.ok(reversed.ok(),await reversed.text());
   for(const [i,id] of sources.entries()){
-   const current=(await statement(ctx,id)).payload;
+   const current=(await statement(ctx,id,today(),0,30,true)).payload;
    assert.equal(current.reconciliation,'MATCHED');
    assert.equal(current.closing.cost,String([1200,2040][i]));
+   assert.ok(current.rows.every(row=>row.source_id!==sale.sale_transaction_id||row.cashImpact==null));
   }
+  console.log('GROUPED_HAWL',locale,JSON.stringify({hawlDates,selectedQuantities,proceeds:selectedQuantities.map(q=>q*400)}));
   console.log('GROUPED_REVERSAL',locale,JSON.stringify(accepted));
   await ctx.close();
  }
  console.log('PASS scoped opening and FIFO statement; 9 units / 2840 as of first sale, 6 / 1920 today, corporate 10 / 90000, denied cross-user and organization, AR mobile and EN desktop');
+ await verifyJuneZakatPayment(browser);
 }finally{
  await browser?.close();
  server?.kill();
