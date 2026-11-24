@@ -421,9 +421,9 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    const mobileMenu=page.getByRole('button',{name:'القائمة الجانبية',exact:true});
    await mobileMenu.tap();
    const sidebar=page.getByRole('dialog',{name:'القائمة الرئيسية',exact:true});
-   const sectionToggle=sidebar.getByRole('button',{name:'دراسات الجدوى وتأسيس المشاريع',exact:true});
+   const sectionToggle=sidebar.getByRole('button',{name:'دراسات جدوى المشاريع',exact:true});
    await sectionToggle.tap();
-   await sidebar.getByRole('group',{name:'أقسام دراسات الجدوى',exact:true})
+   await sidebar.getByRole('group',{name:'أقسام دراسات جدوى المشاريع',exact:true})
     .getByRole('button',{name:'التقرير والتصدير',exact:true}).tap();
    await sidebar.waitFor({state:'hidden'});
    await page.getByRole('heading',{name:'التقرير الشامل',exact:true}).waitFor();
