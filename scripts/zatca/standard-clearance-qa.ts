@@ -146,6 +146,18 @@ export function createStandardClearanceQa(deps: StandardClearanceQaDependencies,
     return { ...flags, manifestDigest: m.digest, results, protocolPassed: results.every(r => r.state === 'PASSED') };
   }
   return {
+    async reportingPredecessor() {
+      const m = await manifest(await context());
+      if (!m) throw Error('QA_CLEARANCE_PREVIOUS_REQUIRED');
+      const { results } = await summary(m);
+      const first = results[0];
+      // This is the specific saved warning run. Its strict acceptance gate
+      // also prevented either standard note from taking the next counter.
+      if (first.state !== 'CLEARED_WITH_WARNINGS'
+        || results.slice(1).some(result => result.state !== 'NOT_SENT'))
+        throw Error('QA_CLEARANCE_PREVIOUS_REQUIRED');
+      return { previousInvoiceHash: m.value.artifacts[0].invoiceHash, invoiceCounter: '8' };
+    },
     async status() {
       const m = await manifest(await context());
       return m ? summary(m) : { ...flags, state: 'NOT_PREPARED' as const };

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createProceduralSimplifiedComplianceQa } from '../scripts/zatca/procedural-simplified-compliance-qa';
+import { createSimplifiedReportingQa } from '../scripts/zatca/simplified-reporting-qa';
 import { prepareSimulationProceduralDocument } from '../scripts/zatca/simulation-procedural-document';
 import { prepareZatcaInvoiceHash } from '../lib/zatca-xml-hash';
 
@@ -187,5 +188,52 @@ describe('separately gated procedural SIMPLIFIED Simulation experiment', () => {
     f.transport.mockResolvedValueOnce(response);
     await expect(f.api.submit(input(p))).rejects.toThrow('QA_SIMPLIFIED_PROCEDURAL_RECONCILIATION_REQUIRED');
     await expect(f.api.submit(input(p))).rejects.toThrow('QA_SIMPLIFIED_PROCEDURAL_RECONCILIATION_REQUIRED'); expect(f.transport).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('one-shot simplified reporting', () => {
+  function reportingFixture() {
+    const f = fixture();
+    const transport = vi.fn<typeof fetch>();
+    const api = createSimplifiedReportingQa({
+      load: async () => ({ ...f.ctx, finalResponseDigest: '4'.repeat(64), finalFingerprint: f.ctx.fingerprint, invoiceCounter: '8' }),
+      read: async name => f.map.get(name) ?? null, create: f.create, sign: f.signer,
+      assertCreateOnly: f.assertCreateOnly, transport,
+    }, sample, 'd'.repeat(40));
+    return { ...f, api, transport };
+  }
+
+  it('prepares a B2C sample and retains one reporting result for concurrent calls', async () => {
+    const f = reportingFixture();
+    const prepared = await f.api.prepare();
+    expect(f.transport).not.toHaveBeenCalled();
+    f.transport.mockImplementation(async () => {
+      expect(f.map.has('simplified-reporting/intent')).toBe(true);
+      return Response.json({ reportingStatus: 'REPORTED', validationResults: {
+        status: 'WARNING', errorMessages: [], warningMessages: [{ code: 'BR-KSA-100' }],
+      } }, { status: 202 });
+    });
+    await Promise.allSettled([f.api.submit(prepared.manifestDigest), f.api.submit(prepared.manifestDigest)]);
+    expect(f.transport).toHaveBeenCalledTimes(1);
+    const [url, request] = f.transport.mock.calls[0];
+    expect(url).toBe('https://gw-fatoora.zatca.gov.sa/e-invoicing/simulation/invoices/reporting/single');
+    const payload = JSON.parse(String(request?.body));
+    const xml = Buffer.from(payload.invoice, 'base64').toString('utf8');
+    expect(xml).toContain(payload.uuid);
+    expect(xml).toContain('SIMULATIONQA');
+    expect((await prepareZatcaInvoiceHash(xml)).invoiceHashBase64).toBe(payload.invoiceHash);
+    expect(await f.api.submit(prepared.manifestDigest)).toMatchObject({
+      state: 'REPORTED_WITH_WARNINGS', http: 202, warningCodes: ['BR-KSA-100'],
+    });
+    expect(f.transport).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps an unresolved dispatch terminal without retrying', async () => {
+    const f = reportingFixture();
+    const prepared = await f.api.prepare();
+    f.transport.mockRejectedValueOnce(Error('timeout'));
+    await expect(f.api.submit(prepared.manifestDigest)).rejects.toThrow('QA_REPORTING_RECONCILIATION_REQUIRED');
+    expect(await f.api.submit(prepared.manifestDigest)).toMatchObject({ state: 'RECONCILIATION_REQUIRED' });
+    expect(f.transport).toHaveBeenCalledTimes(1);
   });
 });

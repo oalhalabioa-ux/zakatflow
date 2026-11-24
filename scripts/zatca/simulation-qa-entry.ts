@@ -24,5 +24,6 @@ export default createSimulationQaHttpHandler(() => {
     sourceSha: __YAQEEN_SIMULATION_QA_SOURCE_SHA__, standardSample,
     proceduralSimplifiedExperiment: process.env.FATOORA_QA_SIMPLIFIED_PROCEDURAL_EXPERIMENT === 'enabled' ? true : undefined,
     finalCertificateExperiment: process.env.FATOORA_QA_FINAL_SIMULATION_CSID_EXPERIMENT === 'enabled' ? true : undefined,
+    simplifiedReportingExperiment: process.env.FATOORA_QA_SIMPLIFIED_REPORTING_EXPERIMENT === 'enabled' ? true : undefined,
     standardClearanceExperiment: process.env.FATOORA_QA_STANDARD_CLEARANCE_EXPERIMENT === 'enabled' ? true : undefined });
 }, () => simulationQaRuntimeEnvironment(process.env, getVercelOidcToken));

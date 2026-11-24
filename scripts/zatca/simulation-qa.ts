@@ -14,6 +14,7 @@ import { createProceduralSimplifiedComplianceQa } from './procedural-simplified-
 import { createFinalSimulationCsidQa } from './final-simulation-csid-qa';
 import { inspectSimulationCertificateDiscovery } from './simulation-certificate-discovery';
 import { createStandardClearanceQa } from './standard-clearance-qa';
+import { createSimplifiedReportingQa, reportingPrefix } from './simplified-reporting-qa';
 
 const account = '701899214938', region = 'eu-north-1';
 export const simulationQaSigningKey = `arn:aws:kms:${region}:${account}:key/ab50c7e0-2251-4ae3-967d-5d14866b80d4`;
@@ -31,6 +32,7 @@ const configSchema = z.object({ unit: simulationQaUnitSchema, sourceSha: z.strin
   proceduralSimplifiedExperiment: z.literal(true).optional(),
   finalCertificateExperiment: z.literal(true).optional(),
   standardClearanceExperiment: z.literal(true).optional(),
+  simplifiedReportingExperiment: z.literal(true).optional(),
 }).strict();
 const originalSchema = z.object({ version: z.literal('YAQEEN_SIMULATION_QA_ORIGINAL_V1'),
   sourceSha: z.string().regex(/^[a-f0-9]{40}$/), profileDigest: z.string().regex(/^[a-f0-9]{64}$/),
@@ -320,10 +322,40 @@ export function createSimulationQa(clients: { kms: Pick<KMSClient,'send'>; secre
       return { version: ack.VersionId! };
     }, assertCreateOnly: verifyCreateOnlyFence, transport: clients.transport,
   }, config.standardSample, config.sourceSha);
+  const reporting = createSimplifiedReportingQa({
+    async load() {
+      if (!config.simplifiedReportingExperiment || !config.standardClearanceExperiment)
+        fail('QA_REPORTING_CONTEXT_UNAVAILABLE');
+      const final = await finalCertificate.diagnosticCredential();
+      const predecessor = await clearance.reportingPredecessor();
+      return { organizationId: unit.organizationId, legalName: unit.legalName, vatNumber: unit.taxpayerVatNumber,
+        ...final, ...predecessor, certificate: decodeZatcaComplianceCertificate(final.token).toString('base64') };
+    },
+    read: name => read(base + '/' + name),
+    async create(name, version, content) {
+      if (!name.startsWith(reportingPrefix)) fail('QA_REPORTING_STORAGE_UNAVAILABLE');
+      const fullName = base + '/' + name;
+      const ack = await send(new CreateSecretCommand({ Name: fullName, KmsKeyId: config.encryptionKeyArn, ClientRequestToken: version,
+        SecretString: content, Description: 'Isolated simplified Simulation reporting diagnostic',
+        Tags: [{ Key: 'application', Value: 'zakatflow' }, { Key: 'purpose', Value: 'qa-simplified-reporting' }] }));
+      if (!ack || ack.Name !== fullName || ack.VersionId !== version || !arnMatches(ack.ARN, fullName))
+        fail('QA_REPORTING_STORAGE_UNAVAILABLE');
+      return { version: ack.VersionId! };
+    },
+    sign: async bytes => sign(bytes, await publicKey()),
+    assertCreateOnly: verifyCreateOnlyFence,
+    transport: clients.transport,
+  }, config.standardSample, config.sourceSha);
   return {
     status,
+    reportingStatus: () => reporting.status(),
+    prepareSimplifiedReporting: () => reporting.prepare(),
+    submitSimplifiedReporting: (manifestDigest: string) => reporting.submit(manifestDigest),
     prepareStandardClearance: () => clearance.prepare(),
-    submitStandardClearance: (input: unknown) => clearance.submit(input),
+    submitStandardClearance: (input: unknown) => {
+      if (config.simplifiedReportingExperiment) fail('QA_REPORTING_CONTEXT_UNAVAILABLE');
+      return clearance.submit(input);
+    },
     prepareStandardCompliance: () => standard.prepare(),
     submitStandardCompliance: (input: unknown) => standard.submit(input),
     prepareSimplifiedExperiment: () => simplified.prepare(),

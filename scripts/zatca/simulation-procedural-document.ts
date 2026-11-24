@@ -14,22 +14,28 @@ const encodedHexHash = (value: string) => Buffer.from(hexHash(value)).toString('
 
 /** Isolated Simulation experiment following the authority's procedural signing
  * guide (invoice-hash ECDSA/DER, serialized properties, text QR tags6/7).
- * NOT the application XAdES signer, a final-CSID stamp or an issuance approval.
+ * This profile is restricted to isolated QA and does not approve application issuance.
  * The separate KMS integrity receipt binds ALL emitted XML including properties;
  * it is stored privately, not embedded XMLDSig/SignedInfo compliance evidence.
- * The backend must first verify original CSR/CCSID/unit/current key identity.
+ * The backend must first verify original CSR, certificate, unit and current key identity.
  */
 export async function prepareSimulationProceduralDocument(input: unknown, context: unknown,
-  options: { certificate: string; fingerprint: string; signingTime: Date; scopeDigest: string },
+  options: { certificate: string; fingerprint: string; signingTime: Date; scopeDigest: string; purpose?: 'REPORTING' },
   sign: (bytes: Buffer) => Promise<Uint8Array>,
 ) {
   const draft = vatEInvoiceDraftSchema.strict().parse(input), at = new Date(options.signingTime.getTime()), scopeDigest = options.scopeDigest;
   if (draft.invoice_category !== 'SIMPLIFIED' || !/^[a-f0-9]{64}$/.test(scopeDigest)) throw Error('QA_PROCEDURAL_CONTEXT_INVALID');
   const leaf = inspectZatcaSigningCertificate(options.certificate, options.fingerprint, at);
   const cert = new X509Certificate(Buffer.from(leaf.certificateDerBase64, 'base64'));
-  // This deliberately narrow experiment accepts only the observed interim
-  // platform issuer. Do not invent general DN formatting or CA trust here.
-  if (cert.issuer !== 'CN=eInvoicing') throw Error('QA_PROCEDURAL_INTERIM_REQUIRED');
+  const issuerParts = cert.issuer.split('\n');
+  if (options.purpose === 'REPORTING') {
+    // Match the SDK serialization for simple DNs. Reject unfamiliar encodings.
+    if (issuerParts.some(part => !/^(CN|O|OU|C|L|ST)=[A-Za-z0-9 ._-]+$/.test(part)))
+      throw Error('QA_PROCEDURAL_UNSUPPORTED_ISSUER');
+  } else if (cert.issuer !== 'CN=eInvoicing') {
+    throw Error('QA_PROCEDURAL_INTERIM_REQUIRED');
+  }
+  const issuer = issuerParts.reverse().join(', ');
   const unsigned = buildUnsignedZatcaXml(draft, context);
   const invoiceHash = (await prepareZatcaInvoiceHash(unsigned.xml)).invoiceHashBase64;
   const signed = async (bytes: Buffer) => {
@@ -50,7 +56,7 @@ export async function prepareSimulationProceduralDocument(input: unknown, contex
       line(40, '<xades:SigningCertificate>'), line(44, '<xades:Cert>'), line(48, '<xades:CertDigest>'),
       line(52, `<ds:DigestMethod${ns} Algorithm="${sha256}"/>`), line(52, `<ds:DigestValue${ns}>${certDigest}</ds:DigestValue>`),
       line(48, '</xades:CertDigest>'), line(48, '<xades:IssuerSerial>'),
-      line(52, `<ds:X509IssuerName${ns}>CN=eInvoicing</ds:X509IssuerName>`), line(52, `<ds:X509SerialNumber${ns}>${leaf.serialNumberDecimal}</ds:X509SerialNumber>`),
+      line(52, `<ds:X509IssuerName${ns}>${issuer}</ds:X509IssuerName>`), line(52, `<ds:X509SerialNumber${ns}>${leaf.serialNumberDecimal}</ds:X509SerialNumber>`),
       line(48, '</xades:IssuerSerial>'), line(44, '</xades:Cert>'), line(40, '</xades:SigningCertificate>'),
       line(36, '</xades:SignedSignatureProperties>'), line(32, '</xades:SignedProperties>')].join('\n');
   };
