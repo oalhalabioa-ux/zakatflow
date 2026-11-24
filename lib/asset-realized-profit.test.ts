@@ -33,6 +33,15 @@ describe('asset realized profit from sale records', () => {
     expect(summarizeRealizedProfit({...input, reversed:new Set(['sale', 'receipt'])}).size).toBe(0);
   });
 
+  it('apportions one 120 selling expense across the grouped sale then excludes its reversal', () => {
+    const fee = {sale_id:'sale',source_id:'payment',voucher:'PV-0008-26',state:'RECORDED',amount:'120'} as const;
+    const report = (state: 'RECORDED' | 'REVERSED' | 'INCOMPLETE') => summarizeRealizedProfit({...fixture(),expenses:[{...fee,state}]});
+    expect(report('RECORDED').get('first')).toEqual({status:'recorded',amount:'1900',currency:'SAR'});
+    expect(report('RECORDED').get('second')).toEqual({status:'recorded',amount:'180',currency:'SAR'});
+    expect(report('REVERSED').get('first')).toEqual({status:'recorded',amount:'2000',currency:'SAR'});
+    expect(report('INCOMPLETE').get('second')).toEqual({status:'incomplete'});
+  });
+
   it('retains the recorded base-currency proceeds for a foreign-currency sale and shows losses', () => {
     const independent = {...sale, quantity:'10', currency:'USD', gross_value:'600', base_value:'2250', metadata:{proceeds_account_id:'bank'}};
     const result = summarizeRealizedProfit({...fixture(), sales:[independent], allocations:[allocations[0]], receipts:[{...receipt, base_value:'2250'}]});
@@ -62,6 +71,7 @@ describe('asset realized profit from sale records', () => {
     };
     const input = {...fixture(), sales:[corporate], postings:[posting]};
     expect(summarizeRealizedProfit(input).get('first')).toEqual({status:'recorded', amount:'5000', currency:'SAR'});
+    expect(summarizeRealizedProfit({...input, expenses:[{sale_id:sale.id, source_id:'fee', voucher:null, state:'RECORDED', amount:'300'}]}).get('first')).toEqual({status:'recorded',amount:'4700',currency:'SAR'});
     expect(summarizeRealizedProfit({...input, postings:[{...posting, applied_at:null}]}).get('first')).toEqual({status:'incomplete'});
     expect(summarizeRealizedProfit({...input, postings:[{...posting, financial_events:{...posting.financial_events!, status:'REVERSED'}}]}).size).toBe(0);
   });

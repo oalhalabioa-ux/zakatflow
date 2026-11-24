@@ -8,8 +8,8 @@ export function realizedProfitText(result: RealizedProfit | undefined, ar: boole
 
 export function realizedProfitBasis(ar: boolean) {
   return ar
-    ? 'الربح المسجل من البيع بعد تكلفة الجزء المباع، باستبعاد ضريبة المبيعات. مصاريف البيع المسجلة منفصلة تحتاج إلى ربطها بسند البيع قبل خصمها.'
-    : 'Recorded sale proceeds less the cost sold, excluding sales tax. Separately recorded selling expenses need a voucher link before they can be deducted.';
+    ? 'حصيلة البيع دون ضريبة المخرجات، مطروحاً منها تكلفة الجزء المباع ومصاريف البيع المرتبطة بالسند.'
+    : 'Sale proceeds excluding output VAT, less the cost sold and direct expenses linked to the voucher.';
 }
 
 export function AssetRealizedProfit({result, ar, organizationId}: {result?: RealizedProfit; ar: boolean; organizationId?: string}) {

@@ -2,6 +2,7 @@
 import SaleLotBreakdown,{postedSaleSummary} from './SaleLotBreakdown';
 import Link from 'next/link';
 import PersonalSaleCorrectionForm from './PersonalSaleCorrectionForm';
+import AssetSaleExpenses from './AssetSaleExpenses';
 import {personalSaleCorrectionMessage} from '@/lib/personal-sale-correction';
 import VoucherStamp from '../VoucherStamp';
 import {useEffect,useRef,useState} from 'react';
@@ -75,12 +76,14 @@ export default function AssetOperationDetails({record,ar,onClose,onChanged,initi
  <div hidden={tab!=="details"} role="tabpanel" id={`details-${record.id}-details`} aria-labelledby={`details-${record.id}-details-tab`}>{lotSummary&&<SaleLotBreakdown sale={lotSummary} ar={ar}/>}<span className="pill">{operationStateLabel(operationReportState(row),ar)}</span><dl className="operation-detail-grid">
  <div><dt>{t('نوع العملية / التاريخ','Operation / date')}</dt><dd>{operationTypeLabel(row.operation_type??row.metadata?.operation??row.transaction_type,ar)} · {row.transaction_date}</dd></div><div><dt>{t('المصدر / الطرف المقابل','Source / counterparty')}</dt><dd>{row.source_label??'—'} · {row.counterparty_name??data.counterparties.find((p:any)=>p.id===data.review?.event.counterparty_id)?.name??'—'}</dd></div><div><dt>{t('الفرع / مركز التكلفة','Entity / cost center')}</dt><dd>{row.entity_name??'—'} / {row.cost_center_name??'—'}</dd></div>
  <div><dt>{t('الكمية / سعر الوحدة','Quantity / unit price')}</dt><dd>{Number(row.quantity??0).toLocaleString()} / {row.unit_price==null?'—':Number(row.unit_price).toLocaleString()} {currency}</dd></div><div><dt>{t('الصافي / الضريبة / الإجمالي','Net / VAT / gross')}</dt><dd>{a.net.toLocaleString()} / {a.tax.toLocaleString()} / {a.total.toLocaleString()} {currency}</dd></div><div><dt>{t('سعر الصرف / الإجمالي بالأساس','FX / base gross')}</dt><dd>{a.fx} / {a.baseTotal.toLocaleString()} {base}</dd></div>
- <div><dt>{t('الأثر على قيمة الأصل','Asset book effect')}</dt><dd><Money value={a.bookEffect} currency={base} organizationId={row.organization_id}/></dd></div><div><dt>{t('ربح / خسارة البيع','Realized gain / loss')}</dt><dd>{a.gain==null?'—':<Money value={a.gain} currency={base} organizationId={row.organization_id}/>}</dd></div><div><dt>{t('تاريخ الاستحقاق','Due date')}</dt><dd>{data.review?.event.due_date??row.metadata?.due_date??'—'}</dd></div>
+ <div><dt>{t('الأثر على قيمة الأصل','Asset book effect')}</dt><dd><Money value={a.bookEffect} currency={base} organizationId={row.organization_id}/></dd></div><div><dt>{t('ربح / خسارة البيع قبل المصاريف المرتبطة','Sale gain / loss before linked expenses')}</dt><dd>{a.gain==null?'—':<Money value={a.gain} currency={base} organizationId={row.organization_id}/>}</dd></div><div><dt>{t('تاريخ الاستحقاق','Due date')}</dt><dd>{data.review?.event.due_date??row.metadata?.due_date??'—'}</dd></div>
  <div><dt>{t('المسدد / المتبقي بالأساس','Applied / outstanding base')}</dt><dd>{data.balances.length?`${row.applied_base_amount.toLocaleString()} / ${row.outstanding_base_amount.toLocaleString()} ${base}`:'—'}</dd></div><div><dt>{t('إنشاء العملية','Created')}</dt><dd>{row.created_at?new Date(row.created_at).toLocaleString(ar?'ar-SA':'en-GB'):'—'}</dd></div><div><dt>{t('الملاحظات','Notes')}</dt><dd>{row.notes||'—'}</dd></div></dl>
  {correctionLinks.map(([key,label])=><p key={key}><Link href={`/${ar?'ar':'en'}/transactions/${row.metadata[key]}`}>
   {label}{row.metadata.document_links?.[key]&&<> · <bdi>{row.metadata.document_links[key]}</bdi></>}
  </Link></p>)}
  {row.metadata?.sale_correction?.input?.reason&&<p className="muted">{t('سبب التصحيح','Correction reason')}: {row.metadata.sale_correction.input.reason}</p>}
+ {row.transaction_type==='SALE'&&!row.is_lifecycle_draft&&<AssetSaleExpenses key={row.id} saleId={row.id} ar={ar} currency={base}
+   organizationId={row.organization_id} editable={data.can_link_sale_expense} onChanged={()=>{onChanged();void reload().catch(e=>setError(e.message));}}/>}
  </div><div className="operation-detail-actions asset-details-footer">{data.can_correct_personal_sale&&<ActionButton icon="edit"
   label={t('مراجعة تصحيح البيع','Review sale correction')} showLabel aria-expanded={correctingSale} disabled={busy}
   onClick={()=>correctingSale?setCorrectingSale(false):beginSaleCorrection()}/>}

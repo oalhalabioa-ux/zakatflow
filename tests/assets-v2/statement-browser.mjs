@@ -135,6 +135,47 @@ try{
  assert.equal(foreignProfits.status(),200);
  assert.deepEqual(await foreignProfits.json(),{});
 
+ // Link a real recorded payment voucher. Neither linking nor unlinking posts cash.
+ {
+  const cash=value(await owner.client.from('asset_accounts').insert({user_id:owner.id,name:'QA selling expense cash',
+   asset_type:'BANK',currency:'SAR',ownership_scope:'PERSONAL'}).select('id').single());
+  const funding=value(await owner.client.from('transactions').insert({user_id:owner.id,asset_account_id:cash.id,
+   transaction_type:'OPENING_BALANCE',transaction_date:'2025-01-01',quantity:500,currency:'SAR',base_currency:'SAR',
+   gross_value:500,base_value:500,created_by:owner.id}).select('id').single());
+  value(await owner.client.from('lots').insert({user_id:owner.id,asset_account_id:cash.id,source_transaction_id:funding.id,
+   acquisition_date:'2025-01-01',original_quantity:500,remaining_quantity:500,original_value_base:500,remaining_value_base:500}));
+  const payment=value(await owner.client.rpc('post_withdrawal',{p_user_id:owner.id,p_asset_account_id:cash.id,
+   p_date:'2025-03-01',p_quantity:75,p_value:75,p_currency:'SAR',p_base_currency:'SAR',p_base_value:75,p_notes:'QA fixed direct selling fee'}));
+  const voucher=value(await owner.client.from('voucher_numbers').select('document_number').eq('source_id',payment)
+   .eq('source_table','transactions').single()).document_number;
+  const goldSale=value(await owner.client.from('transactions').select('id').eq('asset_account_id',gold18).eq('transaction_type','SALE').single());
+  const expensePath=app+'/api/assets/sale-expenses/'+goldSale.id;
+  const page=await en.newPage();
+  await page.goto(app+'/en/transactions/'+goldSale.id,{waitUntil:'domcontentloaded',timeout:90000});
+  await page.getByText('Linked selling expenses',{exact:true}).click();
+  await page.getByLabel('Expense voucher number').fill(voucher);
+  await page.getByLabel('Reason for linking or unlinking').fill('Documented commission for this gold sale');
+  await page.getByRole('button',{name:'Link expense',exact:true}).click();
+  await page.getByText('Expense link saved.',{exact:true}).waitFor();
+  const linked=await (await en.request.get(expensePath)).json();
+  assert.equal(linked.length,1);
+  assert.equal(linked[0].source_id,payment);
+  assert.equal(Number(linked[0].amount),75);
+  assert.deepEqual(await (await foreign.request.get(expensePath)).json(),[]);
+  assert.equal((await foreign.request.post(expensePath,{headers:{Origin:app},data:{source:payment,reason:'Foreign account probe'}})).status(),403);
+  assert.equal((await (await en.request.get(profitEndpoint)).json())[gold18].amount,'125');
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.getByText('Linked selling expenses',{exact:true}).click();
+  await page.getByRole('button',{name:'Unlink',exact:true}).click();
+  await page.getByLabel('Reason for linking or unlinking').fill('QA release verifies the audited unlink');
+  await page.getByRole('button',{name:'Confirm unlink',exact:true}).click();
+  await page.getByText('No expenses are linked to this voucher.',{exact:true}).waitFor();
+  assert.equal((await (await en.request.get(profitEndpoint)).json())[gold18].amount,'200');
+  const balance=value(await owner.client.from('lots').select('remaining_value_base').eq('asset_account_id',cash.id).single());
+  assert.equal(Number(balance.remaining_value_base),425);
+  await page.close();
+ }
+
  for(const [locale,ctx,customize,label,move,save,close] of [
   ['ar',ar,'تخصيص الجدول','الأرباح الفعلية (المحققة)','تحريك للأعلى','حفظ النموذج والتخصيص','إغلاق'],
   ['en',en,'Customize table','Realized profit / loss','Move up','Save model & customization','Close'],

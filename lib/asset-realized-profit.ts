@@ -63,6 +63,14 @@ export type RealizedProfit =
   | { status: 'recorded'; amount: string; currency: string }
   | { status: 'incomplete' };
 
+export type SaleExpense = {
+  sale_id: string;
+  source_id: string | null;
+  voucher: string | null;
+  state: 'RECORDED' | 'REVERSED' | 'INCOMPLETE';
+  amount: string | null;
+};
+
 function bySale<T>(items: T[], id: (item: T) => string) {
   const grouped = new Map<string, T[]>();
   for (const item of items) {
@@ -90,10 +98,12 @@ export function summarizeRealizedProfit(input: {
   receipts: SaleReceipt[];
   postings: SalePosting[];
   reversed: ReadonlySet<string>;
+  expenses?: SaleExpense[];
 }) {
   const allocations = bySale(input.allocations, line => line.transaction_id);
   const receipts = bySale(input.receipts, row => row.metadata.sale_transaction_id);
   const postings = bySale(input.postings, row => row.transaction_id);
+  const expenses = bySale(input.expenses ?? [], row => row.sale_id);
   const result = new Map<string, RealizedProfit>();
 
   function record(asset: string, currency: string, gain: DecimalJs | null) {
@@ -110,6 +120,12 @@ export function summarizeRealizedProfit(input: {
     if (metadata.asset_deleted || metadata.lifecycle_reversed || metadata.sale_correction_replacement_id || input.reversed.has(sale.id)) continue;
     const proceeds = nonnegative(sale.base_value);
     const quantity = nonnegative(sale.quantity);
+    const directExpenses = (expenses.get(sale.id) ?? []).reduce<DecimalJs | null>((total, expense) => {
+      if (!total || expense.state === 'INCOMPLETE') return null;
+      if (expense.state === 'REVERSED') return total;
+      const cost = nonnegative(expense.amount);
+      return cost ? total.plus(cost) : null;
+    }, new Decimal(0));
     if (sale.organization_id) {
       const candidates = postings.get(sale.id) ?? [];
       const command = candidates.length === 1 ? candidates[0] : null;
@@ -125,7 +141,7 @@ export function summarizeRealizedProfit(input: {
         && quantity?.gt(0) && quantity.eq(command.quantity) && cost?.eq(nonnegative(metadata.cost_basis_base) ?? 'NaN')
         && tax?.eq(nonnegative(metadata.vat_amount) ?? 'NaN');
       // The lifecycle command records consideration before VAT and the posted book cost.
-      record(sale.asset_account_id, sale.base_currency, verified ? proceeds!.minus(cost!) : null);
+      record(sale.asset_account_id, sale.base_currency, verified && directExpenses ? proceeds!.minus(cost!).minus(directExpenses) : null);
       continue;
     }
 
@@ -159,18 +175,20 @@ export function summarizeRealizedProfit(input: {
       && portions.has(sale.asset_account_id)
       && (grouped ? sale.currency === sale.base_currency && price?.gt(0)
         && price.times(quantity).toDecimalPlaces(8).eq(proceeds!) : portions.size === 1);
-    if (!reconciled) {
+    if (!reconciled || !directExpenses) {
       for (const id of new Set([sale.asset_account_id, ...portions.keys()])) record(id, sale.base_currency, null);
       continue;
     }
 
     // Apportion a grouped voucher once, reconciling rounding to the one saved receipt.
-    let cumulativeQuantity = new Decimal(0), allocated = new Decimal(0);
+    let cumulativeQuantity = new Decimal(0), allocated = new Decimal(0), allocatedExpense = new Decimal(0);
     for (const [id, part] of [...portions].sort(([a], [b]) => a.localeCompare(b))) {
       cumulativeQuantity = cumulativeQuantity.plus(part.quantity);
       const next = grouped ? cumulativeQuantity.times(price!).toDecimalPlaces(8) : proceeds!;
-      record(id, sale.base_currency, next.minus(allocated).minus(part.cost));
+      const nextExpense = grouped ? directExpenses.mul(cumulativeQuantity).div(quantity!).toDecimalPlaces(8) : directExpenses;
+      record(id, sale.base_currency, next.minus(allocated).minus(part.cost).minus(nextExpense.minus(allocatedExpense)));
       allocated = next;
+      allocatedExpense = nextExpense;
     }
   }
   return result;
