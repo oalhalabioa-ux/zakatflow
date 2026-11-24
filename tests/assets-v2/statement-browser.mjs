@@ -152,10 +152,10 @@ try{
   await options.getByRole('button',{name:save,exact:true}).click();
   await options.getByRole('button',{name:close,exact:true}).click();
   const cell=goldRow.locator('[data-column="realized"]');
-  await cell.getByText('200.00 SAR',{exact:true}).waitFor();
+  await cell.locator('.display-money-screen').filter({hasText:/^200\.00 SAR$/}).waitFor();
   const first=await cell.evaluate(node=>node.cellIndex);
   await page.reload({waitUntil:'domcontentloaded'});
-  await cell.getByText('200.00 SAR',{exact:true}).waitFor();
+  await cell.locator('.display-money-screen').filter({hasText:/^200\.00 SAR$/}).waitFor();
   assert.equal(await cell.evaluate(node=>node.cellIndex),first);
   const heading=page.getByRole('columnheader',{name:label,exact:true}).first();
   await heading.getByRole('button').click();
@@ -169,7 +169,7 @@ try{
  {
   const page=await en.newPage();
   await page.goto(app+'/en/reports?scope=PERSONAL',{waitUntil:'domcontentloaded',timeout:90000});
-  await page.getByRole('row').filter({hasText:'QA 18K Gold'}).getByText('200.00 SAR',{exact:true}).waitFor();
+  await page.getByRole('row').filter({hasText:'QA 18K Gold'}).locator('.display-money-screen').filter({hasText:/^200\.00 SAR$/}).waitFor();
   await page.getByLabel('Print and export',{exact:true}).click();
   const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'CSV',exact:true}).first().click()]);
   const csv=await readFile(await download.path(),'utf8');
