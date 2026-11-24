@@ -166,7 +166,7 @@ try{
   assert.equal(await heading.getAttribute('aria-sort'),'ascending');
   await heading.getByRole('button').click();
   assert.equal(await heading.getAttribute('aria-sort'),'descending');
-  await page.getByLabel(locale==='ar'?'تصفية حسب النوع':'Filter by type',{exact:true}).selectOption('GOLD');
+  await page.locator('.asset-report-filters label').filter({hasText:locale==='ar'?'تصفية حسب النوع':'Filter by type'}).locator('select').selectOption('GOLD');
   await cell.scrollIntoViewIfNeeded();
   assert.ok(await cell.evaluate(node=>node.getBoundingClientRect().left>=0&&node.getBoundingClientRect().right<=innerWidth));
   await page.screenshot({path:`asset-qa-preview/realized-profit-${locale}.png`});
