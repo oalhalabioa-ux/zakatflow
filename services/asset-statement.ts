@@ -158,7 +158,8 @@ export async function readAssetStatement(id:string,options:z.infer<typeof assetS
  const lotsById=new Map(lots.map(lot=>[lot.id,lot]));
  const cashImpact=new Map<string, Awaited<ReturnType<typeof saleImpact>>>();
  async function saleImpact(row:typeof impactSales[number]){
-  const destination=txById.get(row.source_id)?.metadata?.proceeds_account_id;
+  const postedSale=txById.get(row.source_id);
+  const destination=postedSale?.metadata?.proceeds_account_id;
   const linked=receipts.filter(receipt=>receipt.metadata.sale_transaction_id===row.source_id&&
    !receipt.metadata.asset_deleted&&receipt.asset_account_id===destination&&receipt.base_currency===baseCurrency&&
    (groupedIds.has(row.source_id)?new Decimal(receipt.base_value).gte(row.sale!.proceeds!):new Decimal(receipt.base_value).eq(row.sale!.proceeds!)));
@@ -173,7 +174,9 @@ export async function readAssetStatement(id:string,options:z.infer<typeof assetS
 
   // The source RPC is available only once the gold receipt migrations are installed.
   let evidence:RecordedGoldSource[]=[];
-  if(goldAsset){
+  // A historical statement can carry the price recorded before a correction.
+  // The live receipt RPC must not supply amended proceeds for that view.
+  if(goldAsset&&postedSale?.base_value!=null&&new Decimal(postedSale.base_value).eq(row.sale!.proceeds!)){
    const result=await supabase.rpc('personal_gold_receipt_hawl_sources',{p_receipt_id:receipt.id});
    if(result.error&&result.error.code!=='PGRST202')throw result.error;
    evidence=result.data??[];
