@@ -12,6 +12,10 @@ export const FeasibilitySidebarSlot=createContext<{
  closeMobileMenu:()=>void;
 }|null>(null);
 
+export function feasibilitySidebarLabel(locale:string){
+ return locale==='ar'?'دراسات جدوى المشاريع':'Project Feasibility Studies';
+}
+
 export default function FeasibilitySidebar({locale,sections,active,onSelect}:{
  locale:string;
  sections:readonly {id:StudyTab;ar:string;en:string}[];
@@ -21,8 +25,8 @@ export default function FeasibilitySidebar({locale,sections,active,onSelect}:{
  const slot=useContext(FeasibilitySidebarSlot);
  const [expanded,setExpanded]=useState(false);
  if(!slot?.target||!sections.length)return null;
- const moduleName=locale==='ar'?'دراسات الجدوى وتأسيس المشاريع':'Feasibility & Project Development';
- const label=locale==='ar'?'أقسام دراسات الجدوى':'Feasibility sections';
+ const moduleName=feasibilitySidebarLabel(locale);
+ const label=locale==='ar'?'أقسام دراسات جدوى المشاريع':'Project Feasibility Studies sections';
 
  return createPortal(<>
   <button type="button" className="module-toggle" aria-label={moduleName} title={moduleName}
