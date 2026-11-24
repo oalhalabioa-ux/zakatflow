@@ -89,7 +89,7 @@ async function verifyJuneZakatPayment(browser) {
  const client = owner.client;
  const bankName = 'QA June Zakat Bank';
  const assessDate = '2026-06-12';
- const paymentDate = '2026-06-13';
+ const paymentDate = today();
  value(await admin.from('profiles').update({base_currency:'SAR'}).eq('id',owner.id));
  const method = value(await client.from('zakat_methods').select('id').eq('code','INDEPENDENT_LOTS').single());
  async function asset(name, type, unit, metadata={}) {
@@ -171,11 +171,11 @@ async function verifyJuneZakatPayment(browser) {
   await page.goto(app+'/ar/payments?scope=PERSONAL',{waitUntil:'domcontentloaded'});
   await page.locator('label').filter({hasText:/^الدورة الزكوية/}).locator('select').selectOption(assessment.hawl_cycle_id);
   await page.locator('label').filter({hasText:/^البنك أو الصندوق المسدد منه/}).locator('select').selectOption(bank);
-  await page.locator('label').filter({hasText:/^تاريخ الدفع/}).locator('input[type="date"]').fill(paymentDate);
   await page.locator('label').filter({hasText:/^المبلغ$/}).locator('input[type="number"]').fill('22.50');
   const paymentResponse = await clickForPost('/api/payments','حفظ السداد وترحيل الزيادة');
   const paymentRequest = paymentResponse.request().postDataJSON();
   const payment = await json(paymentResponse);
+  assert.equal(payment.payment_date,paymentDate);
   const repeated = await json(await ctx.request.post(app+'/api/payments',{data:paymentRequest}));
   assert.equal(repeated.id,payment.id);
 
@@ -196,7 +196,7 @@ async function verifyJuneZakatPayment(browser) {
   assert.equal(await bankBalance(),2427.5);
   const movements = value(await client.from('transactions').select('id').eq('asset_account_id',bank).eq('transaction_type','ZAKAT_PAYMENT'));
   assert.equal(movements.length,1);
-  console.log('PASS June Zakat browser save, finalize and reload:', voucher, 'one SAR 22.50 payment, bank SAR 2450 → 2427.50');
+  console.log('PASS June Zakat browser save, finalize and reload:', voucher, payment.payment_date, 'one SAR 22.50 payment, bank SAR 2450 → 2427.50');
  } finally {
   await ctx.close();
  }
