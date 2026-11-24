@@ -117,6 +117,16 @@ describe('read statement scope and paging',()=>{
    lotId:'gold-lot',acquiredOn:date,quantity:'1',proceeds:'200',inheritedHawlStart:'2025-12-22',
   }]);
   expect(withSources?.inheritedHawlDates).toEqual(['2025-12-22']);
+
+  const laterCorrection=vi.fn();
+  useFixture({...data,transactions:data.transactions.map(tx=>tx.id===sale
+   ?{...tx,metadata:{...tx.metadata,sale_price_amendment:{revision:1}}}:tx),
+   audit_logs:[{id:'later-correction',entity_id:sale,user_id:owner,action:'AMEND_PERSONAL_SALE_PRICE',
+    created_at:'2026-11-21T12:00:00Z',new_data:{sale_amount:200}}],
+  },laterCorrection);
+  expect((await readAssetStatement(assetId,salePage)).rows[0].cashImpact?.receipt?.sources).toEqual([]);
+  expect(laterCorrection).not.toHaveBeenCalled();
+
   useFixture({...data,transactions:data.transactions.filter(tx=>tx.id!==receiptId)});
   expect((await readAssetStatement(assetId,salePage)).rows[0].cashImpact?.receipt).toBeNull();
  });

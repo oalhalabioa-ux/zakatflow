@@ -116,7 +116,8 @@ export async function readAssetStatement(id:string,options:z.infer<typeof assetS
    if(!portion||change.new_data?.unit_price==null)return change;
    return {...change,new_data:{...change.new_data,sale_amount:new Decimal(portion.quantity).mul(change.new_data.unit_price).toString()}};
   })});
- const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+ const dateFormat=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'});
+ const today=dateFormat.format(new Date());
  const knownSources=new Set(transactions.map(tx=>tx.id));
  const missingSource=lots.some(lot=>!lot.metadata?.recognition_pending&&!knownSources.has(lot.source_transaction_id));
  const visibleLots=lots.filter(lot=>!lot.metadata?.recognition_pending);
@@ -156,10 +157,10 @@ export async function readAssetStatement(id:string,options:z.infer<typeof assetS
   .select('id,name')).in('asset_type',['CASH','BANK']).in('id',batch));
  const txById=new Map(transactions.map(tx=>[tx.id,tx]));
  const lotsById=new Map(lots.map(lot=>[lot.id,lot]));
+ const amendedAfterCutoff=new Set(amendments.filter(change=>dateFormat.format(new Date(change.created_at))>options.asOf).map(change=>change.entity_id));
  const cashImpact=new Map<string, Awaited<ReturnType<typeof saleImpact>>>();
  async function saleImpact(row:typeof impactSales[number]){
-  const postedSale=txById.get(row.source_id);
-  const destination=postedSale?.metadata?.proceeds_account_id;
+  const destination=txById.get(row.source_id)?.metadata?.proceeds_account_id;
   const linked=receipts.filter(receipt=>receipt.metadata.sale_transaction_id===row.source_id&&
    !receipt.metadata.asset_deleted&&receipt.asset_account_id===destination&&receipt.base_currency===baseCurrency&&
    (groupedIds.has(row.source_id)?new Decimal(receipt.base_value).gte(row.sale!.proceeds!):new Decimal(receipt.base_value).eq(row.sale!.proceeds!)));
@@ -174,9 +175,8 @@ export async function readAssetStatement(id:string,options:z.infer<typeof assetS
 
   // The source RPC is available only once the gold receipt migrations are installed.
   let evidence:RecordedGoldSource[]=[];
-  // A historical statement can carry the price recorded before a correction.
-  // The live receipt RPC must not supply amended proceeds for that view.
-  if(goldAsset&&postedSale?.base_value!=null&&new Decimal(postedSale.base_value).eq(row.sale!.proceeds!)){
+  // The live receipt reader returns the latest amount, including later price corrections.
+  if(goldAsset&&!amendedAfterCutoff.has(row.source_id)){
    const result=await supabase.rpc('personal_gold_receipt_hawl_sources',{p_receipt_id:receipt.id});
    if(result.error&&result.error.code!=='PGRST202')throw result.error;
    evidence=result.data??[];
