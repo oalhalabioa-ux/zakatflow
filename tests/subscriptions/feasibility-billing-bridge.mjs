@@ -820,11 +820,12 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
  await runQuantityCostingBrowser({browser,cookies,check});
  await runWaterFinancialPolicyBrowser({browser,cookies,check});
  await check('Dairy readiness on released production lines: funding, bilingual reasons and saved study compatibility',async()=>{
+  const app='http://localhost:3000';
   const context=await browser.newContext({viewport:{width:1440,height:1000}});
-  await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,url:appUrl})));
+  await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,url:app})));
   const page=await context.newPage();page.setDefaultTimeout(12000);
-  const endpoint=appUrl+'/api/feasibility/projects';
-  const navigate=locale=>page.goto(appUrl+'/'+locale+'/feasibility?scope=PERSONAL');
+  const endpoint=app+'/api/feasibility/projects';
+  const navigate=locale=>page.goto(app+'/'+locale+'/feasibility?scope=PERSONAL');
   const button=name=>page.getByRole('button',{name,exact:true});
   async function read(id){
    const response=await page.request.get(endpoint);
@@ -836,7 +837,8 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
   async function save(method,status){
    const saved=page.waitForResponse(r=>r.url()===endpoint&&r.request().method()===method);
    await button('Save to cloud').click();
-   assert.equal((await saved).status(),status);
+   const response=await saved;
+   assert.equal(response.status(),status,await response.text());
   }
   try{
    await navigate('en');
@@ -860,7 +862,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
      lines:[{id:'dairy',name:'Dairy line',basis:'DAILY',capacity:1,hoursPerDay:0,utilizationPct:100,
       products:[{id:'laban',name:'Laban',allocationPct:100,yieldPct:100,soldPct:100,pricePerTonne:100,
        packagingPerSaleableTonne:0,recipe:[]}]}]}};
-   const seeded=await page.request.post(endpoint,{headers:{Origin:appUrl},data:{study:legacy}});
+   const seeded=await page.request.post(endpoint,{headers:{Origin:app},data:{study:legacy}});
    assert.equal(seeded.status(),201,await seeded.text());
    const original=await read(legacy.id);
    await button('Restore from cloud').click();
