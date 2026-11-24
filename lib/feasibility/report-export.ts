@@ -1,3 +1,5 @@
+import type {evaluateGeneralForecast} from './advanced-model';
+
 const spreadsheetFormula=/^[\s\uFEFF]*[=+\-@]|^[\t\r\n]/u;
 
 type CsvNumericFormat='integer'|'quantity'|'money';
@@ -17,14 +19,14 @@ function csvValue(value:string|number|null|undefined,format?:CsvNumericFormat){
  return String(value??'');
 }
 
-export function feasibilityCsv(rows:readonly (readonly (string|number|null|undefined)[])[],formats?:readonly CsvNumericFormat[]){
+export function feasibilityCsv(rows:readonly (readonly (string|number|null|undefined)[])[],formats?:readonly (CsvNumericFormat|undefined)[]){
  return '\uFEFF'+rows.map(row=>row.map((value,index)=>{
   const safe=csvValue(value,formats?.[index]);
   return '"'+safe.replaceAll('"','""')+'"';
  }).join(',')).join('\r\n');
 }
 
-export function downloadFeasibilityCsv(filename:string,rows:Parameters<typeof feasibilityCsv>[0],formats?:readonly CsvNumericFormat[]){
+export function downloadFeasibilityCsv(filename:string,rows:Parameters<typeof feasibilityCsv>[0],formats?:Parameters<typeof feasibilityCsv>[1]){
  downloadReportBlob(filename,new Blob([feasibilityCsv(rows,formats)],{type:'text/csv;charset=utf-8'}));
 }
 
@@ -47,4 +49,18 @@ export async function downloadFeasibilityXlsx(filename:string,sheetName:string,r
  sheet.columns.forEach(column=>{column.width=24;});
  const bytes=await workbook.xlsx.writeBuffer();
  downloadReportBlob(filename,new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+}
+
+export function generalForecastRows({model,advanced}:ReturnType<typeof evaluateGeneralForecast>){
+ return [
+  [0,null,null,null,null,null,null,null,-(advanced?.initialInvestment??model.totalInvestment),
+   ...(advanced?[null,null,null,advanced.equityFlows[0]??null]:[])],
+  ...model.annual.map((row,index)=>{
+   const projection=advanced?.annual[index];
+   return [row.year,row.volume,row.revenue,row.variable,row.fixed,row.ebitda,
+    projection?.tax??row.taxEstimate,row.maintenance,projection?.fcf??row.freeCashFlow,
+    ...(projection?[projection.principal,projection.interest,projection.debtBalance,
+     advanced?.equityReady?projection.equityFcf:null]:[])];
+  })
+ ];
 }

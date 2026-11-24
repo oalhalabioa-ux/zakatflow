@@ -2,12 +2,12 @@
 import {useId,useRef,useState} from 'react';
 import {RoyalIcon,type RoyalIconName} from './RoyalIcon';
 import type {FeasibilityStudy} from '@/lib/feasibility/engine';
-import {evaluateStudy} from '@/lib/feasibility/engine';
+import {evaluateGeneralForecast} from '@/lib/feasibility/advanced-model';
 import {handoffReadiness} from '@/lib/feasibility/handoff';
 import {evaluateRawLand} from '@/lib/feasibility/raw-land';
 import RawLandPanel from './RawLandPanel';
 import {evaluateWater,effectiveWaterInputs,studyReportReadiness,waterPeakFundingGap} from '@/lib/feasibility/water-model';
-import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
+import {downloadFeasibilityCsv,generalForecastRows} from '@/lib/feasibility/report-export';
 import {studyProfileValues,studyTypeLabels} from '@/lib/feasibility/study-profile';
 import WaterModelPanel from './WaterModelPanel';
 import PartnershipPanel from './PartnershipPanel';
@@ -59,7 +59,8 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
  const fmt=(value:number|null)=>value===null?'—':new Intl.NumberFormat(locale,{maximumFractionDigits:2}).format(value);
  const money=(value:number|null)=>value===null?'—':[fmt(value),study.currency].filter(Boolean).join(' ');
  const percent=(value:number|null)=>value===null?'—':fmt(value)+'%';
- const base=evaluateStudy(study);
+ const forecast=evaluateGeneralForecast(study);
+ const {model:base,advanced}=forecast;
  const land=study.rawLand?evaluateRawLand(study.rawLand):null;
  const landResult=land?.issue===null&&land.ready?land:null;
  const water=study.water?evaluateWater(study.water):null;
@@ -99,13 +100,17 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
   [l('مدة السداد بالسنوات','Repayment term in years'),water.totalLoan>0?fmt(Math.max(1,deal.loanYears)):'—'],
   [l('الرصيد بعد آخر سنة من التوقعات','Balance after last forecast year'),money(water.annual.at(-1)?.debtBalance??water.totalLoan)]
  ]:[
-  [l('تكلفة الاستثمار النقدية','Cash investment costs'),money(base.capex)],
-  [l('رأس المال العامل الأولي','Opening working capital'),money(study.workingCapital)],
-  [l('إجمالي الاحتياج النقدي','Total cash requirement'),money(base.totalInvestment-base.landAsset)],
+  [l('تكلفة الاستثمار النقدية','Cash investment costs'),money(base.capex+base.landPurchase+(advanced?.contingency??0))],
+  [l('رأس المال العامل الأولي','Opening working capital'),money(advanced?.openingWorkingCapital??study.workingCapital)],
+  [l('إجمالي الاحتياج النقدي','Total cash requirement'),money(advanced?.cashNeed??base.cashInvestment)],
   [l('إجمالي رأس المال النقدي','Total cash equity'),money(base.cashEquity)],
   [l('قرض الممول إلى الشركة','Investor shareholder loan'),money(study.investorLoan)],
   [l('تمويل ديون أخرى','Other debt'),money(study.otherDebt)],
-  [l('صافي فجوة التمويل النقدي','Net funding gap'),money(base.cashFundingGap)]
+  [l('صافي فجوة التمويل النقدي','Net funding gap'),money(advanced?advanced.cashNeed-base.cashEquity-study.investorLoan-study.otherDebt:base.cashFundingGap)],
+  ...(advanced?[
+   [l('صافي القيمة الحالية لحقوق الملكية','Equity NPV'),money(advanced.equityNpv)],
+   [l('العائد الداخلي لحقوق الملكية','Equity IRR'),percent(advanced.equityIrr)]
+  ]:[])
  ];
  const ownership=study.rawLand?[
   [l('طريقة تقديم الأرض','Land contribution method'),study.rawLand.site.landPaymentMethod==='lease'?l('إيجار','Lease'):study.rawLand.site.landPaymentMethod==='in_kind'?l('حصة عينية','In kind'):l('شراء نقدي','Cash purchase')],
@@ -141,9 +146,9 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
   ?l('مراجعة داخلية مسجّلة','Internal review recorded')
   :reviewedSource?l('تحتاج إعادة مراجعة','Review needs renewal'):l('لم تُسجّل مراجعة','Review not recorded');
  const readiness=new Intl.NumberFormat(locale,{style:'percent',maximumFractionDigits:1}).format(readyCount/ready.checks.length);
- const npv=money(study.rawLand?landResult?.npv??null:water?water.ready?water.npv:null:base.npv);
- const irr=percent(study.rawLand?landResult?.irr??null:water?water.ready?water.irr:null:base.irr);
- const investment=money(study.rawLand?landResult?.totalCost??null:water?water.cashRequired+water.land:base.totalInvestment);
+ const npv=money(study.rawLand?landResult?.npv??null:water?water.ready?water.npv:null:advanced?advanced.projectNpv:base.npv);
+ const irr=percent(study.rawLand?landResult?.irr??null:water?water.ready?water.irr:null:advanced?advanced.projectIrr:base.irr);
+ const investment=money(study.rawLand?landResult?.totalCost??null:water?water.cashRequired+water.land:advanced?.initialInvestment??base.totalInvestment);
  const summaryMetrics:{label:string;value:string;icon:RoyalIconName}[]=[
   {label:l('إجمالي الاستثمار الاقتصادي','Economic investment'),value:investment,icon:'coins'},
   {label:'NPV',value:npv,icon:'chart'},
@@ -152,20 +157,12 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
  ];
  const reportMetrics=[['NPV',npv],['IRR',irr],[l('الجاهزية','Readiness'),readiness]];
  const metrics=[
-  {label:l('السنة','Year'),key:'year'},
-  {label:l('حجم المبيعات','Sales volume'),key:'volume'},
-  {label:l('الإيرادات','Revenue'),key:'revenue'},
-  {label:l('المتغيرة','Variable costs'),key:'variable'},
-  {label:l('الثابتة','Fixed costs'),key:'fixed'},
-  {label:'EBITDA',key:'ebitda'},
-  {label:l('الضريبة','Tax'),key:'taxEstimate'},
-  {label:l('الصيانة','Maintenance'),key:'maintenance'},
-  {label:l('التدفق الحر','Free cash flow'),key:'freeCashFlow'}
- ] as const;
- const financeRows=[
-  [0,null,null,null,null,null,null,null,-base.totalInvestment],
-  ...base.annual.map(row=>metrics.map(({key})=>row[key]))
+  l('السنة','Year'),l('حجم المبيعات','Sales volume'),l('الإيرادات','Revenue'),l('المتغيرة','Variable costs'),
+  l('الثابتة','Fixed costs'),'EBITDA',l('الضريبة','Tax'),l('الصيانة','Maintenance'),l('التدفق الحر','Free cash flow'),
+  ...(advanced?[l('سداد أصل القرض','Principal'),l('الفائدة','Interest'),l('رصيد الدين الختامي','Closing debt'),
+   l('تدفق حقوق الملكية','Equity cash flow')]:[])
  ];
+ const financeRows=generalForecastRows(forecast);
  const tasks=()=>downloadFeasibilityCsv('feasibility-tasks.csv',[
   [l('المهمة','Task'),l('المجال','Phase'),l('الأولوية','Priority'),l('الحالة','Status'),l('المسؤول','Owner'),
    l('الموعد','Due'),l('الملاحظات','Notes')],
@@ -270,17 +267,20 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
    <section className="card fs-panel" id={sectionId('finance')} tabIndex={-1} data-report-section="finance">
     <h3>{l('الملخص والتوقعات المالية الأساسية','Base-case financial summary and projections')}</h3>
     <ul className="fs-notes">
-     <li>{l('الاستثمار الاقتصادي','Economic investment')} · {money(base.totalInvestment)}</li>
-     <li>{l('صافي القيمة الحالية','NPV')} · {money(base.npv)}</li>
-     <li>{l('العائد الداخلي %','IRR %')} · {fmt(base.irr)}</li>
+     <li>{l('الاستثمار الاقتصادي','Economic investment')} · {investment}</li>
+     <li>{l('صافي القيمة الحالية للمشروع','Project NPV')} · {npv}</li>
+     <li>{l('العائد الداخلي للمشروع','Project IRR')} · {irr}</li>
     </ul>
+    {study.advanced&&<p className="fs-hint">{advanced
+     ?l('التوقعات من السيناريو الأساسي للنموذج المالي المتقدم.','Projections use the advanced financial model’s base case.')
+     :l('التوقعات من النموذج السنوي المبسط حتى تكتمل مدخلات النموذج المتقدم.','Projections use the simplified annual model until the advanced inputs are complete.')}</p>}
     {allowExport&&<div className="fs-actions"><button className="fs-btn fs-btn--secondary" type="button"
      onClick={()=>downloadFeasibilityCsv('feasibility-projections.csv',[
-      [...metrics.map(x=>x.label),l('العملة','Currency')],...financeRows.map(row=>[...row,study.currency])
-     ],study.productionPlan?.enabled?metrics.map(({key})=>key==='year'?'integer':key==='volume'?'quantity':'money'):undefined
+      [...metrics,l('العملة','Currency')],...financeRows.map(row=>[...row,study.currency])
+     ],study.productionPlan?.enabled?metrics.map((_,index)=>index===0?'integer':index===1?'quantity':'money'):undefined
      )}>{l('تصدير التوقعات CSV','Export forecast CSV')}</button></div>}
     <div className="fs-table-wrap"><table className="fs-table">
-     <thead><tr>{metrics.map(({key,label})=><th key={key} scope="col">{label}</th>)}</tr></thead>
+     <thead><tr>{metrics.map(label=><th key={label} scope="col">{label}</th>)}</tr></thead>
      <tbody>{financeRows.map((row,index)=><tr key={index}>{row.map((value,i)=><td key={i}>{fmt(value)}</td>)}</tr>)}</tbody>
     </table></div>
    </section>}

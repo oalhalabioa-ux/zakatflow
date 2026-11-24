@@ -25,6 +25,8 @@ export async function verifyFeasibilitySharingBrowser({ browser, appUrl, url, an
     const admin = await pageFor(owner);
     const receiver = await pageFor(recipient);
     async function submitProposal() {
+      await receiver.getByLabel('Study title · Reason for the change or addition', { exact: true })
+        .fill('Synthetic study title correction.');
       await receiver.getByRole('button', { name: 'Send changes for review' }).click();
       const success = receiver.getByText('The changes were sent to the study owner.', { exact: true });
       const failure = receiver.getByText('The changes could not be sent. Check the current request status.', { exact: true });
@@ -82,7 +84,9 @@ export async function verifyFeasibilitySharingBrowser({ browser, appUrl, url, an
     await source.goto(appUrl + '/en/notifications');
     await source.getByRole('link', { name: 'Review changes', exact: true }).click();
     await source.getByRole('table').getByRole('row').filter({ hasText: 'Synthetic QA reviewed copy' }).waitFor();
-    await source.getByRole('button', { name: 'Approve changes', exact: true }).click();
+    await source.getByLabel('Resolve field Study title', { exact: true }).selectOption('proposed');
+    await source.getByLabel('Decision reason for Study title', { exact: true }).fill('The proposed title is accurate.');
+    await source.getByRole('button', { name: 'Save item decisions', exact: true }).click();
     await source.getByText('Approved', { exact: true }).waitFor();
     await receiver.reload();
     await receiver.getByText('Latest request · Approved', { exact: true }).waitFor();
@@ -95,11 +99,13 @@ export async function verifyFeasibilitySharingBrowser({ browser, appUrl, url, an
     await submitProposal();
     await source.goto(appUrl + '/en/notifications');
     await source.getByRole('link', { name: 'Review changes', exact: true }).first().click();
-    await source.getByLabel('Reason for declining (optional)').fill('Keep the accepted name');
-    await source.getByRole('button', { name: 'Decline changes', exact: true }).click();
-    await source.getByText('Declined', { exact: true }).waitFor();
+    await source.getByLabel('Resolve field Study title', { exact: true }).selectOption('current');
+    await source.getByLabel('Decision reason for Study title', { exact: true }).fill('Keep the accepted name');
+    await source.getByRole('button', { name: 'Save item decisions', exact: true }).click();
+    await source.getByRole('status').filter({ hasText: /^Declined$/ }).waitFor();
     await receiver.reload();
-    await receiver.getByText('Latest request · Declined · Keep the accepted name', { exact: true }).waitFor();
+    await receiver.getByText('Latest request · Declined', { exact: true }).waitFor();
+    await receiver.getByText('Study title · Declined · Keep the accepted name', { exact: true }).waitFor();
 
     console.log('PASS decline with a reason and recipient status');
     const project = new URL(source.url()).searchParams.get('project');
