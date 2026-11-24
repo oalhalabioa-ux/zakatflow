@@ -319,7 +319,8 @@ try{
   await dialog.getByRole('button',{name:arabic?'أثر العمليات على الزكاة':'Zakat impact of operations',exact:true}).click();
   const impact=dialog.getByRole('region',{name:arabic?'أثر العمليات على الزكاة':'Zakat impact of operations'});
   await impact.getByText('QA Gold Proceeds',{exact:true}).waitFor({timeout:20000});
-  await impact.getByText('800 SAR',{exact:true}).waitFor();
+  await impact.locator('li > span').getByText('800 SAR',{exact:true}).waitFor();
+  await impact.locator('.asset-card-hawl-sources').getByText('800 SAR',{exact:true}).waitFor();
   await impact.getByText(arabic?'لا يوجد حول موروث مسجّل لهذه الدفعة':
    'No inherited Hawl is recorded for this lot').waitFor();
   assert.equal(await page.getByRole('dialog').count(),1);
