@@ -60,18 +60,24 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     await page.getByRole('button',{name:'Add project +',exact:true}).click();
     await page.getByRole('heading',{name:'QA421 Personal draft',exact:true}).waitFor();
     const sidebar=page.locator('#corp-primary-nav');
-    const sidebarSections=sidebar.getByRole('button',{name:'Feasibility & Project Development',exact:true});
+    const sidebarSections=sidebar.getByRole('button',{name:'Project Feasibility Studies',exact:true});
     assert.equal(await sidebarSections.getAttribute('aria-expanded'),'false');
-    assert.equal(await sidebar.getByRole('link',{name:'Feasibility & Project Development',exact:true}).count(),0);
+    assert.equal(await sidebar.getByRole('link',{name:'Project Feasibility Studies',exact:true}).count(),0);
     await sidebarSections.click();
     assert.equal(await sidebarSections.getAttribute('aria-expanded'),'true');
-    const sidebarGroup=page.getByRole('group',{name:'Feasibility sections',exact:true});
+    const sidebarGroup=page.getByRole('group',{name:'Project Feasibility Studies sections',exact:true});
     const studyTabs=page.getByRole('navigation',{name:'Study sections',exact:true});
     assert.deepEqual(await sidebarGroup.getByRole('button').allTextContents(),await studyTabs.getByRole('button').allTextContents());
     await sidebarGroup.getByRole('button',{name:'Investment',exact:true}).click();
     assert.equal(await studyTabs.getByRole('button',{name:'Investment',exact:true}).getAttribute('aria-current'),'page');
     await studyTabs.getByRole('button',{name:'Operations',exact:true}).click();
-    assert.equal(await sidebarGroup.getByRole('button',{name:'Operations',exact:true}).getAttribute('aria-current'),'location');
+    const operationsSidebarButton=sidebarGroup.getByRole('button',{name:'Operations',exact:true});
+    assert.equal(await operationsSidebarButton.getAttribute('aria-current'),'location');
+    await page.getByRole('button',{name:'Collapse sidebar',exact:true}).click();
+    assert.equal(await sidebarSections.locator('svg').evaluate(icon=>getComputedStyle(icon).color),'rgb(255, 255, 255)');
+    assert.equal(await operationsSidebarButton.locator('svg').evaluate(icon=>getComputedStyle(icon).color),'rgb(198, 163, 93)');
+    assert.equal(await operationsSidebarButton.evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(32, 83, 71)');
+    await page.getByRole('button',{name:'Expand sidebar',exact:true}).click();
     await sidebarSections.click();
     await studyTabs.getByRole('button',{name:'Investment',exact:true}).click();
     await page.getByLabel('Construction and buildings',{exact:true}).fill('24680');
@@ -422,6 +428,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    await mobileMenu.tap();
    const sidebar=page.getByRole('dialog',{name:'القائمة الرئيسية',exact:true});
    const sectionToggle=sidebar.getByRole('button',{name:'دراسات جدوى المشاريع',exact:true});
+   assert.equal(await sectionToggle.locator('svg').evaluate(icon=>getComputedStyle(icon).color),'rgb(255, 255, 255)');
    await sectionToggle.tap();
    await sidebar.getByRole('group',{name:'أقسام دراسات جدوى المشاريع',exact:true})
     .getByRole('button',{name:'التقرير والتصدير',exact:true}).tap();
