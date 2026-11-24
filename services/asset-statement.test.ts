@@ -11,7 +11,7 @@ const sale='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const date='2026-01-01';
 const options={asOf:'2026-11-20',offset:0,limit:1};
 
-function useFixture(tables:Record<string,Row[]>){
+function useFixture(tables:Record<string,Row[]>,rpc=vi.fn().mockResolvedValue({data:null,error:{code:'PGRST202'}})){
  const queries:{table:string;operation:string;column:string;value:unknown}[]=[];
  const from=(table:string)=>{
   let rows=[...(tables[table]??[])];
@@ -32,7 +32,7 @@ function useFixture(tables:Record<string,Row[]>){
   };
   return query;
  };
- requireUser.mockResolvedValue({supabase:{from},user:{id:owner}});
+ requireUser.mockResolvedValue({supabase:{from,rpc},user:{id:owner}});
  return queries;
 }
 const asset={id:assetId,user_id:owner,organization_id:null,name:'Gold',unit:'g',asset_type:'GOLD',metadata:{}};
@@ -102,10 +102,21 @@ describe('read statement scope and paging',()=>{
   expect(summary.allocationMethod).toBe('FIFO');
   const salePage={...options,offset:1,impact:'1' as const};
   expect((await readAssetStatement(assetId,salePage)).rows[0].cashImpact).toEqual({
-   sourceHawlDates:[date],receipt:{account:'Personal bank',inheritedHawlDates:[date]},
+   sourceHawlDates:[date],receipt:{account:'Personal bank',inheritedHawlDates:[date],sources:[]},
   });
   useFixture({...data,lots:[data.lots[0],{...cashLot,hawl_continuity_source_lot_id:null}]});
   expect((await readAssetStatement(assetId,salePage)).rows[0].cashImpact?.receipt?.inheritedHawlDates).toEqual([]);
+  const evidence=vi.fn().mockResolvedValue({error:null,data:[
+   {source_lot_id:'gold-lot',sold_quantity:1,proceeds_base:200,base_currency:'SAR',inherited_hawl_start_date:'2025-12-22',reversed:false},
+   {source_lot_id:'another-asset-lot',sold_quantity:1,proceeds_base:300,base_currency:'SAR',inherited_hawl_start_date:date,reversed:false},
+  ]});
+  useFixture({...data,lots:[data.lots[0],{...cashLot,hawl_continuity_source_lot_id:null}]},evidence);
+  const withSources=(await readAssetStatement(assetId,salePage)).rows[0].cashImpact?.receipt;
+  expect(evidence).toHaveBeenCalledExactlyOnceWith('personal_gold_receipt_hawl_sources',{p_receipt_id:receiptId});
+  expect(withSources?.sources).toEqual([{
+   lotId:'gold-lot',acquiredOn:date,quantity:'1',proceeds:'200',inheritedHawlStart:'2025-12-22',
+  }]);
+  expect(withSources?.inheritedHawlDates).toEqual(['2025-12-22']);
   useFixture({...data,transactions:data.transactions.filter(tx=>tx.id!==receiptId)});
   expect((await readAssetStatement(assetId,salePage)).rows[0].cashImpact?.receipt).toBeNull();
  });

@@ -47,9 +47,17 @@ export function AssetCardZakat({statement,hawlLots,zakatable,organizational,ar}:
       {row.cashImpact.sourceHawlDates.map(date=><bdi className="asset-card-chip" key={date}>{date}</bdi>)}</span>}
      {row.cashImpact?.receipt?<>
       <span>{t('سُجّل القبض في','Recorded in')} <bdi>{row.cashImpact.receipt.account}</bdi> · <bdi>{assetCardNumber(row.sale?.proceeds)} {statement?.baseCurrency}</bdi></span>
-      <span>{row.cashImpact.receipt.inheritedHawlDates.length?t('بداية الحول الموروثة المسجلة','Recorded inherited Hawl start'):
+      {row.cashImpact.receipt.sources.length>0&&<dl className="asset-card-hawl-sources">
+       {row.cashImpact.receipt.sources.map(source=><div key={source.lotId}>
+        <dt>{t('دفعة اقتناء','Acquisition lot')} <bdi>{source.acquiredOn}</bdi></dt>
+        <dd><bdi>{assetCardNumber(source.quantity)} {ar?'غ':'g'}</bdi> · <bdi>{assetCardNumber(source.proceeds)} {statement?.baseCurrency}</bdi> · {source.inheritedHawlStart
+         ?<>{t('بداية الحول الموروثة','Inherited Hawl start')} <bdi>{source.inheritedHawlStart}</bdi></>
+         :t('لا يوجد حول موروث مسجّل لهذه الدفعة','No inherited Hawl is recorded for this lot')}</dd>
+       </div>)}
+      </dl>}
+      {row.cashImpact.receipt.sources.length===0&&<span>{row.cashImpact.receipt.inheritedHawlDates.length?t('بداية الحول الموروثة المسجلة','Recorded inherited Hawl start'):
        t('استمرار الحول من دفعات هذا الأصل غير مثبت في سجل القبض.','The receipt record does not establish Hawl continuity from this asset’s lots.')}{' '}
-       {row.cashImpact.receipt.inheritedHawlDates.map(date=><bdi className="asset-card-chip" key={date}>{date}</bdi>)}</span>
+       {row.cashImpact.receipt.inheritedHawlDates.map(date=><bdi className="asset-card-chip" key={date}>{date}</bdi>)}</span>}
      </>:<span>{t('لا يظهر سند قبض نقدي مرتبط بهذه العملية.','No linked cash receipt is available for this sale.')}</span>}
     </li>)}</ul>}
    </div>

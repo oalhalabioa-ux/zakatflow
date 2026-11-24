@@ -38,6 +38,14 @@ async function readLinked<T>(ids:string[],query:(batch:string[])=>any):Promise<T
 type SaleReceipt = {id:string;asset_account_id:string;base_value:string;base_currency:string;metadata:{sale_transaction_id?:string;asset_deleted?:boolean}};
 type LinkedAllocation = StatementAllocation & {lot_id:string;allocation_method?:string};
 type ReceiptLot = {source_transaction_id:string;asset_account_id:string;hawl_start_date:string|null;hawl_continuity_source_lot_id:string|null};
+type RecordedGoldSource = {
+ source_lot_id:string;
+ sold_quantity:string|number;
+ proceeds_base:string|number;
+ base_currency:string;
+ inherited_hawl_start_date:string|null;
+ reversed:boolean;
+};
 
 export async function readAssetStatement(id:string,options:z.infer<typeof assetStatementQuery>){
  const {supabase,user}=await requireUser();
@@ -147,7 +155,8 @@ export async function readAssetStatement(id:string,options:z.infer<typeof assetS
   .select('id,name')).in('asset_type',['CASH','BANK']).in('id',batch));
  const txById=new Map(transactions.map(tx=>[tx.id,tx]));
  const lotsById=new Map(lots.map(lot=>[lot.id,lot]));
- const cashImpact=new Map(impactSales.map(row=>{
+ const cashImpact=new Map<string, Awaited<ReturnType<typeof saleImpact>>>();
+ async function saleImpact(row:typeof impactSales[number]){
   const destination=txById.get(row.source_id)?.metadata?.proceeds_account_id;
   const linked=receipts.filter(receipt=>receipt.metadata.sale_transaction_id===row.source_id&&
    !receipt.metadata.asset_deleted&&receipt.asset_account_id===destination&&receipt.base_currency===baseCurrency&&
@@ -157,10 +166,35 @@ export async function readAssetStatement(id:string,options:z.infer<typeof assetS
   const recordedLots=receiptLots.filter(lot=>lot.source_transaction_id===receipt?.id&&lot.asset_account_id===destination);
   const sourceIds=new Set(allocationRows.filter(line=>line.transaction_id===row.source_id&&lotsById.has(line.lot_id)).map(line=>line.lot_id));
   const sourceHawlDates=[...new Set([...sourceIds].flatMap(id=>{const date=lotsById.get(id)?.hawl_start_date;return date?[date]:[];}))].sort();
-  const inheritedHawlDates=[...new Set(recordedLots.flatMap(lot=>
-   lot.hawl_continuity_source_lot_id&&sourceIds.has(lot.hawl_continuity_source_lot_id)&&lot.hawl_start_date?[lot.hawl_start_date]:[]))].sort();
-  return [row.source_id,{sourceHawlDates,receipt:receipt&&account?{account:account.name,inheritedHawlDates}:null}] as const;
- }));
+  const legacyDates=recordedLots.flatMap(lot=>
+   lot.hawl_continuity_source_lot_id&&sourceIds.has(lot.hawl_continuity_source_lot_id)&&lot.hawl_start_date?[lot.hawl_start_date]:[]);
+  if(!receipt||!account)return {sourceHawlDates,receipt:null};
+
+  // The source RPC is available only once the gold receipt migrations are installed.
+  let evidence:RecordedGoldSource[]=[];
+  if(asset.asset_type==='GOLD'){
+   const result=await supabase.rpc('personal_gold_receipt_hawl_sources',{p_receipt_id:receipt.id});
+   if(result.error&&result.error.code!=='PGRST202')throw result.error;
+   evidence=result.data??[];
+  }
+  const sources=evidence.filter(part=>!part.reversed&&part.base_currency===baseCurrency&&sourceIds.has(part.source_lot_id))
+   .map(part=>({
+    lotId:part.source_lot_id,
+    acquiredOn:lotsById.get(part.source_lot_id)!.acquisition_date,
+    quantity:String(part.sold_quantity),
+    proceeds:String(part.proceeds_base),
+    inheritedHawlStart:part.inherited_hawl_start_date,
+   }));
+  const inheritedHawlDates=[...new Set(evidence.length
+   ?sources.flatMap(part=>part.inheritedHawlStart?[part.inheritedHawlStart]:[])
+   :legacyDates)].sort();
+  return {sourceHawlDates,receipt:{account:account.name,inheritedHawlDates,sources}};
+ }
+ for(let start=0;start<impactSales.length;start+=8){
+  const page=impactSales.slice(start,start+8);
+  const results=await Promise.all(page.map(saleImpact));
+  page.forEach((sale,index)=>cashImpact.set(sale.source_id,results[index]));
+ }
  const numbered=await withVoucherNumbers(supabase,page.map(row=>({...row,document_sequence:undefined as string|undefined,document_links:undefined as Record<string,string>|undefined})));
  return {
   asset:{id:asset.id,name:asset.name,unit:asset.unit,type:asset.asset_type,organizational,metalGrade:metalGrade==null?null:String(metalGrade)},
