@@ -148,12 +148,16 @@ try{
   const options=page.getByRole('dialog');
   const column=options.locator('.att-order-row').filter({hasText:label});
   await column.getByRole('checkbox').check();
-  await column.getByRole('button',{name:move,exact:true}).click();
+  const moveUp=column.getByRole('button',{name:move,exact:true});
+  for(let position=await column.evaluate(row=>Array.from(row.parentElement.children).indexOf(row));position>1;position--){
+   await moveUp.click();
+  }
   await options.getByRole('button',{name:save,exact:true}).click();
   await options.getByRole('button',{name:close,exact:true}).click();
   const cell=goldRow.locator('[data-column="realized"]');
   await cell.locator('.display-money-screen').filter({hasText:/^200\.00 SAR$/}).waitFor();
   const first=await cell.evaluate(node=>node.cellIndex);
+  assert.equal(first,1);
   await page.reload({waitUntil:'domcontentloaded'});
   await cell.locator('.display-money-screen').filter({hasText:/^200\.00 SAR$/}).waitFor();
   assert.equal(await cell.evaluate(node=>node.cellIndex),first);
@@ -162,6 +166,9 @@ try{
   assert.equal(await heading.getAttribute('aria-sort'),'ascending');
   await heading.getByRole('button').click();
   assert.equal(await heading.getAttribute('aria-sort'),'descending');
+  await page.getByLabel(locale==='ar'?'تصفية حسب النوع':'Filter by type',{exact:true}).selectOption('GOLD');
+  await cell.scrollIntoViewIfNeeded();
+  assert.ok(await cell.evaluate(node=>node.getBoundingClientRect().left>=0&&node.getBoundingClientRect().right<=innerWidth));
   await page.screenshot({path:`asset-qa-preview/realized-profit-${locale}.png`});
   await page.close();
  }
