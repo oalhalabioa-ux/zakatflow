@@ -11,7 +11,6 @@ export function handoffReadiness(study:FeasibilityStudy){
  const model=evaluateStudy(study);
  const water=study.water&&evaluateWater(study.water);
  const land=study.rawLand&&evaluateRawLand(study.rawLand);
- // Studies without advanced inputs retain their existing financial readiness rules.
  const advanced=!land&&!water&&study.advanced?evaluateAdvanced(study):null;
  const critical=defaultLegalItems.slice(0,3);
  const criticalRequirements=study.legal.filter(item=>item.critical);
@@ -26,7 +25,7 @@ export function handoffReadiness(study:FeasibilityStudy){
    waterPeakFundingGap(water.annual)<=.01&&(!water.totalLoan||
    (study.water.deal.loanYears>0&&study.water.deal.loanStart>0))
   :advanced?advanced.ready&&advanced.equityReady
-  :Number.isFinite(model.cashFundingGap)&&Math.abs(model.cashFundingGap)<=0.01;
+  :model.ready&&Number.isFinite(model.cashFundingGap)&&Math.abs(model.cashFundingGap)<=0.01;
  const checks:HandoffCheck[]=[
   {key:'decision',ar:'تحديد قرار المشروع: معتمد مبدئيًا أو قيد التأسيس',en:'Project is approved in principle or in establishment',passed:study.status==='APPROVED'||study.status==='ESTABLISHMENT'},
   {key:'identity',ar:'بيانات المشروع والدولة والعملة مكتملة',en:'Project, country and study currency are set',passed:Boolean(study.title.trim()&&study.country.trim()&&/^[A-Z]{3}$/.test(study.currency))},

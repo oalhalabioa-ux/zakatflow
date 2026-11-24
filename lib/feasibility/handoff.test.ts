@@ -18,6 +18,18 @@ describe('project company handoff preflight',()=>{
   const s=createStudy('a','Draft');
   expect(handoffReadiness(s).ready).toBe(false);
  });
+ it('does not mark funding balanced in a new dairy template with missing model inputs',()=>{
+  const s=createIndustrialStarter('dairy','Dairy','DAIRY_CHEESE');
+  const hasBalancedFunding=()=>handoffReadiness(s).checks.find(check=>check.key==='finance')?.passed;
+
+  expect(hasBalancedFunding()).toBe(false);
+  s.capex[0].amount=1000;
+  s.investorEquity=1000;
+  expect(hasBalancedFunding()).toBe(false);
+  s.monthlyUnits=100;
+  s.unitPrice=20;
+  expect(hasBalancedFunding()).toBe(true);
+ });
  it('accepts a locally reviewed, funded, preliminarily verified study',()=>{
   expect(handoffReadiness(readyStudy()).ready).toBe(true);
  });
