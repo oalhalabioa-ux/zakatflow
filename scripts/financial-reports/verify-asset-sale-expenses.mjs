@@ -34,7 +34,9 @@ try {
  `);
  await db.exec(await readFile('supabase/migrations/20261124140000_asset_sale_expense_links.sql', 'utf8'));
  const catalog=(await readFile('tests/migration-history/catalog.sql','utf8')).trim().replace(/;$/,'');
- const objects=await sql(`select * from (${catalog}) catalog where object_key like '%asset_sale_expense%'`);
+ // PostgreSQL 18 stores NOT NULL as a named constraint; the hosted catalog is PostgreSQL 17.
+ const objects=await sql(`select * from (${catalog}) catalog where object_key like '%asset_sale_expense%'
+   and not (category='constraint' and right(object_key,9)='_not_null')`);
  const delta={description:'Reporting-only links from asset sales to existing direct expense vouchers',upserts:objects,removals:[]};
  const deltaPath='tests/migration-history/asset-sale-expense-links-schema-delta.json';
  if (process.argv.includes('--write-catalog')) await writeFile(deltaPath,JSON.stringify(delta,null,2)+'\n');

@@ -28,16 +28,6 @@
     },
     {
       "category": "constraint",
-      "object_key": "private.asset_sale_expense_links.asset_sale_expense_links_linked_at_not_null",
-      "fingerprint": "81f5d8aef4f359bc1638d8da623a0c18"
-    },
-    {
-      "category": "constraint",
-      "object_key": "private.asset_sale_expense_links.asset_sale_expense_links_linked_by_not_null",
-      "fingerprint": "b871e11b51e692dd1d70abc0bbd970ca"
-    },
-    {
-      "category": "constraint",
       "object_key": "private.asset_sale_expense_links.asset_sale_expense_links_pkey",
       "fingerprint": "0c43b60bf44b956a5329d5a6a9a28a3d"
     },
@@ -48,23 +38,8 @@
     },
     {
       "category": "constraint",
-      "object_key": "private.asset_sale_expense_links.asset_sale_expense_links_sale_id_not_null",
-      "fingerprint": "c1d5ae4d4ec755dde34080942f704a5a"
-    },
-    {
-      "category": "constraint",
-      "object_key": "private.asset_sale_expense_links.asset_sale_expense_links_source_id_not_null",
-      "fingerprint": "bd984a9800bc922a688e5c36ed910eeb"
-    },
-    {
-      "category": "constraint",
       "object_key": "private.asset_sale_expense_links.asset_sale_expense_links_source_kind_check",
       "fingerprint": "7ac32e64f06d7f211a5a37c5e0442b0e"
-    },
-    {
-      "category": "constraint",
-      "object_key": "private.asset_sale_expense_links.asset_sale_expense_links_source_kind_not_null",
-      "fingerprint": "ce2b7877037d1cba23788425bb778284"
     },
     {
       "category": "function",
