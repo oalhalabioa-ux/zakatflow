@@ -88,6 +88,8 @@ try{
    'asset-edit-details-schema-delta',
    'grouped-gold-release-schema-delta',
    'independent-sale-destination-schema-delta',
+   'personal-gold-receipt-hawl-schema-delta',
+   'personal-gold-receipt-remaining-schema-delta',
   ];
   const deltas=await Promise.all(deltaNames.map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
   for(const delta of deltas){

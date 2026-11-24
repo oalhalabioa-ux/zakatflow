@@ -2161,6 +2161,22 @@
       "expected_md5": "af5c74ae5503551d34d4ea6eccae2aa6",
       "file_sha256": "8a59dd7092198adb504f3bda38e0f0b6d96d54f72f9d32aaf69ad157e5ddb6ec",
       "validation_project": "Isolated PostgreSQL independent sale destination history regression"
+    },
+    {
+      "path": "supabase/migrations/20261122212401_personal_gold_receipt_hawl_sources.sql",
+      "version": "20261122212401",
+      "name": "personal_gold_receipt_hawl_sources",
+      "expected_md5": "0f7c0368eadf1b2549ee350c365b97d2",
+      "file_sha256": "ba73d6d5e73d18524cd95283988d6c12d94c394216dd1e9acd4df50e17d5bb7d",
+      "validation_project": "Disposable PostgreSQL synthetic personal gold sale provenance and receipt reconciliation"
+    },
+    {
+      "path": "supabase/migrations/20261122213838_personal_gold_receipt_remaining.sql",
+      "version": "20261122213838",
+      "name": "personal_gold_receipt_remaining",
+      "expected_md5": "571c812175d8f19d6a112976e0534628",
+      "file_sha256": "bdd902e4f7c0f5aef714fd8462d4a0350329e2563713dc8f62911023b96600a7",
+      "validation_project": "Disposable PostgreSQL oldest-acquisition-first receipt residuals after correction and spending"
     }
   ]
 }

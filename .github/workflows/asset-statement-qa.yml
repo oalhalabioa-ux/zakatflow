@@ -27,7 +27,7 @@ jobs:
       - run: npm ci
       - name: Set up isolated Chromium and Supabase
         run: |
-          npm install --prefix "$RUNNER_TEMP/assets-tools" --no-save --package-lock=false playwright@1.64.1
+          npm install --prefix "$RUNNER_TEMP/assets-tools" --no-save --package-lock=false playwright@1.64.1 @electric-sql/pglite@0.5.17
           node "$RUNNER_TEMP/assets-tools/node_modules/playwright/cli.js" install --with-deps chromium
           root="$RUNNER_TEMP/asset-statement-qa"
           mkdir -p "$root"
@@ -36,6 +36,8 @@ jobs:
           echo "ASSET_QA_ROOT=$root" >> "$GITHUB_ENV"
           echo "ASSET_BROWSER_MODULE=$RUNNER_TEMP/assets-tools/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
           npx --yes supabase@2.122.0 start --workdir "$root" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta > "$RUNNER_TEMP/assets-start.log" 2>&1 || { tail -60 "$RUNNER_TEMP/assets-start.log"; exit 1; }
+      - name: Verify receipt hawl provenance without changing the financial ledger
+        run: NODE_PATH="$RUNNER_TEMP/assets-tools/node_modules" node tests/assets-v2/sale-hawl-baseline.cjs --capture-sources
       - name: Enable the canonical gold entry points on disposable QA
         run: psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -X -v ON_ERROR_STOP=1 -f tests/sql/personal-gold-release-disabled.sql -f supabase/release/personal-gold-sales/enable.sql
       - name: Verify source reconciliation, isolation and responsive card

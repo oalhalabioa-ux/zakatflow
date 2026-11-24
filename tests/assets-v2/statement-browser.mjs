@@ -76,6 +76,141 @@ function today(){
  return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 }
 
+async function verifyJuneZakatPayment(browser) {
+ // This module is pending promotion. Install it only on the disposable CI database,
+ // after the existing statement tests have finished.
+ execFileSync('psql', [
+  'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
+  '-X', '-v', 'ON_ERROR_STOP=1', '-f', 'supabase/modules/assets/gold_receipt_assessment_components.sql',
+  '-c', "NOTIFY pgrst, 'reload schema'",
+ ], {stdio:'inherit'});
+
+ const owner = await user();
+ const client = owner.client;
+ const bankName = 'QA June Zakat Bank';
+ const assessDate = '2026-06-12';
+ const paymentDate = '2026-06-13';
+ value(await admin.from('profiles').update({base_currency:'SAR'}).eq('id',owner.id));
+ const method = value(await client.from('zakat_methods').select('id').eq('code','INDEPENDENT_LOTS').single());
+ async function asset(name, type, unit, metadata={}) {
+  return value(await client.from('asset_accounts').insert({
+   user_id:owner.id, name, asset_type:type, unit, metadata, currency:'SAR',
+   ownership_scope:'PERSONAL', is_zakatable:true,
+  }).select('id').single()).id;
+ }
+ async function opening(account, date, quantity, cost) {
+  const tx = value(await client.from('transactions').insert({
+   user_id:owner.id, asset_account_id:account, transaction_type:'OPENING_BALANCE',
+   transaction_date:date, quantity, unit_price:cost/quantity, currency:'SAR',
+   base_currency:'SAR', gross_value:cost, base_value:cost, created_by:owner.id,
+  }).select('id').single());
+  return value(await client.from('lots').insert({
+   user_id:owner.id, asset_account_id:account, source_transaction_id:tx.id,
+   acquisition_date:date, hawl_start_date:date, original_quantity:quantity,
+   remaining_quantity:quantity, original_value_base:cost, remaining_value_base:cost,
+  }).select('id').single()).id;
+ }
+ const bank = await asset(bankName,'BANK','unit');
+ const gold = await asset('QA June 18K Gold','GOLD','g',{karat:18});
+ const oldCash = await opening(bank,'2025-12-12',1550,1550);
+ await opening(gold,'2025-06-12',2,600);
+ const remainingGold = await opening(gold,assessDate,8,3200);
+ value(await client.rpc('post_sale_with_proceeds',{
+  p_user_id:owner.id, p_asset_account_id:gold, p_destination_account_id:bank,
+  p_date:assessDate, p_quantity:2, p_sale_value:900, p_currency:'SAR',
+  p_base_currency:'SAR', p_base_value:900,
+ }));
+
+ const ctx = await context(browser,owner,{width:1440,height:960});
+ try {
+  const page = await ctx.newPage();
+  async function json(response) {
+   assert.ok(response.ok(), await response.text());
+   return response.json();
+  }
+  async function get(path) {
+   return json(await ctx.request.get(app+path));
+  }
+  async function clickForPost(path, button) {
+   const response = page.waitForResponse(r=>new URL(r.url()).pathname===path && r.request().method()==='POST',{timeout:45000});
+   await page.getByRole('button',{name:button,exact:true}).click();
+   return response;
+  }
+  async function bankBalance() {
+   return (await get('/api/payments/accounts')).accounts.find(account=>account.id===bank)?.balance;
+  }
+
+  assert.equal(await bankBalance(),2450);
+  await page.goto(app+'/ar/assessments?scope=PERSONAL',{waitUntil:'domcontentloaded'});
+  await page.locator('label').filter({hasText:/^المنهج/}).locator('select').selectOption(method.id);
+  await page.getByLabel('تاريخ الاحتساب',{exact:true}).fill(assessDate);
+  await page.getByLabel('تاريخ بلوغ المحفظة للنصاب',{exact:true}).fill('2025-06-12');
+  await page.getByLabel('سعر الذهب الخالص / g',{exact:true}).fill('400');
+  await page.getByLabel('سعر الفضة الخالصة / g',{exact:true}).fill('4');
+  const {assessment,lines} = await json(await clickForPost('/api/assessments','إجراء احتساب جديد'));
+  assert.equal(Number(assessment.total_zakatable_value),900);
+  assert.equal(Number(assessment.zakat_due),22.5);
+  assert.equal(lines.length,3);
+  for(const [id,due] of [[oldCash,'2026-12-02'],[remainingGold,'2027-06-02']]){
+   const line = lines.find(line=>line.lot_id===id);
+   assert.equal(Number(line.eligible_value),0);
+   assert.equal(line.valuation_snapshot.hawlDueDate,due);
+  }
+  const inheritedCash = lines.find(line=>Number(line.eligible_value)===900);
+  assert.equal(inheritedCash.valuation_snapshot.hawlDueDate,'2026-06-01');
+  assert.equal(inheritedCash.valuation_snapshot.receiptComponentPolicy,'SOURCE_PERIOD_V1');
+
+  page.once('dialog',dialog=>dialog.accept());
+  await json(await clickForPost('/api/assessments/confirm','اعتماد الاحتساب النهائي'));
+  await page.reload({waitUntil:'domcontentloaded'});
+  const finalRow = page.getByRole('row').filter({hasText:'FINAL'}).filter({hasText:assessDate});
+  await finalRow.getByRole('cell').filter({hasText:/22\.50/}).waitFor();
+  await finalRow.scrollIntoViewIfNeeded();
+  await page.screenshot({path:'asset-qa-preview/june-zakat-final-ar.png'});
+
+  await page.goto(app+'/ar/payments?scope=PERSONAL',{waitUntil:'domcontentloaded'});
+  await page.locator('label').filter({hasText:/^الدورة الزكوية/}).locator('select').selectOption(assessment.hawl_cycle_id);
+  await page.locator('label').filter({hasText:/^البنك أو الصندوق المسدد منه/}).locator('select').selectOption(bank);
+
+  const paymentForm = page.locator('section').filter({
+   has:page.getByRole('heading',{name:'تسجيل دفعة زكاة',exact:true}),
+  });
+  await paymentForm.getByLabel('تاريخ السداد',{exact:true}).fill(paymentDate);
+  await paymentForm.getByLabel('مبلغ السداد',{exact:true}).fill('22.50');
+  const savePayment = paymentForm.getByRole('button',{name:/حفظ/});
+  assert.equal(await savePayment.count(),1,JSON.stringify(await paymentForm.getByRole('button').allTextContents()));
+  const response = page.waitForResponse(r=>new URL(r.url()).pathname==='/api/payments' && r.request().method()==='POST',{timeout:45000});
+  await savePayment.click();
+  const paymentResponse = await response;
+  const paymentRequest = paymentResponse.request().postDataJSON();
+  const payment = await json(paymentResponse);
+  assert.equal(payment.payment_date,paymentDate);
+  const repeated = await json(await ctx.request.post(app+'/api/payments',{data:paymentRequest}));
+  assert.equal(repeated.id,payment.id);
+
+  await page.reload({waitUntil:'domcontentloaded'});
+  const paidRow = page.getByRole('row').filter({hasText:paymentDate}).filter({hasText:bankName});
+  const number = paidRow.locator('bdi').first();
+  await number.waitFor();
+  const voucher = await number.innerText();
+  assert.match(voucher,/^ZP-/);
+  assert.equal(await paidRow.count(),1);
+  assert.match(await paidRow.innerText(),/22\.50/);
+  await paidRow.scrollIntoViewIfNeeded();
+  await page.screenshot({path:'asset-qa-preview/june-zakat-payment-ar.png'});
+  const payments = await get('/api/payments');
+  assert.equal(payments.length,1);
+  assert.equal(payments[0].id,payment.id);
+  assert.equal(Number(payments[0].allocated_amount),22.5);
+  assert.equal(await bankBalance(),2427.5);
+  const movements = value(await client.from('transactions').select('id').eq('asset_account_id',bank).eq('transaction_type','ZAKAT_PAYMENT'));
+  assert.equal(movements.length,1);
+  console.log('PASS June Zakat browser save, finalize and reload:', voucher, payment.payment_date, 'one SAR 22.50 payment, bank SAR 2450 → 2427.50');
+ } finally {
+  await ctx.close();
+ }
+}
+
 let server,browser;
 try{
  const owner=await user(),stranger=await user();
@@ -316,6 +451,7 @@ try{
   await ctx.close();
  }
  console.log('PASS scoped opening and FIFO statement; 9 units / 2840 as of first sale, 6 / 1920 today, corporate 10 / 90000, denied cross-user and organization, AR mobile and EN desktop');
+ await verifyJuneZakatPayment(browser);
 }finally{
  await browser?.close();
  server?.kill();
