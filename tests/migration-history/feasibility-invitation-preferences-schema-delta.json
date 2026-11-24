@@ -1,0 +1,101 @@
+{
+  "description": "Independent feasibility company invitation reception and restricted pilot",
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "private.feasibility_invitation_reception.enabled",
+      "fingerprint": "fa56500de2d6fb8f5d2ce2e52ced6e3f"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_invitation_reception.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_sharing_policy.company_invitation_pilot_only",
+      "fingerprint": "14ea4bf43cf24757f6097b74012b9d32"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_sharing_policy.company_invitation_pilot_recipient",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "column",
+      "object_key": "private.feasibility_sharing_policy.company_invitation_pilot_source",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_invitation_reception.feasibility_invitation_reception_organization_id_fkey",
+      "fingerprint": "3c702b28ccc97a0ac52c0acefcdea477"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_invitation_reception.feasibility_invitation_reception_pkey",
+      "fingerprint": "f0b623612927b828a67c8f66fba8bc2c"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_sharing_policy.feasibility_invitation_pilot_pair",
+      "fingerprint": "3d813a69a5c97215c45b58d9c28c51a1"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_sharing_policy.feasibility_sharing_policy_company_invitation_pilot_recipi_fkey",
+      "fingerprint": "f8783ffaf58cd2f156dcd111a02541dc"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.feasibility_sharing_policy.feasibility_sharing_policy_company_invitation_pilot_source_fkey",
+      "fingerprint": "583587393dfff88fa57dc0f0854d0680"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_check_invitation_reception(p_source uuid, p_recipient uuid, p_access text, p_documents text)",
+      "fingerprint": "72e5dd6e6ec6ae863f97a32f6f3c26f8"
+    },
+    {
+      "category": "function",
+      "object_key": "private.feasibility_guard_company_invitation()",
+      "fingerprint": "5f270b6336b0f85eed7d32689a0d8cd1"
+    },
+    {
+      "category": "function",
+      "object_key": "public.feasibility_company_invitations(p_action text, p_organization uuid, p_invitation uuid, p_project uuid, p_recipient uuid, p_revision integer, p_days integer, p_access text)",
+      "fingerprint": "b08a71f4c049bd9105f973821207b731"
+    },
+    {
+      "category": "function",
+      "object_key": "public.feasibility_invitation_reception(p_organization uuid, p_enabled boolean)",
+      "fingerprint": "71b0a56d2047c39a27d8feb11bf4fe01"
+    },
+    {
+      "category": "function",
+      "object_key": "public.feasibility_issue_with_documents(p_organization uuid, p_project uuid, p_recipient uuid, p_revision integer, p_days integer, p_access text, p_document_mode text, p_documents uuid[])",
+      "fingerprint": "bfc5de39350927e25c107cea2ea35044"
+    },
+    {
+      "category": "index",
+      "object_key": "private.feasibility_invitation_reception.feasibility_invitation_reception_pkey",
+      "fingerprint": "13318d8586d587b28bed68476ac4ff9e"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.feasibility_invitation_reception",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "trigger",
+      "object_key": "private.feasibility_company_invitations.feasibility_guard_company_invitation_issue",
+      "fingerprint": "3121a25be5e86ab6c9998c8a4ccff685"
+    },
+    {
+      "category": "trigger",
+      "object_key": "private.feasibility_company_invitations.feasibility_guard_company_invitation_update",
+      "fingerprint": "58cd9f6b9dd0ee0c2e9567851b32a984"
+    }
+  ],
+  "removals": []
+}

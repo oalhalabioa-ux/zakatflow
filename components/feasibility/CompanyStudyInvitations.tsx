@@ -76,6 +76,13 @@ export default function CompanyStudyInvitations({ locale, organization, project,
           : 'This invitation was already decided. Refreshing the list.' });
         return;
       }
+      if (action === 'accept' && response.status === 403
+        && result.error === 'FEASIBILITY_INVITATION_RECEPTION_DISABLED') {
+        setFeedback({ error: true, text: ar
+          ? 'تعذّر قبول الدعوة لأن استقبال دعوات المشاركة معطّل لهذه المؤسسة. يمكن لمن لديه صلاحية إدارة إعدادات المشاركة تفعيله ثم إعادة المحاولة.'
+          : 'This invitation could not be accepted because incoming sharing invitations are disabled for this organization. A user with permission to manage sharing settings can enable them, then you can try again.' });
+        return;
+      }
       if (!response.ok) throw Error(result.error);
       const state = result.state as State;
       setFeedback({ error: state === 'expired', text: names[state][language] });

@@ -2161,6 +2161,14 @@
       "expected_md5": "af5c74ae5503551d34d4ea6eccae2aa6",
       "file_sha256": "8a59dd7092198adb504f3bda38e0f0b6d96d54f72f9d32aaf69ad157e5ddb6ec",
       "validation_project": "Isolated PostgreSQL independent sale destination history regression"
+    },
+    {
+      "path": "supabase/migrations/20261122140000_feasibility_invitation_preferences.sql",
+      "version": "20261122140000",
+      "name": "feasibility_invitation_preferences",
+      "expected_md5": "626a0f9340e7b46e9bc402d52e595eea",
+      "file_sha256": "d7f915f3da66d87c11ce5cac00edabc1a689fc8de04e36869ac008a92831b26d",
+      "validation_project": "Feasibility invitation reception and restricted pilot QA"
     }
   ]
 }
