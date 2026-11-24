@@ -171,8 +171,8 @@ async function verifyJuneZakatPayment(browser) {
   await page.goto(app+'/ar/payments?scope=PERSONAL',{waitUntil:'domcontentloaded'});
   await page.locator('label').filter({hasText:/^الدورة الزكوية/}).locator('select').selectOption(assessment.hawl_cycle_id);
   await page.locator('label').filter({hasText:/^البنك أو الصندوق المسدد منه/}).locator('select').selectOption(bank);
-  await page.getByLabel('تاريخ الدفع',{exact:true}).fill(paymentDate);
-  await page.getByLabel('المبلغ',{exact:true}).fill('22.50');
+  await page.locator('label').filter({hasText:/^تاريخ الدفع/}).locator('input[type="date"]').fill(paymentDate);
+  await page.locator('label').filter({hasText:/^المبلغ$/}).locator('input[type="number"]').fill('22.50');
   const paymentResponse = await clickForPost('/api/payments','حفظ السداد وترحيل الزيادة');
   const paymentRequest = paymentResponse.request().postDataJSON();
   const payment = await json(paymentResponse);
