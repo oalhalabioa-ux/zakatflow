@@ -100,7 +100,7 @@ begin
 end;
 $$;
 
-create function public.asset_sale_expenses(p_sale_ids uuid[])
+create function private.asset_sale_expenses_internal(p_sale_ids uuid[])
 returns table(sale_id uuid,source_id uuid,voucher text,state text,amount text)
 language sql stable security definer set search_path='' as $$
   select t.id,link.source_id,v.document_number,source.state,source.amount::text
@@ -126,7 +126,7 @@ language sql stable security definer set search_path='' as $$
     order by 1,2;
 $$;
 
-create function public.link_asset_sale_expense(p_sale_id uuid,p_source text,p_reason text,p_remove boolean default false)
+create function private.link_asset_sale_expense_internal(p_sale_id uuid,p_source text,p_reason text,p_remove boolean)
 returns uuid language plpgsql security definer set search_path='' as $$
 declare actor uuid:=auth.uid(); sale public.transactions%rowtype; source uuid;
   kind text; voucher_table text; existing uuid; amount numeric;
@@ -201,6 +201,22 @@ begin
   return source;
 end;
 $$;
+
+create function public.asset_sale_expenses(p_sale_ids uuid[])
+returns table(sale_id uuid,source_id uuid,voucher text,state text,amount text)
+language sql stable security invoker set search_path='' as $$
+  select * from private.asset_sale_expenses_internal(p_sale_ids);
+$$;
+
+create function public.link_asset_sale_expense(p_sale_id uuid,p_source text,p_reason text,p_remove boolean default false)
+returns uuid language sql security invoker set search_path='' as $$
+  select private.link_asset_sale_expense_internal(p_sale_id,p_source,p_reason,p_remove);
+$$;
+
+revoke all on function private.asset_sale_expenses_internal(uuid[]),private.link_asset_sale_expense_internal(uuid,text,text,boolean)
+  from public,anon,authenticated;
+grant execute on function private.asset_sale_expenses_internal(uuid[]),private.link_asset_sale_expense_internal(uuid,text,text,boolean)
+  to authenticated;
 
 revoke all on function private.asset_sale_expense_lineage(uuid),private.asset_sale_expense_source(uuid,uuid)
   from public,anon,authenticated;

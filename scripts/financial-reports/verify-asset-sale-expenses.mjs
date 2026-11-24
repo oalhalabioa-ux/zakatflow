@@ -13,7 +13,7 @@ try {
  await db.exec(`
   create role anon; create role authenticated; create schema auth; create schema private;
   create function auth.uid() returns uuid language sql as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
-  grant usage on schema auth to authenticated;
+  grant usage on schema auth, private to authenticated;
   create type transaction_type as enum ('SALE','ADD','WITHDRAWAL','REVERSAL');
   create table asset_accounts(id uuid primary key,user_id uuid,organization_id uuid,asset_type text);
   create table transactions(id uuid primary key,user_id uuid,organization_id uuid,entity_id uuid,
@@ -55,6 +55,7 @@ try {
  const link=(id,src,remove=false)=>sql("select public.link_asset_sale_expense($1,$2,'Broker commission on voucher',$3)",[id,src,remove]);
  const read=id=>sql('select source_id,voucher,state,amount from public.asset_sale_expenses(array[$1]::uuid[])',[id]);
  assert.equal((await sql("select has_function_privilege('anon','public.asset_sale_expenses(uuid[])','EXECUTE') permission"))[0].permission,false);
+ assert.equal((await sql("select prosecdef from pg_proc where oid='public.asset_sale_expenses(uuid[])'::regprocedure"))[0].prosecdef,false);
  await actor(uid);
  await db.exec('set role authenticated');
  await assert.rejects(sql('select * from private.asset_sale_expense_links'), /permission denied/);

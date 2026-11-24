@@ -78,13 +78,23 @@
     },
     {
       "category": "function",
+      "object_key": "private.asset_sale_expenses_internal(p_sale_ids uuid[])",
+      "fingerprint": "acd04cbf1e4852e14f92986e47c76c4f"
+    },
+    {
+      "category": "function",
+      "object_key": "private.link_asset_sale_expense_internal(p_sale_id uuid, p_source text, p_reason text, p_remove boolean)",
+      "fingerprint": "d8edc74324818a04002ee53f85c03f75"
+    },
+    {
+      "category": "function",
       "object_key": "public.asset_sale_expenses(p_sale_ids uuid[])",
-      "fingerprint": "438a3b406e4a0388752e2276d9a03169"
+      "fingerprint": "bd5b0b8288a3c23d2effe3f7d02d9178"
     },
     {
       "category": "function",
       "object_key": "public.link_asset_sale_expense(p_sale_id uuid, p_source text, p_reason text, p_remove boolean)",
-      "fingerprint": "8da368a9a858cc20609314d41a3fe96a"
+      "fingerprint": "c819715334b048fc35025c41ac63eaa0"
     },
     {
       "category": "index",
