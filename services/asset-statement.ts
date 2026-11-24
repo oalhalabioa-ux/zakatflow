@@ -56,6 +56,7 @@ export async function readAssetStatement(id:string,options:z.infer<typeof assetS
  if(asset.metadata?.investment_id||asset.metadata?.personal_contract_id||asset.metadata?.register_source)
   throw Error('ASSET_STATEMENT_SPECIALIZED_SOURCE');
  const organizational=!!asset.organization_id;
+ const goldAsset=asset.asset_type==='GOLD';
  const scope=(query:any)=>organizational?query.eq('organization_id',asset.organization_id):query.is('organization_id',null).eq('user_id',user.id);
 
  const [headerRows,lots,commands,baseResult]=await Promise.all([
@@ -172,7 +173,7 @@ export async function readAssetStatement(id:string,options:z.infer<typeof assetS
 
   // The source RPC is available only once the gold receipt migrations are installed.
   let evidence:RecordedGoldSource[]=[];
-  if(asset.asset_type==='GOLD'){
+  if(goldAsset){
    const result=await supabase.rpc('personal_gold_receipt_hawl_sources',{p_receipt_id:receipt.id});
    if(result.error&&result.error.code!=='PGRST202')throw result.error;
    evidence=result.data??[];
