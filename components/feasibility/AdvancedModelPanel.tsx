@@ -1,26 +1,12 @@
 'use client';
 import type {AdvancedAssumptions,CapitalCategory,FeasibilityStudy,Scenario} from '@/lib/feasibility/engine';
 import {categories,emptyAdvanced,evaluateAdvanced,illustratedLives} from '@/lib/feasibility/advanced-model';
+import {advancedIssueNames} from '@/lib/feasibility/advanced-readiness-labels';
 import {sectorTemplates} from '@/lib/feasibility/sector-templates';
 
 const categoryNames:Record<CapitalCategory,[string,string]>={
  BUILDINGS:['المباني','Buildings'],EQUIPMENT:['المعدات','Equipment'],UTILITIES:['المرافق','Utilities'],
  LICENCES:['التراخيص','Licences'],OTHER:['الأصول الأخرى','Other capital assets']
-};
-const issueNames:Record<string,[string,string]>={
- INVALID_ASSUMPTIONS:['تحقق من سلامة الأرقام والمعدلات.','Check the input values and rates.'],
- CAPACITY_INCOMPLETE:['أدخل الطاقة والاستغلال والإنتاج الصالح للبيع.','Enter capacity, utilization and saleable yield.'],
- BASIC_INPUT_MISSING:['أدخل التكاليف الاستثمارية والسعر والحجم.','Enter CAPEX, price and sales volume.'],
- USEFUL_LIVES_MISSING:['يجب تحديد العمر المفيد للفئات الرأسمالية ذات المبالغ.','Enter useful lives for funded CAPEX categories.'],
- DEBT_TERM_MISSING:['أدخل مدة سداد الدين.','Enter loan repayment term.'],
- DEBT_EXCEEDS_HORIZON:['مدة القرض أكبر من فترة الدراسة.','Debt term exceeds forecast horizon.'],
- DEBT_OVERFUNDED:['القروض أعلى من احتياجات النقد الأولية.','Loans exceed initial cash requirements.'],
- NONFINITE_PROJECTION:['الأرقام الناتجة غير صالحة؛ راجع الافتراضات.','Projection produces invalid values.'],
- FUNDING_GAP:['نقص تمويل نقدي؛ عائد المساهمين غير متاح.','Funding gap: equity returns are withheld.'],
- UNMODELED_SURPLUS:['هناك فائض تمويل غير نمذجته الدراسة.','Funding surplus is not modeled.'],
- LAND_VALUE_REQUIRED:['الأرض المنقولة يجب أن تكون ذات قيمة مقدرة موجبة.','Transferred land requires a positive appraised value.'],
- EQUITY_UNFUNDED:['لا توجد مساهمة اقتصادية موجبة لحقوق الملكية.','No positive equity contribution exists.'],
- NEGATIVE_WORKING_CAPITAL:['رأس المال العامل سالب بسبب ائتمان الموردين؛ يتطلب ذلك نموذج ائتمان منفصلًا.','Negative working capital requires a separate supplier-credit model.']
 };
 function Numeric({label,value,set,max=1000000000000,step='any'}:{
  label:string;value:number;set:(v:number)=>void;max?:number;step?:string
@@ -32,6 +18,7 @@ export default function AdvancedModelPanel({study,scenario,locale,onChange}:{
  study:FeasibilityStudy;scenario:Scenario;locale:string;onChange:(x:AdvancedAssumptions)=>void
 }){
  const ar=locale==='ar',t=(a:string,b:string)=>ar?a:b;
+ const usesProductionLines=study.sector==='INDUSTRIAL'&&!study.water&&study.productionPlan?.enabled;
  const a=study.advanced??emptyAdvanced(),result=evaluateAdvanced(study,scenario),sector=sectorTemplates[study.sector];
  const cashPolicy=a.workingCapitalPolicy??{mode:'MANUAL' as const,receivableDays:0,inventoryDays:0,payableDays:0};
  const update=(p:Partial<AdvancedAssumptions>)=>onChange({...a,...p});
@@ -40,6 +27,7 @@ export default function AdvancedModelPanel({study,scenario,locale,onChange}:{
  return <section className="card fs-panel">
   <h3>{t('النموذج المالي المتقدم — استرشادي','Advanced feasibility model — indicative')}</h3>
   <p className="fs-hint">{t('مستقل عن القيود والأرصدة الفعلية. النموذج الأساسي يبقى دون تغيير، ولا تظهر نتائج هذه الصفحة قبل إدخال الافتراضات الضرورية.', 'Separate from accounting ledgers. The basic model is unchanged; incomplete assumptions do not produce advanced returns.')}</p>
+  {usesProductionLines?<p className="fs-hint">{t('الحجم والإيراد والتكلفة تأتي من خطوط الإنتاج في تبويب التشغيل.', 'Volume, revenue and cost come from the production lines in Operations.')}</p>:<>
   <div className="fs-form-grid">
    <label className="fs-field"><span>{t('طريقة احتساب المبيعات','Volume method')}</span>
     <select value={a.mode} onChange={e=>update({mode:e.currentTarget.value as AdvancedAssumptions['mode']})}>
@@ -54,6 +42,7 @@ export default function AdvancedModelPanel({study,scenario,locale,onChange}:{
    </>}
   </div>
   <p className="fs-hint">{ar?sector.warningAr:sector.warningEn}</p>
+  </>}
   <h3>{t('الإهلاك والاسترداد','Depreciation and terminal recovery')}</h3>
   <p className="fs-hint">{t('العمر صفر يعني غير محدد. الأعمار المقترحة ليست معدلات ضريبية معتمدة.', 'Zero life means unspecified. Suggested lives are not statutory tax rates.')}</p>
   <div className="fs-form-grid">
@@ -97,7 +86,7 @@ export default function AdvancedModelPanel({study,scenario,locale,onChange}:{
   </div>
   <h3>{t('نتائج نموذج الدراسة المتقدم','Advanced study results')}</h3>
   {!result.ready&&<p className="fs-hint">{t('النتائج محجوبة حتى اكتمال المتطلبات.','Indicators are withheld until essential inputs are completed.')}</p>}
-  {[...result.blockers,...result.equityBlockers].map(code=><p key={code} className="fs-handoff-note">{ar?issueNames[code]?.[0]??code:issueNames[code]?.[1]??code}</p>)}
+  {[...result.blockers,...result.equityBlockers].map(code=><p key={code} className="fs-handoff-note">{ar?advancedIssueNames[code]?.[0]??code:advancedIssueNames[code]?.[1]??code}</p>)}
   {result.ready&&<>
    <div className="fs-kpis">
     <div className="fs-metric"><small>{t('احتياطي الطوارئ النقدي','Capital contingency cash')}</small><strong dir="ltr">{money(result.contingency)}</strong></div>

@@ -1,6 +1,7 @@
 // Issue #421 only. Runs in the disposable local Supabase + Chromium fixture.
 // No real QA/Production user or billing value is modified.
 import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
 import {runQuantityCostingBrowser} from './quantity-costing-browser.mjs';
 import {runWaterFinancialPolicyBrowser} from './water-financial-policy-browser.mjs';
 
@@ -818,6 +819,83 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
  });
  await runQuantityCostingBrowser({browser,cookies,check});
  await runWaterFinancialPolicyBrowser({browser,cookies,check});
+ await check('Dairy readiness on released production lines: funding, bilingual reasons and saved study compatibility',async()=>{
+  const app='http://localhost:3000';
+  const context=await browser.newContext({viewport:{width:1440,height:1000}});
+  await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,url:app})));
+  const page=await context.newPage();page.setDefaultTimeout(12000);
+  const endpoint=app+'/api/feasibility/projects';
+  const navigate=locale=>page.goto(app+'/'+locale+'/feasibility?scope=PERSONAL');
+  const button=name=>page.getByRole('button',{name,exact:true});
+  async function read(id){
+   const response=await page.request.get(endpoint);
+   assert.equal(response.status(),200);
+   const row=(await response.json()).find(item=>item.id===id||item.title===id);
+   assert.ok(row,'Synthetic dairy study is available through cloud readback');
+   return row;
+  }
+  async function save(method,status){
+   const saved=page.waitForResponse(r=>r.url()===endpoint&&r.request().method()===method);
+   await button('Save to cloud').click();
+   const response=await saved;
+   assert.equal(response.status(),status,await response.text());
+  }
+  try{
+   await navigate('en');
+   const title='Synthetic new dairy readiness';
+   await button('New study').click();
+   await page.getByRole('textbox',{name:'New project name',exact:true}).fill(title);
+   await page.getByRole('radio',{name:'Dairy & cheese factory',exact:true}).check();
+   await button('Add project +').click();
+   await save('POST',201);
+   const {study}=await read(title);
+   assert.equal(study.legal.filter(item=>item.critical).length,3);
+
+   // Model the cloud payload of an older dairy study, before the critical flags.
+   const legacy={...study,id:randomUUID(),title:'Synthetic saved dairy readiness',country:'Saudi Arabia',currency:'SAR',
+    status:'APPROVED',investorEquity:100000,monthlyUnits:0,unitPrice:0,variableCost:0,
+    capex:[{id:'equipment',label:'Equipment',category:'EQUIPMENT',amount:100000}],
+    legal:study.legal.map((item,index)=>({...item,critical:false,status:index<3?'VERIFIED':item.status})),
+    advanced:{mode:'DIRECT',capacityMonthly:0,utilisationPct:100,saleablePct:100,debtRatePct:0,debtYears:0,terminalCash:0,
+     contingencyPct:10,lives:{BUILDINGS:0,EQUIPMENT:10,UTILITIES:0,LICENCES:0,OTHER:0}},
+    productionPlan:{enabled:true,daysPerMonth:30,materials:[],payroll:[],
+     lines:[{id:'dairy',name:'Dairy line',basis:'DAILY',capacity:1,hoursPerDay:0,utilizationPct:100,
+      products:[{id:'laban',name:'Laban',allocationPct:100,yieldPct:100,soldPct:100,pricePerTonne:100,
+       packagingPerSaleableTonne:0,recipe:[]}]}]}};
+   const seeded=await page.request.post(endpoint,{headers:{Origin:app},data:{study:legacy}});
+   assert.equal(seeded.status(),201,await seeded.text());
+   const original=await read(legacy.id);
+   await button('Restore from cloud').click();
+   await button('Overview').click();
+   await page.getByRole('button',{name:new RegExp(legacy.title)}).click();
+   const fundingReason=page.getByText('Funding gap: equity returns are withheld.',{exact:true});
+   await button('Report and export').click();
+   await fundingReason.waitFor();
+   assert.equal(await page.getByText('Projections use the advanced financial model’s base case.',{exact:true}).isVisible(),true);
+   const yearOne=page.locator('[data-report-section="finance"] tbody tr').nth(1);
+   assert.equal(await yearOne.getByRole('cell').nth(2).innerText(),'36,000');
+   await page.setViewportSize({width:390,height:1000});
+   await navigate('ar');
+   await button('التقرير والتصدير').click();
+   await page.getByText('نقص تمويل نقدي؛ عائد المساهمين غير متاح.',{exact:true}).waitFor();
+   assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=window.innerWidth),true);
+   const opened=await read(legacy.id);
+   assert.equal(opened.revision,original.revision);
+   assert.deepEqual(opened.study,original.study);
+
+   await navigate('en');
+   await button('Partnership').click();
+   await page.getByRole('spinbutton',{name:'Investor equity cash',exact:true}).fill('110000');
+   await save('PATCH',200);
+   await page.reload();
+   await button('Report and export').click();
+   await fundingReason.waitFor({state:'hidden'});
+   const corrected=await read(legacy.id);
+   assert.equal(corrected.study.investorEquity,110000);
+   assert.deepEqual(corrected.study.legal,original.study.legal);
+   assert.deepEqual(corrected.study.productionPlan,original.study.productionPlan);
+  }finally{await context.close();}
+ });
  await check('issue 421: unrelated user cannot read Billing details in either organization',async()=>{
   const r=await fetch(url+'/rest/v1/organizations?select=id,contact_email,registered_address',{
    headers:headers(outsider)

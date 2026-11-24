@@ -37,10 +37,10 @@ export function partnerPaidAmounts(partner:Partner,asOf?:string){
  return {cashPaid:paid('EQUITY'),loanPaid:paid('LOAN')};
 }
 
-export function allocatePartnerInstallments(partnership:Partnership|undefined,startMonth:string|undefined){
+export function allocatePartnerInstallments(partnership:Partnership|undefined,startMonth:string|undefined,months=12){
  if(!partnership?.asOf||!startMonth)return null;
  const {asOf}=partnership;
- const rows=Array.from({length:12},()=>({equity:0,loan:0}));
+ const rows=Array.from({length:months},()=>({equity:0,loan:0}));
  const ordinal=(date:string)=>Number(date.slice(0,4))*12+Number(date.slice(5,7));
  const start=ordinal(startMonth);
  let overdue=0,undated=0,futureActual=0,beforeWindow=0,afterWindow=0,scheduledLoan=0;

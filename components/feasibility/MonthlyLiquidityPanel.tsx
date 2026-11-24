@@ -4,6 +4,7 @@ import type {FeasibilityStudy} from '@/lib/feasibility/engine';
 import {defaultMonthlyLiquidity,evaluateMonthlyLiquidity,liquidityMonthLabel,liquidityTiming,
  monthlyCashEquity,monthlyLiquidityAmounts,monthlyLiquiditySchema,type MonthlyLiquidity} from '@/lib/feasibility/monthly-liquidity';
 import {RoyalIcon} from './RoyalIcon';
+import LandPhasedLiquidity from './LandPhasedLiquidity';
 
 type Stream=keyof MonthlyLiquidity['timing'];
 
@@ -155,5 +156,6 @@ export default function MonthlyLiquidityPanel({study,locale,readOnly,onChange}:{
     </table>
    </div>
   </>}
+  {study.rawLand&&<LandPhasedLiquidity key={study.id} land={study.rawLand} plan={plan} partnership={study.partnership} locale={locale} currency={study.currency}/>}
  </section>;
 }
