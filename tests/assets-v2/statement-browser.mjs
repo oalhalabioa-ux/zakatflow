@@ -89,7 +89,7 @@ async function verifyJuneZakatPayment(browser) {
  const client = owner.client;
  const bankName = 'QA June Zakat Bank';
  const assessDate = '2026-06-12';
- const paymentDate = today();
+ const paymentDate = '2026-06-13';
  value(await admin.from('profiles').update({base_currency:'SAR'}).eq('id',owner.id));
  const method = value(await client.from('zakat_methods').select('id').eq('code','INDEPENDENT_LOTS').single());
  async function asset(name, type, unit, metadata={}) {
@@ -175,11 +175,13 @@ async function verifyJuneZakatPayment(browser) {
   const paymentForm = page.locator('section').filter({
    has:page.getByRole('heading',{name:'تسجيل دفعة زكاة',exact:true}),
   });
-  const amount = paymentForm.locator('label').filter({hasText:'المبلغ',hasNotText:'بالعملة الأساسية'}).locator('input');
-  assert.equal(await amount.count(),1,JSON.stringify(await paymentForm.locator('input').evaluateAll(inputs=>
-   inputs.map(input=>({type:input.type,label:input.closest('label')?.textContent,step:input.getAttribute('step')})))));
-  await amount.fill('22.50');
-  const paymentResponse = await clickForPost('/api/payments','حفظ السداد وترحيل الزيادة');
+  await paymentForm.getByLabel('تاريخ السداد',{exact:true}).fill(paymentDate);
+  await paymentForm.getByLabel('مبلغ السداد',{exact:true}).fill('22.50');
+  const savePayment = paymentForm.getByRole('button',{name:/حفظ/});
+  assert.equal(await savePayment.count(),1,JSON.stringify(await paymentForm.getByRole('button').allTextContents()));
+  const response = page.waitForResponse(r=>new URL(r.url()).pathname==='/api/payments' && r.request().method()==='POST',{timeout:45000});
+  await savePayment.click();
+  const paymentResponse = await response;
   const paymentRequest = paymentResponse.request().postDataJSON();
   const payment = await json(paymentResponse);
   assert.equal(payment.payment_date,paymentDate);
