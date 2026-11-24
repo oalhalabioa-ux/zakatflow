@@ -1,0 +1,10 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "public.personal_gold_receipt_remaining(p_receipt_id uuid)",
+      "fingerprint": "3e2031a01cdfd94250545cf01389ffd1"
+    }
+  ]
+}
