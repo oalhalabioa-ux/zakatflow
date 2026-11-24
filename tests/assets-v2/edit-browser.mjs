@@ -231,7 +231,7 @@ try {
    }
   } else {
    const canRename = asset.id!==oldGold.id;
-   const registration = page.getByRole('dialog').getByRole('button',{name:ar?'تعديل بيانات التسجيل':'Edit registration details',exact:true});
+   const registration = page.getByRole('dialog').getByRole('button',{name:ar?'تعديل بيانات الأصل':'Edit asset details',exact:true});
    const market = page.getByRole('dialog').getByRole('button',{name:ar?'تحديث السعر السوقي':'Update market price',exact:true});
    let nextName = original.name;
    if (canRename) {
@@ -478,7 +478,7 @@ try {
   const bookCost = async()=>Number(value(await admin.from('lots').select('remaining_value_base').eq('asset_account_id',reference.id).single()).remaining_value_base);
   await page.goto(app+'/en/assets?scope=ORGANIZATION');
   await openEquipment();
-  await dialog.getByRole('button',{name:'Sale, depreciation or disposal',exact:true}).click();
+  await dialog.getByRole('button',{name:'Depreciate',exact:true}).click();
   await dialog.getByLabel('Operation date').fill('2026-02-28');
   await dialog.getByLabel('Monthly depreciation amount').fill('1800');
   const draftSaved=page.waitForResponse(res=>res.request().method()==='POST'&&new URL(res.url()).pathname==='/api/assets/lifecycle');

@@ -1,55 +1,73 @@
 'use client';
 
-import {useEffect,useState} from 'react';
+import {useEffect,useState,type ReactNode} from 'react';
+import Decimal from 'decimal.js';
 import AssetOperationDetails from './AssetOperationDetails';
 import GoldSaleAction from './GoldSaleAction';
 import GoldCardSale from './GoldCardSale';
 import Link from 'next/link';
-import ActionButton from '../ActionButton';
+import ActionButton,{ActionIconGlyph,type ActionIcon} from '../ActionButton';
 import {reportCsv} from '../../lib/vat-financial-reports';
 import {vatReportPrintHtml} from '../../lib/vat-report-print';
 import {operationStateLabel,operationTypeLabel} from '../../lib/asset-operation-report';
-import type {readAssetStatement} from '../../services/asset-statement';
-
-type Statement = Awaited<ReturnType<typeof readAssetStatement>>;
+import {AssetCardOverview,AssetCardZakat,assetCardNumber,type AssetCardStatement as Statement} from './AssetCardOverview';
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 
-export default function AssetStatementPreview({assetId,ar,onSaved}:{assetId:string;ar:boolean;onSaved:()=>void}){
+export type AssetCardSection='summary'|'statement'|'valuation'|'zakat'|'documents'|'actions';
+type Props={
+ assetId:string;name:string;typeName:string;icon:ReactNode;status:string;active:boolean;organizational:boolean;ar:boolean;revision:number;
+ section:AssetCardSection;onSection:(section:AssetCardSection)=>void;onClose:()=>void;onSaved:()=>void;
+ toolbar:ReactNode;content:ReactNode;work:ReactNode;hawlLots:Parameters<typeof AssetCardZakat>[0]['hawlLots'];zakatable:boolean;
+};
+export default function AssetStatementPreview({assetId,name,typeName,icon,status,active,organizational,ar,revision,
+ section,onSection,onClose,onSaved,toolbar,content,work,hawlLots,zakatable}:Props){
  const t=(arabic:string,english:string)=>ar?arabic:english;
- const [selling,setSelling]=useState(false),[revision,setRevision]=useState(0);
+ const [selling,setSelling]=useState(false);
  const [voucher,setVoucher]=useState<{assetId:string;id:string}|null>(null);
  const [exporting,setExporting]=useState(false),[exportError,setExportError]=useState('');
  const [asOf,setAsOf]=useState(today);
  const [offset,setOffset]=useState(0);
  const [statement,setStatement]=useState<Statement|null>(null);
+ const [overview,setOverview]=useState<Statement|null>(null);
+ const impact=section==='zakat'&&!organizational;
  const [error,setError]=useState('');
- const [loading,setLoading]=useState(false);
+ const [loading,setLoading]=useState(true);
+ const [previousRevision,setPreviousRevision]=useState(revision);
+ if(previousRevision!==revision){
+  setPreviousRevision(revision);
+  setAsOf(today());
+  setOffset(0);
+  setOverview(null);
+  setStatement(null);
+  setLoading(true);
+ }
  useEffect(()=>{
   if(!asOf)return;
   const controller=new AbortController();
   setLoading(true);setError('');setExportError('');setStatement(null);
   const query=new URLSearchParams({asOf,offset:String(offset),limit:'20'});
+  if(impact)query.set('impact','1');
   fetch(`/api/assets/${encodeURIComponent(assetId)}/statement?${query}`,{signal:controller.signal,cache:'no-store'})
    .then(async response=>{
     const result=await response.json();
     if(!response.ok)throw new Error(result.error);
-    if(!controller.signal.aborted)setStatement(result);
+    if(!controller.signal.aborted){
+     setStatement(result);
+     if(result.current)setOverview(result);
+    }
    }).catch(cause=>{if(!controller.signal.aborted)setError(cause.message);})
    .finally(()=>{if(!controller.signal.aborted)setLoading(false);});
   return ()=>controller.abort();
- },[assetId,asOf,offset,revision]);
+ },[assetId,asOf,offset,revision,impact]);
 
  function refreshAfterSave(){
   setOffset(0);
-  setRevision(value=>value+1);
+  setAsOf(today());
+  setOverview(null);
   onSaved();
  }
 
- const format=(value:string|null)=>{
-  if(value===null)return '—';
-  const [whole,fraction]=value.split('.');
-  return whole.replace(/\B(?=(\d{3})+(?!\d))/g,',')+(fraction?'.'+fraction:'');
- };
+ const format=assetCardNumber;
  const show=(value:string|null)=>value??'—';
  const unit=ar&&statement?.asset.unit==='g'?'غ':statement?.asset.unit;
  const marketSource=statement?.valuation?.source;
@@ -63,15 +81,17 @@ export default function AssetStatementPreview({assetId,ar,onSaved}:{assetId:stri
   return operationTypeLabel(type,ar);
  };
 
- const status=(value:string)=>value==='UNVERIFIED'?t('غير مؤكد','Unverified'):operationStateLabel(value,ar);
+ const statusLabel=(value:string)=>value==='UNVERIFIED'?t('غير مؤكد','Unverified'):operationStateLabel(value,ar);
  const headings=[
   t('التاريخ','Date'),t('السند','Voucher'),t('الحركة','Movement'),t('الحالة','Status'),
   t('داخل','In'),t('خارج','Out'),t('سعر الوحدة في السند','Voucher unit price'),t('العملة','Currency'),t('الصرف','FX'),
-  t('مبلغ العملية','Amount'),t('أثر التكلفة','Cost effect'),t('الكمية المتبقية','Remaining units'),t('التكلفة المتبقية','Remaining cost'),
+  t('مبلغ العملية','Amount'),t('أثر التكلفة','Cost effect'),t('متحصلات البيع','Sale proceeds'),
+  t('الربح أو الخسارة المحققة','Realized gain or loss'),t('الكمية المتبقية','Remaining units'),t('التكلفة المتبقية','Remaining cost'),
  ];
- const amounts=(row:Statement['rows'][number])=>[
-  row.quantityIn,row.quantityOut,row.unitPrice,row.currency,row.exchangeRate,row.amount,row.costEffect,row.remainingQuantity,row.remainingCost,
+ const amounts=(row:Statement['rows'][number],unitPrice=row.unitPrice)=>[
+  row.quantityIn,row.quantityOut,unitPrice,row.currency,row.exchangeRate,row.amount,row.costEffect,row.sale?.proceeds??null,row.sale?.realized??null,row.remainingQuantity,row.remainingCost,
  ];
+ const displayedUnitPrice=(value:string|null)=>value===null?null:new Decimal(value).toFixed(2,Decimal.ROUND_HALF_UP);
 
  async function exportStatement(kind:'print'|'csv'){
   const preview=kind==='print'?window.open('','_blank'):null;
@@ -90,7 +110,7 @@ export default function AssetStatementPreview({assetId,ar,onSaved}:{assetId:stri
    const response=await fetch(`/api/assets/${encodeURIComponent(assetId)}/statement?${query}`,{cache:'no-store'});
    if(!response.ok)throw Error('STATEMENT_EXPORT_FAILED');
    const report:Statement=await response.json();
-   const rows=report.rows.map(row=>[row.date,show(row.voucher??row.reference),movement(row.type),status(row.status),...amounts(row).map(show)]);
+   const rows=report.rows.map(row=>[row.date,show(row.voucher??row.reference),movement(row.type),statusLabel(row.status),...amounts(row,kind==='print'?displayedUnitPrice(row.unitPrice):row.unitPrice).map(show)]);
    const title=t('كشف حركة الأصل','Asset movement statement');
    const period=`${report.asset.name} · ${t('حتى تاريخ','Through date')} ${report.asOf} · ${report.baseCurrency}`;
    const closing=report.complete
@@ -115,39 +135,72 @@ export default function AssetStatementPreview({assetId,ar,onSaved}:{assetId:stri
   }
  }
 
- if(voucher?.assetId===assetId)return <AssetOperationDetails key={voucher.id} record={{id:voucher.id}} ar={ar}
-  onClose={()=>setVoucher(null)} onSaleReadBack={()=>setVoucher(null)} onChanged={refreshAfterSave}/>;
- if(selling)return <GoldCardSale id={assetId} date={asOf} ar={ar} onBack={()=>setSelling(false)} onSaved={()=>{setSelling(false);refreshAfterSave();}}/>;
- return <section className="card section" aria-label={t('كشف حركة الأصل','Asset movement statement')}>
-   <label>{t('حتى تاريخ','Through date')} <input type="date" value={asOf} max={today()} required
-    onChange={event=>{if(event.target.value){setOffset(0);setAsOf(event.target.value);}}}/></label>
-   {loading&&<p role="status">{t('جار تحميل كشف الحركة…','Loading movement statement…')}</p>}
-   {error&&<p role="alert">{error==='ASSET_STATEMENT_SPECIALIZED_SOURCE'
+ const tabs:[AssetCardSection,ActionIcon,string][]=[
+  ['summary','details',t('ملخص الأصل','Asset summary')],
+  ['statement','history',t('كشف حركة الأصل','Asset movement statement')],
+  ['valuation','trend',organizational?t('التقييم والإهلاك','Valuation and depreciation'):t('التقييم','Valuation')],
+  ['zakat','operations',t('أثر العمليات على الزكاة','Zakat impact of operations')],
+  ['documents','receipt',t('المستندات','Documents')],
+  ['actions','operations',t('الإجراءات','Actions')],
+ ];
+ const voucherView=voucher?.assetId===assetId;
+ const subview=work??(voucherView?<AssetOperationDetails key={voucher.id} record={{id:voucher.id}} ar={ar}
+  onClose={()=>setVoucher(null)} onSaleReadBack={()=>setVoucher(null)} onChanged={refreshAfterSave}/>
+  :selling?<GoldCardSale id={assetId} date={asOf} ar={ar} onBack={()=>setSelling(false)} onSaved={()=>{setSelling(false);refreshAfterSave();}}/>:null);
+ const movementView=section==='statement';
+ const dateFilter=<label className="asset-card-date">{t('حتى تاريخ','Through date')} <input type="date" value={asOf} max={today()} required
+  onChange={event=>{if(event.target.value){setOffset(0);setAsOf(event.target.value);}}}/></label>;
+ const paging=statement&&(offset>0||statement.nextOffset!==null)&&<nav aria-label={t('صفحات الكشف','Statement pages')} className="asset-detail-actions">
+  <button className="btn secondary" type="button" disabled={offset===0} onClick={()=>setOffset(Math.max(0,offset-20))}>{t('السابق','Previous')}</button>
+  <span dir="ltr">{offset+1}–{offset+statement.rows.length} / {statement.total}</span>
+  <button className="btn secondary" type="button" disabled={statement.nextOffset===null} onClick={()=>setOffset(statement.nextOffset??offset)}>{t('التالي','Next')}</button>
+ </nav>;
+ return <article className="asset-card" dir={ar?'rtl':'ltr'}>
+  <header className="asset-card-header">
+   <h2><ActionIconGlyph name="details"/>{t('بطاقة الأصل — التفاصيل والإجراءات','Asset card — details and actions')}</h2>
+   <ActionButton icon="close" label={t('إغلاق التفاصيل','Close details')} onClick={event=>{
+    if(!event.currentTarget.closest('dialog')?.querySelector('[aria-busy="true"]:not(.asset-card-overview)'))onClose();
+   }}/>
+  </header>
+  <div className="asset-card-body">
+   {subview??<>
+    <div className="asset-card-toolbar" role="group" aria-label={t('إجراءات الأصل','Asset actions')}>
+     {toolbar}
+     <ActionButton icon="print" label={t('طباعة كشف الحركة','Print movement statement')} showLabel disabled={exporting||!statement} onClick={()=>void exportStatement('print')}/>
+     <ActionButton icon="download" label={t('تصدير كشف الحركة CSV','Export movement statement CSV')} showLabel disabled={exporting||!statement} onClick={()=>void exportStatement('csv')}/>
+    </div>
+    {exportError&&<p role="alert">{exportError}</p>}
+    <div className="asset-card-identity">
+     <span className="asset-card-icon" aria-hidden="true">{icon}</span>
+     <div><h3>{name}</h3><ul aria-label={t('تصنيف الأصل وحالته','Asset classification and status')}>
+      <li className="asset-card-chip">{organizational?t('مؤسسي','Institutional'):t('شخصي','Personal')}</li>
+      <li className="asset-card-chip asset-card-chip-type">{typeName}</li>
+      <li className="asset-card-chip" data-active={active}>{status}</li>
+      {overview?.asset.metalGrade&&<li className="asset-card-chip">{overview.asset.type==='GOLD'?t('عيار','Karat'):t('نقاوة','Purity')} {overview.asset.metalGrade}</li>}
+      {overview?.allocationMethod==='FIFO'&&<li className="asset-card-chip">FIFO</li>}
+     </ul></div>
+    </div>
+    <AssetCardOverview statement={overview} ar={ar} loading={loading&&!overview}/>
+    <nav className="asset-card-tabs" aria-label={t('أقسام بطاقة الأصل','Asset card sections')}>
+     {tabs.map(([key,icon,label])=><ActionButton key={key} icon={icon} label={label} showLabel aria-pressed={section===key} onClick={()=>onSection(key)}/>)}
+    </nav>
+    <div className="asset-card-content" data-section={section}>
+     {(movementView||impact)&&dateFilter}
+   {(movementView||section==='zakat'||section==='summary')&&loading&&<p role="status">{t('جار تحميل كشف الحركة…','Loading movement statement…')}</p>}
+   {(movementView||section==='zakat'||section==='summary')&&error&&<p role="alert">{error==='ASSET_STATEMENT_SPECIALIZED_SOURCE'
     ?t('حركة هذا الأصل متاحة في سجله المتخصص.','This asset’s movements are available in its source register.')
     :error==='ASSET_STATEMENT_LIMIT'
     ?t('تجاوز تاريخ هذا الأصل حد العرض. اختر تاريخًا أقدم.','This asset exceeds the statement limit. Select an earlier date.')
     :t('تعذر تحميل كشف الحركة.','The movement statement could not be loaded.')}</p>}
-   {exportError&&<p role="alert">{exportError}</p>}
-   {statement&&<>
-    <div className="asset-detail-actions">
-     <ActionButton icon="print" label={t('طباعة كشف الحركة','Print movement statement')} showLabel disabled={exporting} onClick={()=>void exportStatement('print')}/>
-     <ActionButton icon="download" label={t('تصدير كشف الحركة CSV','Export movement statement CSV')} showLabel disabled={exporting} onClick={()=>void exportStatement('csv')}/>
-    </div>
-    {process.env.NEXT_PUBLIC_PERSONAL_GOLD_SALES==='1'&&!statement.asset.organizational&&statement.asset.type==='GOLD'&&statement.asset.unit==='g'&&statement.asset.metalGrade&&<button type="button" onClick={()=>setSelling(true)}>{t('بيع من حزم الذهب','Sell from gold lots')}</button>}
+   {section==='zakat'&&<>
+    <AssetCardZakat statement={statement} hawlLots={hawlLots} zakatable={zakatable} organizational={organizational} ar={ar}/>
+    {impact&&paging}
+   </>}
+   {content}
+   {(movementView||section==='valuation')&&statement&&<>
+    {movementView&&process.env.NEXT_PUBLIC_PERSONAL_GOLD_SALES==='1'&&!statement.asset.organizational&&statement.asset.type==='GOLD'&&statement.asset.unit==='g'&&statement.asset.metalGrade&&<ActionButton icon="operations" showLabel label={t('بيع من حزم الذهب','Sell from gold lots')} onClick={()=>setSelling(true)}/>}
     {!statement.complete&&<p role="status">{t('لم تكتمل مطابقة الأرصدة مع المصادر المسجلة لهذا الكشف.','Some balances could not be reconciled with recorded sources.')}</p>}
-    {statement.complete&&<section className="asset-statement-summary" aria-label={t('ملخص رصيد الأصل','Asset balance summary')}>
-     <dl className="operation-detail-grid">
-      <div><dt>{t('الكمية المتبقية','Remaining quantity')}</dt><dd><bdi>{format(statement.closing.quantity)} {unit}</bdi></dd></div>
-      <div><dt>{statement.asset.organizational?t('صافي القيمة الدفترية','Net book value'):t('تكلفة المتبقي','Remaining cost')}</dt>
-       <dd><bdi>{format(statement.closing.cost)} {statement.baseCurrency}</bdi></dd></div>
-      {statement.valuation&&<>
-       <div><dt>{t('القيمة السوقية الحالية','Current market value')}</dt><dd><bdi>{format(statement.valuation.value)} {statement.baseCurrency}</bdi></dd></div>
-       <div><dt>{t(
-        statement.valuation.unrealized.startsWith('-')?'خسارة غير محققة':statement.valuation.unrealized==='0'?'فرق التقييم غير المحقق':'ربح غير محقق',
-        statement.valuation.unrealized.startsWith('-')?'Unrealized loss':statement.valuation.unrealized==='0'?'Unrealized valuation difference':'Unrealized gain',
-       )}</dt><dd><bdi>{format(statement.valuation.unrealized)} {statement.baseCurrency}</bdi></dd></div>
-      </>}
-     </dl>
+    {statement.complete&&<section className="asset-card-valuation" aria-label={t('أساس التقييم','Valuation basis')}>
      {statement.averageCost&&<p>{t('متوسط تكلفة الوحدة المتبقية','Average cost per remaining unit')} · <bdi>{format(statement.averageCost)} {statement.baseCurrency}</bdi></p>}
      {statement.valuation&&<p>
       {t('سعر السوق المطبق للوحدة','Applied market price per unit')} · <bdi>{format(statement.valuation.appliedPrice)} {statement.valuation.quoteCurrency}</bdi>
@@ -166,19 +219,21 @@ export default function AssetStatementPreview({assetId,ar,onSaved}:{assetId:stri
      {statement.current&&!statement.valuation&&!['CASH','BANK','RECEIVABLE'].includes(statement.asset.type)&&
       <p>{t('القيمة السوقية غير متاحة من سعر وحدة موثّق.','Market value is unavailable from a recorded unit quote.')}</p>}
     </section>}
+   </>}
+   {movementView&&statement&&<>
     {statement.asset.metalGrade&&<p>{statement.asset.type==='GOLD'?t('عيار الأصل','Asset karat'):t('نقاوة الأصل','Asset purity')} · <bdi>{statement.asset.metalGrade}</bdi></p>}
-    {!!statement.rows.length&&<div tabIndex={0} role="region" aria-label={t('جدول كشف حركة الأصل','Asset movement statement table')} style={{overflowX:'auto'}}>
+    {!!statement.rows.length&&<div tabIndex={0} role="region" aria-label={t('جدول كشف حركة الأصل','Asset movement statement table')} className="asset-card-movements">
      <table className="table">
       <thead><tr>{headings.map(heading=><th key={heading} scope="col">{heading}</th>)}</tr></thead>
-      <tbody>{statement.rows.map(row=><tr key={row.id}>
+      <tbody>{statement.rows.map(row=><tr key={row.id} data-movement={row.type} data-status={row.status}>
        <td><bdi>{row.date}</bdi></td>
        <td>{row.source_path==='asset_event'?show(row.voucher??row.reference):
         row.type==='SALE'&&row.source_path==='transactions'&&!row.grouped&&!statement.asset.organizational?
         <button type="button" className="btn" onClick={()=>setVoucher({assetId,id:row.source_id})}><bdi>{row.voucher??row.reference??t('عرض سند البيع','View sale voucher')}</bdi></button>:
         <Link href={`/${ar?'ar':'en'}/transactions/${row.source_id}`}><bdi>{row.voucher??row.reference??t('التفاصيل','Details')}</bdi></Link>}</td>
        <td>{movement(row.type)}</td>
-       <td>{status(row.status)}</td>
-       {amounts(row).map((value,index)=><td key={index}><bdi>{show(value)}</bdi></td>)}
+       <td>{statusLabel(row.status)}</td>
+       {amounts(row,displayedUnitPrice(row.unitPrice)).map((value,index)=><td key={index}><bdi>{show(value)}</bdi></td>)}
       </tr>)}</tbody>
      </table>
     </div>}
@@ -205,11 +260,10 @@ export default function AssetStatementPreview({assetId,ar,onSaved}:{assetId:stri
      </details>)}
     </section>}
     {!statement.rows.length&&<p>{t('لا توجد حركات مسجلة حتى هذا التاريخ.','There are no recorded movements through this date.')}</p>}
-    {(offset>0||statement.nextOffset!==null)&&<nav aria-label={t('صفحات الكشف','Statement pages')} className="asset-detail-actions">
-     <button className="btn" type="button" disabled={offset===0} onClick={()=>setOffset(Math.max(0,offset-20))}>{t('السابق','Previous')}</button>
-     <span>{offset+1}–{offset+statement.rows.length} / {statement.total}</span>
-     <button className="btn" type="button" disabled={statement.nextOffset===null} onClick={()=>setOffset(statement.nextOffset??offset)}>{t('التالي','Next')}</button>
-    </nav>}
+    {paging}
    </>}
- </section>;
+    </div>
+   </>}
+  </div>
+ </article>;
 }

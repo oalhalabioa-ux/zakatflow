@@ -28,11 +28,11 @@ const definitiveRejections=new Set([
  'DESTINATION_MUST_BE_CASH_OR_BANK','DESTINATION_MUST_DIFFER','QUANTITY_MUST_BE_POSITIVE','PERSONAL_ASSET_EXIT_INVALID',
 ]);
 
-export default function PersonalAssetExit({asset,accounts,baseCurrency,ar,onClose,onSaved}:{
- asset:Asset;accounts:Account[];baseCurrency:string;ar:boolean;onClose:()=>void;onSaved:()=>void;
+export default function PersonalAssetExit({asset,accounts,baseCurrency,ar,onClose,onSaved,initialOperation="SALE"}:{
+ initialOperation?:'SALE'|'DISPOSAL';asset:Asset;accounts:Account[];baseCurrency:string;ar:boolean;onClose:()=>void;onSaved:()=>void;
 }){
  const t=(arabic:string,english:string)=>ar?arabic:english;
- const [kind,setKind]=useState<'SALE'|'DISPOSAL'>('SALE');
+ const [kind,setKind]=useState(initialOperation);
  const [date,setDate]=useState(()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()));
  const [quantity,setQuantity]=useState(''),[unitPrice,setUnitPrice]=useState('');
  const [fx,setFx]=useState(''),[destination,setDestination]=useState(''),[notes,setNotes]=useState('');

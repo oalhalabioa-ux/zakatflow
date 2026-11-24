@@ -25,27 +25,36 @@ export function registrationLockText(lock: RegistrationLock | null, ar: boolean)
   return ar ? "بيانات التسجيل مقفلة لوجود حركة مرتبطة." : "Registration is locked by a linked transaction.";
 }
 
-export default function AssetEditActions({asset, ar, locale, onEdit, onReview}: {
+export function useAssetEditPolicy(assetId:string|null, revision:number){
+  const [result,setResult]=useState<{assetId:string;revision:number;policy?:Availability;failed:boolean}>();
+  useEffect(() => {
+    if(!assetId)return;
+    const request = new AbortController();
+    fetch("/api/assets?edit_asset_id="+encodeURIComponent(assetId), {signal:request.signal, cache:"no-store"})
+      .then(async response => {
+        if (!response.ok) throw Error();
+        const policy=await response.json();
+        if(!request.signal.aborted)setResult({assetId,revision,policy,failed:false});
+      })
+      .catch(() => {if (!request.signal.aborted) setResult({assetId,revision,failed:true});});
+    return () => request.abort();
+  }, [assetId,revision]);
+  if(result?.assetId!==assetId||result.revision!==revision)return {failed:false};
+  const {policy,failed}=result;
+  return {policy,failed};
+}
+
+export default function AssetEditActions({asset, ar, locale, onEdit, onReview, policy, failed}: {
   asset: {id: string; asset_type:string; currency: string; metadata?:Record<string,unknown>; current_quantity?: number; current_cost_value?: number; current_value_currency?: string; current_valuation_date?: string;
     current_valuation_source?: string; current_valuation_currency?: string; current_market_price?: number;
     organization_id?: string};
+  policy?: Availability;
+  failed: boolean;
   ar: boolean;
   locale: string;
   onEdit: (mode: AssetEditMode) => void;
   onReview: (id: string) => void;
 }) {
-  const [policy, setPolicy] = useState<Availability>();
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    const request = new AbortController();
-    fetch("/api/assets?edit_asset_id="+encodeURIComponent(asset.id), {signal:request.signal, cache:"no-store"})
-      .then(async response => {
-        if (!response.ok) throw Error();
-        setPolicy(await response.json());
-      })
-      .catch(() => {if (!request.signal.aborted) setFailed(true);});
-    return () => request.abort();
-  }, [asset.id]);
   const reject = policy?.registration_lock;
   const currency = asset.current_value_currency ?? asset.currency;
   const valuationDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -62,8 +71,6 @@ export default function AssetEditActions({asset, ar, locale, onEdit, onReview}: 
       {ar?"سعر السوق للوحدة":"Market price per unit"} · <Money value={asset.current_market_price} currency={asset.current_valuation_currency ?? asset.currency} organizationId={asset.organization_id}/> · {asset.current_valuation_date ?? "—"} · {asset.current_valuation_source ?? "—"}
     </p>}
     {failed && <p role="alert">{ar?"تعذّر تحميل صلاحيات التعديل.":"Unable to load edit permissions."}</p>}
-    {policy?.asset_registration_can_edit && <ActionButton icon="edit" showLabel
-      label={ar?"تعديل بيانات التسجيل":"Edit registration details"} onClick={()=>onEdit("registration")}/>}
     {reject && <p className="muted">{registrationLockText(reject, ar)} {reject.date && <bdi>{reject.date}</bdi>}{" "}
       {reject.code === "MOVEMENT" && reject.id && <Link href={`/${locale}/transactions?transaction_id=${reject.id}${asset.organization_id?"&scope=ORGANIZATION":""}`}>
         {reject.reference ?? (ar?"عرض الحركة":"View transaction")}

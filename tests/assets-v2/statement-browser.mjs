@@ -136,6 +136,8 @@ try{
   await dialog.getByText(summary,{exact:true}).click();
   const table=dialog.getByRole('table');
   await table.getByText('2400',{exact:true}).first().waitFor({timeout:20000});
+  await table.locator('tr[data-movement="OPENING_BALANCE"]').getByRole('cell',{name:'300.00',exact:true}).waitFor();
+  await table.locator('tr[data-movement="SALE"]').getByRole('cell',{name:'400.00',exact:true}).waitFor();
   assert.equal(await page.getByRole('dialog').count(),1);
   assert.equal(new URL(page.url()).pathname,'/'+locale+'/assets');
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));
@@ -145,7 +147,7 @@ try{
   await dialog.getByText(new RegExp('10 .* × 300 = 3,000 SAR')).waitFor({timeout:20000});
   await dialog.locator('[data-asset-movement="SALE"] > summary').click();
   await dialog.getByText(new RegExp('2 .* × 400 = 800 SAR')).waitFor({timeout:20000});
-  await dialog.getByText('200 SAR',{exact:true}).waitFor({timeout:20000});
+  await dialog.getByRole('region',{name:locale==='ar'?'ملخص رصيد الأصل':'Asset balance summary'}).getByText('200 SAR',{exact:true}).waitFor({timeout:20000});
   const download=page.waitForEvent('download');
   await dialog.getByRole('button',{name:locale==='ar'?'تصدير كشف الحركة CSV':'Export movement statement CSV',exact:true}).click();
   const csv=await (await download).createReadStream();
@@ -156,10 +158,47 @@ try{
   const popup=page.waitForEvent('popup');
   await dialog.getByRole('button',{name:locale==='ar'?'طباعة كشف الحركة':'Print movement statement',exact:true}).click();
   const print=await popup;
-  await print.getByRole('cell',{name:'800',exact:true}).waitFor();
+  const printedSale=print.getByRole('row').filter({hasText:gold.payload.rows.find(row=>row.type==='SALE').voucher});
+  const printedProceeds=printedSale.getByRole('cell').nth(11);
+  await printedProceeds.waitFor();
+  assert.equal(await printedProceeds.textContent(),'800');
+  assert.equal(await printedSale.getByRole('cell').nth(6).textContent(),'400.00');
   assert.equal(await print.locator('html').getAttribute('dir'),locale==='ar'?'rtl':'ltr');
   await print.close();
   await page.screenshot({path:`asset-qa-preview/statement-${locale}.png`});
+ }
+ // Verify direction, same-card navigation and recorded cash on all language/layout combinations.
+ for(const locale of ['ar','en'])for(const viewport of [{width:390,height:844},{width:1440,height:960}]){
+  const arabic=locale==='ar';
+  const ctx=await context(browser,owner,viewport);
+  const page=await ctx.newPage();
+  await page.goto(app+'/'+locale+'/assets?scope=PERSONAL',{waitUntil:'domcontentloaded'});
+  const trigger=page.getByRole('row').filter({hasText:'QA 18K Gold'}).getByRole('button',{
+   name:arabic?'التفاصيل والإجراءات':'Details and actions',exact:true,
+  });
+  await trigger.click();
+  const dialog=page.getByRole('dialog');
+  const original=await dialog.boundingBox();
+  await dialog.getByRole('button',{name:arabic?'أثر العمليات على الزكاة':'Zakat impact of operations',exact:true}).click();
+  const impact=dialog.getByRole('region',{name:arabic?'أثر العمليات على الزكاة':'Zakat impact of operations'});
+  await impact.getByText('QA Gold Proceeds',{exact:true}).waitFor({timeout:20000});
+  await impact.getByText('800 SAR',{exact:true}).waitFor();
+  await impact.getByText(arabic?'استمرار الحول من دفعات هذا الأصل غير مثبت في سجل القبض.':
+   'The receipt record does not establish Hawl continuity from this asset’s lots.',{exact:true}).waitFor();
+  assert.equal(await page.getByRole('dialog').count(),1);
+  const moved=await dialog.boundingBox();
+  assert.deepEqual([moved.x,moved.y,moved.width],[original.x,original.y,original.width]);
+  assert.equal(await dialog.locator('.asset-card').getAttribute('dir'),arabic?'rtl':'ltr');
+  await dialog.getByRole('button',{name:arabic?'كشف حركة الأصل':'Asset movement statement',exact:true}).click();
+  const table=dialog.getByRole('table');
+  await table.getByText('2400',{exact:true}).first().waitFor();
+  assert.equal(await table.evaluate(el=>el.parentElement.scrollWidth>=el.offsetWidth),true);
+  assert.equal(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1),true);
+  await page.screenshot({path:`asset-qa-preview/card-${locale}-${viewport.width}.png`});
+  await page.keyboard.press('Escape');
+  assert.equal(await dialog.count(),0);
+  assert.equal(await trigger.evaluate(el=>document.activeElement===el),true);
+  await ctx.close();
  }
  // Save a new personal sale inside the card and reconcile the asset and its single receipt.
  {
@@ -171,7 +210,7 @@ try{
   const open=()=>page.getByRole('row').filter({hasText:'QA Card Sale'}).getByRole('button',{name:'Details and actions',exact:true}).click();
   await page.goto(app+'/en/assets?scope=PERSONAL');
   await open();
-  await dialog.getByRole('button',{name:'Sale or disposal',exact:true}).click();
+  await dialog.getByRole('button',{name:'Sell',exact:true}).click();
   await dialog.getByLabel('Quantity',{exact:true}).fill('2');
   await dialog.getByLabel('Sale price per unit').fill('450');
   await dialog.getByLabel('Proceeds account').selectOption(bank.id);
@@ -193,7 +232,7 @@ try{
   await page.unroute(url);
   await page.reload();
   await open();
-  await dialog.getByRole('button',{name:'Sale or disposal',exact:true}).click();
+  await dialog.getByRole('button',{name:'Sell',exact:true}).click();
   const saved=page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/transactions');
   await dialog.getByRole('button',{name:'Retry same request',exact:true}).click();
   const response=await saved;
@@ -227,8 +266,8 @@ try{
 
   // Discard a response to a full disposal. The exited asset must still offer recovery.
   await dialog.getByRole('button',{name:'Asset summary',exact:true}).click();
-  await dialog.getByRole('button',{name:'Sale or disposal',exact:true}).click();
-  await dialog.getByRole('combobox',{name:/^Action/}).selectOption('DISPOSAL');
+  await dialog.getByRole('button',{name:'Dispose',exact:true}).click();
+  assert.equal(await dialog.getByRole('combobox',{name:/^Action/}).inputValue(),'DISPOSAL');
   await dialog.getByLabel('Quantity',{exact:true}).fill('6');
   let disposalId;
   await page.route(url,async route=>{
@@ -244,7 +283,7 @@ try{
   await page.reload();
   await page.locator('.asset-lifecycle-tabs').getByRole('button',{name:'All',exact:true}).click();
   await open();
-  await dialog.getByRole('button',{name:'Sale or disposal',exact:true}).click();
+  await dialog.getByRole('button',{name:'Dispose',exact:true}).click();
   const repeated=page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/transactions');
   await dialog.getByRole('button',{name:'Retry same request',exact:true}).click();
   const disposalReplay=await repeated;
@@ -270,11 +309,11 @@ try{
   await page.goto(app+'/en/assets?scope=PERSONAL');
   await open('QA 18K Gold');
   const sourceDialog=page.getByRole('dialog');
-  const cardValue=(label,amount)=>sourceDialog.locator('dl > div').filter({
+  const cardValue=(label,amount)=>sourceDialog.getByRole('region',{name:'Asset balance summary'}).locator('.asset-card-kpi').filter({
    has:page.getByText(label,{exact:true}),
-  }).locator('dd').filter({hasText:new RegExp('^'+amount+'$')});
-  await cardValue('Current quantity','8').waitFor();
-  await cardValue('Book cost','2,400').waitFor();
+  }).getByText(amount,{exact:true});
+  await cardValue('Remaining quantity','8 g').waitFor();
+  await cardValue('Remaining cost','2,400 SAR').waitFor();
   await sourceDialog.getByRole('button',{name:'Asset movement statement',exact:true}).click();
   await sourceDialog.getByRole('table').getByRole('button',{name:gold.payload.rows.find(r=>r.type==='SALE').voucher,exact:true}).click();
   await page.getByRole('button',{name:'Review sale correction'}).click();
@@ -292,8 +331,8 @@ try{
   await page.getByText('Asset movement statement',{exact:true}).waitFor();
   await sourceDialog.getByRole('region',{name:'Asset balance summary'}).getByText('3,000 SAR',{exact:true}).waitFor();
   await sourceDialog.getByRole('button',{name:'Asset summary',exact:true}).click();
-  await cardValue('Current quantity','10').waitFor();
-  await cardValue('Book cost','3,000').waitFor();
+  await cardValue('Remaining quantity','10 g').waitFor();
+  await cardValue('Remaining cost','3,000 SAR').waitFor();
   assert.equal(await page.getByRole('dialog').count(),1);
   assert.equal(new URL(page.url()).pathname,'/en/assets');
   await page.reload();await open('QA Gold Statement');
