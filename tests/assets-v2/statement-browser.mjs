@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {execFileSync,spawn} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
-import {mkdir} from 'node:fs/promises';
+import {mkdir,readFile} from 'node:fs/promises';
 import {setTimeout as delay} from 'node:timers/promises';
 import {createClient} from '@supabase/supabase-js';
 import {createServerClient} from '@supabase/ssr';
@@ -124,6 +124,60 @@ try{
  assert.deepEqual(company.payload.closing,{quantity:'10',cost:'90000',currency:'SAR'});
  assert.equal((await statement(foreign,asset)).status,404);
  assert.equal((await statement(foreign,companyAsset)).status,404);
+
+ const profitEndpoint=app+'/api/assets/realized-profit?scope=PERSONAL';
+ const profitResponse=await en.request.get(profitEndpoint);
+ const profits=await profitResponse.json();
+ assert.equal(profitResponse.status(),200,JSON.stringify(profits));
+ assert.deepEqual(profits[asset],{status:'recorded',amount:'1150',currency:'SAR'});
+ assert.deepEqual(profits[gold18],{status:'recorded',amount:'200',currency:'SAR'});
+ const foreignProfits=await foreign.request.get(profitEndpoint);
+ assert.equal(foreignProfits.status(),200);
+ assert.deepEqual(await foreignProfits.json(),{});
+
+ for(const [locale,ctx,customize,label,move,save,close] of [
+  ['ar',ar,'تخصيص الجدول','الأرباح الفعلية (المحققة)','تحريك للأعلى','حفظ النموذج والتخصيص','إغلاق'],
+  ['en',en,'Customize table','Realized profit / loss','Move up','Save model & customization','Close'],
+ ]){
+  const page=await ctx.newPage();
+  await page.goto(app+'/'+locale+'/assets?scope=PERSONAL',{waitUntil:'domcontentloaded',timeout:90000});
+  const goldRow=page.getByRole('row').filter({hasText:'QA 18K Gold'});
+  await goldRow.waitFor();
+  assert.equal(await page.getByRole('columnheader',{name:label,exact:true}).count(),0);
+  await page.getByRole('button',{name:customize,exact:true}).click();
+  const options=page.getByRole('dialog');
+  const column=options.locator('.att-order-row').filter({hasText:label});
+  await column.getByRole('checkbox').check();
+  await column.getByRole('button',{name:move,exact:true}).click();
+  await options.getByRole('button',{name:save,exact:true}).click();
+  await options.getByRole('button',{name:close,exact:true}).click();
+  const cell=goldRow.locator('[data-column="realized"]');
+  await cell.getByText('200.00 SAR',{exact:true}).waitFor();
+  const first=await cell.evaluate(node=>node.cellIndex);
+  await page.reload({waitUntil:'domcontentloaded'});
+  await cell.getByText('200.00 SAR',{exact:true}).waitFor();
+  assert.equal(await cell.evaluate(node=>node.cellIndex),first);
+  const heading=page.getByRole('columnheader',{name:label,exact:true}).first();
+  await heading.getByRole('button').click();
+  assert.equal(await heading.getAttribute('aria-sort'),'ascending');
+  await heading.getByRole('button').click();
+  assert.equal(await heading.getAttribute('aria-sort'),'descending');
+  await page.screenshot({path:`asset-qa-preview/realized-profit-${locale}.png`});
+  await page.close();
+ }
+
+ {
+  const page=await en.newPage();
+  await page.goto(app+'/en/reports?scope=PERSONAL',{waitUntil:'domcontentloaded',timeout:90000});
+  await page.getByRole('row').filter({hasText:'QA 18K Gold'}).getByText('200.00 SAR',{exact:true}).waitFor();
+  await page.getByLabel('Print and export',{exact:true}).click();
+  const [download]=await Promise.all([page.waitForEvent('download'),page.getByRole('button',{name:'CSV',exact:true}).first().click()]);
+  const csv=await readFile(await download.path(),'utf8');
+  assert.match(csv,/Realized profit \/ loss/);
+  assert.match(csv,/QA 18K Gold[^\n]+200 SAR/);
+  assert.match(csv,/QA Gold Statement[^\n]+1150 SAR/);
+  await page.close();
+ }
 
  for(const [locale,ctx,label,summary] of [
   ['ar',ar,'التفاصيل والإجراءات','كشف حركة الأصل'],

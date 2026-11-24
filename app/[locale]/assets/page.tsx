@@ -10,6 +10,8 @@ import WorkspaceOrganizationPicker from '@/components/WorkspaceOrganizationPicke
 import {organizationScopeIds} from '@/lib/workspace-organization';
 import TopbarOrganizationControls from '@/components/TopbarOrganizationControls';
 import {useWorkspaceScope} from '@/hooks/useWorkspaceScope';
+import {useAssetRealizedProfit} from '@/hooks/useAssetRealizedProfit';
+import {AssetRealizedProfit, AssetRealizedProfitNote} from '@/components/assets/AssetRealizedProfit';
 import Link from "next/link";
 import {CurrencyScope,Money,useDisplayMoney} from "@/components/DisplayCurrency";
 import { use, useEffect, useMemo, useState, useRef } from "react";
@@ -244,6 +246,8 @@ export default function Assets({
     () => visibleAssetColumns(tablePreferences.order, tablePreferences.visible),
     [tablePreferences.order, tablePreferences.visible],
   );
+  const showRealized = orderedColumns.includes('realized');
+  const realized = useAssetRealizedProfit(showRealized && !loading, assetScope, rows);
   const m = (r: any, k: string) => Number(r?.metadata?.[k] || 0),
     val = assetCurrentValue,
     costVal = assetCostValue;
@@ -459,6 +463,8 @@ export default function Assets({
       case "current":
         if (row.pending_purchase_cost_base > 0 && !row.current_cost_value) return <span className="muted">{ar ? "بانتظار الترحيل" : "Pending posting"}</span>;
         return <strong><Money value={cv(val(row))} currency={cur}/></strong>;
+      case "realized":
+        return <AssetRealizedProfit result={realized.rows?.[row.id]} organizationId={row.organization_id} ar={ar}/>;
       case "due":
         return <Money value={cv(due(row))} currency={cur}/>;
       case "paid":
@@ -726,6 +732,7 @@ export default function Assets({
           </span>{" "}
           {ar ? "تقرير الأصول" : "Asset report"}
         </h2>}
+        {showRealized && !loading && !loadError && <AssetRealizedProfitNote ar={ar} loading={realized.loading} failed={realized.failed}/>}
         {assetScope === "PERSONAL" && <div className="asset-cycle-scope">
           <label>{ar?"نطاق الدورات":"Cycle scope"}<select value={cycleScope} onChange={e=>setCycleScope(e.target.value as AssetCycleScope)} disabled={loading||!!loadError}>
             <option value="DISPLAYED">{ar?"العرض الحالي":"Current view"}</option>
@@ -748,7 +755,7 @@ export default function Assets({
           const sub = g.rows.reduce((s, r) => s + val(r), 0),
             sd = g.rows.reduce((s, r) => s + due(r), 0),
             isClosed = !!closed[g.type],
-            sortedRows = sortAssetRows(g.rows.map(row => ({...row, table_cost_center_name: catalog.cost_centers.find((center: any) => center.id === row.cost_center_id)?.name || ""})), sort.column, sort.direction);
+            sortedRows = sortAssetRows(g.rows.map(row => ({...row, table_cost_center_name: catalog.cost_centers.find((center: any) => center.id === row.cost_center_id)?.name || ""})), sort.column === 'realized' && !showRealized ? 'current' : sort.column, sort.direction, realized.rows);
           return (
             <div className={`card section asset-group${showingExited?" is-exited":""}`} key={g.type}>
               <div className="page-head asset-group-head">
@@ -793,9 +800,9 @@ export default function Assets({
                 </button>
               </div>
               {!isClosed && (showingExited ? <div className="asset-exit-table-scroll"><table className="table asset-exit-table"><thead><tr>
-                <th>{ar?"الأصل":"Asset"}</th><th>{ar?"النوع":"Type"}</th><th>{ar?"الوزن قبل الخروج / الكمية":"Weight / quantity before exit"}</th><th>{ar?(lifecycleFilter==="DISPOSED"?"التكلفة قبل الاستغناء":"التكلفة قبل البيع"):"Cost before exit"}</th><th>{ar?"تاريخ العملية":"Transaction date"}</th><th>{ar?"الإجراء":"Action"}</th>
+                <th>{ar?"الأصل":"Asset"}</th><th>{ar?"النوع":"Type"}</th><th>{ar?"الوزن قبل الخروج / الكمية":"Weight / quantity before exit"}</th><th>{ar?(lifecycleFilter==="DISPOSED"?"التكلفة قبل الاستغناء":"التكلفة قبل البيع"):"Cost before exit"}</th><th>{ar?"تاريخ العملية":"Transaction date"}</th>{showRealized&&<th aria-sort={sort.column==='realized'?(sort.direction==='asc'?'ascending':'descending'):undefined}><button className="asset-sort" type="button" onClick={()=>changeSort('realized')}>{columnLabel('realized')}</button></th>}<th>{ar?"الإجراء":"Action"}</th>
               </tr></thead><tbody>{sortedRows.map(row=>{const sold=row.lifecycle_status==="SOLD";const amount=sold?row.sold_cost_value:row.disposed_cost_value;const date=(row.exit_history||[]).filter((tx:any)=>tx.kind===row.lifecycle_status).map((tx:any)=>tx.date).sort().at(-1);return <tr key={row.id}>
-                <td><strong className="asset-name-cell"><span className="asset-row-icon" aria-hidden="true">{assetTypeIcon(row.asset_type_code||row.asset_type)}</span>{row.name}</strong></td><td>{typeName(row)}</td><td>{fmt(Number(sold?row.sold_quantity:row.disposed_quantity)||0)} {["GOLD","SILVER"].includes(row.asset_type)?(ar?"غرام":"g"):row.unit||""}</td><td>{amount==null?"—":<Money value={Number(amount)} currency={cur}/>}</td><td>{date||"—"}</td><td>{renderAssetCell("action",row)}</td>
+                <td><strong className="asset-name-cell"><span className="asset-row-icon" aria-hidden="true">{assetTypeIcon(row.asset_type_code||row.asset_type)}</span>{row.name}</strong></td><td>{typeName(row)}</td><td>{fmt(Number(sold?row.sold_quantity:row.disposed_quantity)||0)} {["GOLD","SILVER"].includes(row.asset_type)?(ar?"غرام":"g"):row.unit||""}</td><td>{amount==null?"—":<Money value={Number(amount)} currency={cur}/>}</td><td>{date||"—"}</td>{showRealized&&<td>{renderAssetCell('realized',row)}</td>}<td>{renderAssetCell("action",row)}</td>
               </tr>;})}</tbody></table></div> : (
                 <div style={{ overflowX: "auto" }}>
                   <table
