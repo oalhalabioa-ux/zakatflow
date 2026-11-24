@@ -557,11 +557,21 @@
 .fs-royal-report-summary-details > .fs-panel { align-content: start; min-inline-size: 0; }
 .fs-royal-report-index li { padding: 0; }
 .fs-royal-report-index a {
- display: flex; align-items: center; justify-content: space-between; gap: 12px; inline-size: 100%;
+ display: flex; align-items: center; gap: 8px; inline-size: 100%;
  min-block-size: 40px; color: var(--fs-navy); font-weight: 700;
 }
+.fs-royal-report-index a > :first-child { flex: 1; min-inline-size: 0; }
+.fs-royal-report-index .fs-royal-tag { flex-shrink: 0; }
 .fs-royal-report-index a:hover { color: var(--fs-green); text-decoration: underline; }
 .fs-royal-report-index a:dir(rtl) svg { transform: scaleX(-1); }
+.fs-report-requirements { scroll-margin-block-start: 90px; }
+.fs-report-requirements-link {
+ justify-self: start; color: var(--fs-green); font-size: 12px; font-weight: 700; text-decoration: underline;
+}
+@media screen {
+ .fs-royal-report-recommendation .fs-royal-report-notice { margin: 0; }
+}
+@media print { .fs-report-requirements-link { display: none; } }
 .fs-royal-report-detail .fs-royal-report-issuance { background: #E8F1EB; color: var(--fs-green); }
 .fs-royal-report-issuance .fs-royal-icon { color: var(--fs-green); }
 .fs-royal-report-summary-kpis .fs-metric strong { font-size: clamp(15px, 2vw, 23px); }
@@ -636,6 +646,17 @@
 .fs-water-financial-table { max-inline-size: 100%; overflow-x: auto; }
 .fs-royal .fs-water-financial-table .fs-table { min-inline-size: max(100%, 48rem); }
 @media screen { .fs-water-financial-table .fs-table :is(th,td) { min-inline-size: 78px; } }
+.fs-water-debt-schedule { min-inline-size: 0; }
+.fs-water-debt-schedule td bdi { white-space: nowrap; font-variant-numeric: tabular-nums; }
+@media screen {
+ .fs-water-debt-schedule .fs-table { border-collapse: separate; border-spacing: 0; }
+ .fs-water-debt-schedule .fs-table th:first-child {
+  position: sticky; inset-inline-start: 0; z-index: 1; min-inline-size: 60px;
+  border-inline-end: 1px solid var(--fs-line);
+ }
+ .fs-water-debt-schedule tbody th { background: #fff; }
+ .fs-water-debt-schedule tbody tr:nth-child(even) th { background: #FAFBFB; }
+}
 
 /* Investment reports: hide interactive controls and fit the financial/evidence
    tables in the printed page. Screen/mobile tables retain their scroll widths. */

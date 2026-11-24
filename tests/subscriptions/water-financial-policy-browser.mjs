@@ -187,16 +187,51 @@ async function runWaterEquityFinancingBrowser({browser,cookies,check}){
     await page.getByRole('button',{name:ar?'النموذج المالي المتقدم':'Advanced model',exact:true}).click();
     await page.locator('.fs-water-financing-settings > summary').click();
     assert.equal(await page.locator('.fs-water-financing select').first().inputValue(),'CAPITALIZE');
+    const modelNpv=await page.locator('.fs-royal-overview-kpis .fs-metric').filter({hasText:ar?'NPV للمشروع':'Project NPV'}).locator('strong').textContent();
+    const modelIrr=await page.locator('.fs-royal-overview-kpis .fs-metric').filter({hasText:ar?'IRR للمشروع':'Project IRR'}).locator('strong').textContent();
+    const gapLabel=ar?'ذروة العجز النقدي بعد التأسيس وخدمة الدين':'Peak post-establishment cash shortfall after debt service';
+    const gapAmount=page.locator('dl > div').filter({has:page.getByText(gapLabel,{exact:true})}).locator('dd bdi');
+    const modelGap=await gapAmount.textContent();
+    assert.notEqual(modelGap,'—');
     for(const kind of ['advanced','report']){
-     if(kind==='report')await page.getByRole('button',{name:ar?'التقرير والتصدير':'Report and export',exact:true}).click();
+     if(kind==='report'){
+      await page.getByRole('button',{name:ar?'التقرير والتصدير':'Report and export',exact:true}).click();
+      const reportMetrics=page.locator('.fs-royal-report-summary-kpis .fs-metric');
+      assert.equal(await reportMetrics.filter({hasText:'NPV'}).locator('bdi').textContent(),modelNpv);
+      assert.equal(await reportMetrics.filter({hasText:'IRR'}).locator('bdi').textContent(),modelIrr);
+      assert.equal(await gapAmount.textContent(),modelGap);
+      const index=page.getByRole('navigation',{name:ar?'الأقسام التي يشملها التقرير':'Report contents'});
+      for(const [name,complete] of [[ar?'هيكل التمويل وقروض المساهمين':'Funding and shareholder loans',true],
+       [ar?'التراخيص والمهام والمخاطر':'Licences, tasks and risks',false]]){
+       const badge=index.getByRole('link',{name,exact:true}).locator('[data-complete]');
+       assert.equal(await badge.getAttribute('data-complete'),String(complete));
+      }
+      await page.getByRole('link',{name:ar?/راجع المتطلبات المفتوحة/:/Review open requirements/}).press('Enter');
+      const checks=page.locator('.fs-report-requirements');
+      assert.equal(await checks.evaluate(el=>document.activeElement===el),true);
+      const labels=await checks.locator('[data-complete]').evaluateAll(items=>items.map(item=>item.dataset.complete));
+      assert.ok(labels.includes('false')&&labels.includes('true'));
+      assert.equal(labels.join(','),labels.toSorted().join(','),'Open requirements must come first');
+     }
      await page.evaluate(()=>document.fonts.ready);assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=innerWidth),true);
+     const equityRegion=page.getByRole('region',{name:ar?'جدول عوائد الملكية، قابل للتمرير أفقيًا':'Equity return schedule, horizontally scrollable',exact:true});
+     assert.equal(await equityRegion.locator('tbody tr').last().locator('td').first().textContent(),
+      new Intl.NumberFormat(locale,{maximumFractionDigits:2}).format(val(4,'All equity holders'))+' USD');
      if(width===390){
-      const equityRegion=page.getByRole('region',{name:ar?'جدول عوائد الملكية، قابل للتمرير أفقيًا':'Equity return schedule, horizontally scrollable',exact:true});
       assert.ok(await equityRegion.evaluate(el=>el.scrollWidth>el.clientWidth),'Narrow screens must scroll the financial table internally');
       assert.ok(await equityRegion.locator('thead th').evaluateAll(cells=>cells.slice(1).every(c=>c.getBoundingClientRect().width>=70)),'Financial column labels must retain a readable width');
       if(kind==='advanced'){
        const debtRegion=page.getByRole('region',{name:ar?'جدول خدمة الدين، قابل للتمرير أفقيًا':'Debt service schedule, horizontally scrollable',exact:true});
        assert.ok(await debtRegion.locator('thead th').evaluateAll(cells=>cells.slice(1).every(c=>c.getBoundingClientRect().width>=70)),'Debt columns must not collapse into individual letters');
+       const sticky=await debtRegion.evaluate(el=>{
+        const year=el.querySelector('tbody th');
+        const before=year.getBoundingClientRect().left;
+        el.scrollLeft=(getComputedStyle(el).direction==='rtl'?-1:1)*el.scrollWidth;
+        const result={scrolled:Math.abs(el.scrollLeft)>100,shift:Math.abs(year.getBoundingClientRect().left-before)};
+        el.scrollLeft=0;
+        return result;
+       });
+       assert.ok(sticky.scrolled&&sticky.shift<=1,'The year must remain visible when scrolling the debt schedule in either direction');
       }
      }
      await page.evaluate(()=>window.scrollTo(0,0));
@@ -211,6 +246,7 @@ async function runWaterEquityFinancingBrowser({browser,cookies,check}){
      }
     }
    }
+   evidence.assertions.push('AR/EN desktop/mobile: project NPV/IRR and peak cash gap match the report, terminal equity cash flow matches the CSV, report statuses reflect actual checks, open checks are keyboard reachable, and the mobile debt schedule pins the year.');
    await writeFile(new URL('./water-equity-financing-result.json',import.meta.url),JSON.stringify(evidence,null,2));
   }finally{await context.close();}
  });

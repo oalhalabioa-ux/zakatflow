@@ -573,7 +573,13 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     const loaded=await portfolio;
     assert.equal(loaded.status(),200);
     if(expected){
-     await page.getByRole('button',{name:/QA Personal water copy source/}).waitFor();
+     await page.getByRole('button',{name:/QA Personal water copy source/}).click();
+     await page.getByRole('button',{name:'Report and export',exact:true}).click();
+     const reportContents=page.getByRole('navigation',{name:'Report contents',exact:true});
+     const fundingStatus=reportContents.getByRole('link',{name:'Funding and shareholder loans',exact:true});
+     assert.equal(await fundingStatus.locator('[data-complete]').getAttribute('data-complete'),'false');
+     await page.getByRole('link',{name:/Review open requirements/}).press('Enter');
+     assert.equal(await page.locator('.fs-report-requirements').evaluate(el=>document.activeElement===el),true);
     }else{
      await page.getByRole('heading',{name:'No studies for the selected organization',exact:true}).waitFor();
     }

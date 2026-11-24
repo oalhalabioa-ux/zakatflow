@@ -16,6 +16,12 @@ import {evaluateMonthlyLiquidity,liquidityMonthLabel,monthlyLiquidityAmounts} fr
 
 const exportSections = ['summary','finance','funding','ownership','governance','decisions','notes'] as const;
 type ExportSection = typeof exportSections[number];
+const sectionChecks:Partial<Record<ExportSection,readonly string[]>>={
+ finance:['model','quantity','financial-policy','assumptions'],
+ funding:['finance','financing-policy'],
+ governance:['legal','blockers','risk','execution'],
+ decisions:['decision']
+};
 
 export default function FeasibilityReport({study,locale,allowExport=true,titleInWorkspace=false}:{study:FeasibilityStudy;locale:string;allowExport?:boolean;titleInWorkspace?:boolean}){
  const l=(ar:string,en:string)=>locale==='ar'?ar:en;
@@ -139,13 +145,15 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
   [l('الملكية الاقتصادية للشريك','Partner economic ownership'),percent(base.partnerShare)]
  ];
  const ready=handoffReadiness(study);
- const readyCount=ready.checks.filter(check=>check.passed).length;
+ const requirementsId=dialogTitleId+'-requirements';
+ const openChecks=ready.checks.filter(check=>!check.passed);
+ const completeChecks=ready.checks.filter(check=>check.passed);
  const reviewedSource=study.handoff?.reviewedSourceUpdatedAt;
  const currentReview=ready.ready&&reviewedSource===study.updatedAt;
  const reviewState=currentReview
   ?l('مراجعة داخلية مسجّلة','Internal review recorded')
   :reviewedSource?l('تحتاج إعادة مراجعة','Review needs renewal'):l('لم تُسجّل مراجعة','Review not recorded');
- const readiness=new Intl.NumberFormat(locale,{style:'percent',maximumFractionDigits:1}).format(readyCount/ready.checks.length);
+ const readiness=new Intl.NumberFormat(locale,{style:'percent',maximumFractionDigits:1}).format(completeChecks.length/ready.checks.length);
  const npv=money(study.rawLand?landResult?.npv??null:water?water.ready?water.npv:null:advanced?advanced.projectNpv:base.npv);
  const irr=percent(study.rawLand?landResult?.irr??null:water?water.ready?water.irr:null:advanced?advanced.projectIrr:base.irr);
  const investment=money(study.rawLand?landResult?.totalCost??null:water?water.cashRequired+water.land:advanced?.initialInvestment??base.totalInvestment);
@@ -176,13 +184,16 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
      <RoyalIcon name={icon}/><small>{label}</small><strong><bdi>{value}</bdi></strong>
     </div>)}
    </div>
-   <section className="card fs-panel">
+   <section className="card fs-panel fs-royal-report-recommendation">
     <h3 className="fs-royal-report-title"><RoyalIcon name="target"/>{l('ملخص تنفيذي وتوصية مشروطة','Executive summary and conditional recommendation')}</h3>
     <p className="fs-royal-report-notice"><RoyalIcon name="shield"/>{ready.ready
      ?l('استوفت الدراسة شروط الجاهزية الداخلية. راجع الافتراضات والمستندات قبل اعتماد القرار الاستثماري.',
         'The study passed the internal readiness checks. Verify assumptions and evidence before approving the investment.')
      :l('استكمل متطلبات الجاهزية المفتوحة وتحقق من الافتراضات والمستندات قبل الالتزام بالتمويل.',
         'Complete the open readiness checks and verify assumptions and evidence before committing funds.')}</p>
+    {openChecks.length>0&&<a className="fs-report-requirements-link" href={'#'+requirementsId}>
+     {l('راجع المتطلبات المفتوحة','Review open requirements')} <bdi>({fmt(openChecks.length)})</bdi>
+    </a>}
      {allowExport&&<div className="fs-actions fs-royal-report-output">
      <button className="fs-btn" type="button" onClick={()=>window.print()}>{l('طباعة / PDF','Print / PDF')}</button>
      <button className="fs-btn fs-btn--secondary" type="button" onClick={()=>dialog.current?.showModal()}>
@@ -195,9 +206,21 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
      <h3 id={dialogTitleId+'-contents'} className="fs-royal-report-title"><RoyalIcon name="clipboard"/>
       {l('الأقسام التي يشملها التقرير','Report contents')}
      </h3>
-     <ul className="fs-royal-checks">{availableSections.map(section=><li key={section}>
-      <a href={'#'+sectionId(section)}>{sectionLabels[section]}<RoyalIcon name="chevron"/></a>
-     </li>)}</ul>
+     <ul className="fs-royal-checks">{availableSections.map(section=>{
+      const checks=sectionChecks[section];
+      const needsReview=checks&&openChecks.some(check=>checks.includes(check.key));
+      const labelId=sectionId(section)+'-link';
+      const statusId=labelId+'-status';
+      return <li key={section}>
+       <a href={'#'+sectionId(section)} aria-labelledby={labelId} aria-describedby={checks?statusId:undefined}>
+        <span id={labelId}>{sectionLabels[section]}</span>
+        {checks&&<span id={statusId} className="fs-royal-tag" data-complete={!needsReview}>
+         {needsReview?l('تحتاج مراجعة','Review needed'):l('اكتملت الفحوص','Checks complete')}
+        </span>}
+        <RoyalIcon name="chevron"/>
+       </a>
+      </li>;
+     })}</ul>
     </nav>
     <section className="card fs-panel fs-royal-report-detail">
      <h3 className="fs-royal-report-title"><RoyalIcon name="clipboard"/>{l('تنبيهات مهنية وإصدار التقرير','Professional notice and report issuance')}</h3>
@@ -222,9 +245,9 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
       'Start year is descriptive. Cash flows use relative years from year zero; this field does not add a deferral or extra discount.')}</p>}
     </section>
    </div>
-   <section className="card fs-panel">
+   <section className="card fs-panel fs-report-requirements" id={requirementsId} tabIndex={-1}>
     <h3 className="fs-royal-report-title"><RoyalIcon name="check"/>{l('متطلبات مراجعة التقرير','Report review requirements')}</h3>
-    <ul className="fs-royal-checks">{ready.checks.map(check=><li key={check.key}>
+    <ul className="fs-royal-checks">{[...openChecks,...completeChecks].map(check=><li key={check.key}>
      <span>{locale==='ar'?check.ar:check.en}</span>
      <strong className="fs-royal-tag" data-complete={check.passed}>{check.passed?l('مكتمل','Complete'):l('يحتاج مراجعة','Review needed')}</strong>
     </li>)}</ul>

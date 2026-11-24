@@ -292,13 +292,16 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   [['IRR حقوق الملكية','Equity IRR'],percentage(m.ready?(m.equity?.irr??null):null),'users'],
   [['أدنى تغطية خدمة دين DSCR','Minimum debt service coverage (DSCR)'],fmt(m.ready&&debtRatios.length?Math.min(...debtRatios):null),'shield']
  ])}</div>;
+ const liquidityGap=[
+  l('ذروة العجز النقدي بعد التأسيس وخدمة الدين','Peak post-establishment cash shortfall after debt service'),
+  money(m.ready&&water.deal.extraFunding===0&&water.deal.investorLoan<=m.cashRequired?waterPeakFundingGap(m.annual):null)
+ ];
  const financingSummary=[
   [l('القيمة الاستثمارية الاقتصادية','Economic investment'),money(m.cashRequired+m.land)],
   [l('النقد المطلوب للتأسيس','Initial cash requirement'),money(m.cashRequired)],
   [l('رأس المال النقدي لتغطية التأسيس','Cash equity allocated to establishment'),money(m.cashRequired-m.shareholderLoan)],
   [l('قرض المساهم المخصص للتأسيس','Shareholder loan allocated to establishment'),money(m.shareholderLoan)],
-  [l('ذروة العجز النقدي بعد التأسيس وخدمة الدين','Peak post-establishment cash shortfall after debt service'),
-   money(m.ready&&water.deal.extraFunding===0&&water.deal.investorLoan<=m.cashRequired?waterPeakFundingGap(m.annual):null)],
+  liquidityGap,
   [l('التمويل الإضافي بحسب المدخلات','Additional financing entered'),money(water.deal.extraFunding)],
   [l('إجمالي رأس مال الممول النقدي','Total investor cash equity'),money(m.investorEquity)],
   [l('الحصة العينية للأرض أو الحق','Land or right-of-use in-kind contribution'),money(m.land)],
@@ -656,10 +659,13 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
     settings={fields('ops',operationFields.filter(([key])=>['maintenancePct','discountRate','taxRate','horizon'].includes(key)))}/>
    {projectReturns}
    <Panel title={l('خدمة الدين السنوية','Annual debt service')} icon="coins">
-    <Table financial scrollLabel={l('جدول خدمة الدين، قابل للتمرير أفقيًا','Debt service schedule, horizontally scrollable')} headers={[l('السنة','Year'),l('الرصيد الافتتاحي','Opening balance'),l('الفائدة المدفوعة','Paid interest'),
+    <div className="fs-water-debt-schedule">
+     <Table financial scrollLabel={l('جدول خدمة الدين، قابل للتمرير أفقيًا','Debt service schedule, horizontally scrollable')} headers={[l('السنة','Year'),l('الرصيد الافتتاحي','Opening balance'),l('الفائدة المدفوعة','Paid interest'),
      l('الفائدة المرسملة','Capitalized interest'),l('سداد الأصل','Principal repayment'),l('سداد النهاية','Terminal settlement'),l('الرصيد الختامي','Closing balance'),'DSCR',l('التدفق بعد القرض','Cash flow after debt')]}
      rows={m.annual.map(y=>[y.year,money(y.openingDebt??(y.debtBalance+y.principal)),money(y.interest),money(y.capitalizedInterest??0),money(y.principal),money(y.terminalDebtRepayment??0),
-      money(y.debtBalance),fmt(y.dscr),money(y.afterDebt)])}/>
+       money(y.debtBalance),fmt(y.dscr),money(y.afterDebt)].map(value=><bdi>{value}</bdi>))}/>
+    </div>
+    {compactValues([liquidityGap])}
     <details className="fs-water-financing-settings"><summary>{l('شروط التمويل وعوائد الملكية','Financing and equity settings')}</summary>
      <WaterFinancingPolicy water={water} locale={locale} onChange={onChange}/>
     </details>
