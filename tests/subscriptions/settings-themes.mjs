@@ -26,9 +26,10 @@ export const readColors = elements => elements.map(el=>{
 });
 
 async function verifyModulePalette({page,theme,appUrl,root}) {
-  const modern=theme==='modern';
-  const sizes=modern?[390,1440]:[1440];
-  const locales=modern?['ar','en']:['en'];
+  const modulePalettes={modern:{accent:'#4355c7',muted:'#586589'},elegant:{accent:'#0d755f',muted:'#536e64'}};
+  const modulePalette=modulePalettes[theme];
+  const sizes=modulePalette?[390,1440]:[1440];
+  const locales=modulePalette?['ar','en']:['en'];
   for(const locale of locales)for(const width of sizes) {
     await page.setViewportSize({width,height:960});
     await page.goto(`${appUrl}/${locale}/financial-reports?scope=PERSONAL`);
@@ -36,22 +37,24 @@ async function verifyModulePalette({page,theme,appUrl,root}) {
     const reportTab=workspace.locator('.fs-personal-tabs [aria-selected=true]');
     await reportTab.waitFor();
     const [reportColor]=await reportTab.evaluateAll(readColors);
-    assert.deepEqual(reportColor,modern
-      ? {fg:'rgb(255, 255, 255)',bg:palettes.modern.selected}
+    assert.deepEqual(reportColor,modulePalette
+      ? {fg:'rgb(255, 255, 255)',bg:palettes[theme].selected}
       : {fg:'rgb(16, 36, 58)',bg:'rgb(198, 163, 93)'},`${theme} personal report tab palette`);
-    if(!modern)continue;
+    if(!modulePalette)continue;
     assert.ok(contrast(reportColor)>=4.5);
-    await page.screenshot({path:new URL(`tests/subscriptions/screenshots/modern-reports-${locale}-${width}.png`,root).pathname});
+    const actionSurface=await workspace.evaluate(element=>getComputedStyle(element).getPropertyValue('--action-surface').trim());
+    assert.equal(actionSurface,'#fff',`${theme} operation dialog surface`);
+    await page.screenshot({path:new URL(`tests/subscriptions/screenshots/${theme}-reports-${locale}-${width}.png`,root).pathname});
 
     await page.goto(`${appUrl}/${locale}/feasibility?scope=PERSONAL`);
     const study=workspace.locator('.fs-page');
     await study.waitFor();
     const accent=await study.evaluate(element=>getComputedStyle(element).getPropertyValue('--fs-gold').trim());
-    assert.equal(accent,'#4355c7',`${locale} ${width} feasibility icon palette`);
-    await page.screenshot({path:new URL(`tests/subscriptions/screenshots/modern-feasibility-${locale}-${width}.png`,root).pathname});
+    assert.equal(accent,modulePalette.accent,`${theme} ${locale} ${width} feasibility icon palette`);
+    await page.screenshot({path:new URL(`tests/subscriptions/screenshots/${theme}-feasibility-${locale}-${width}.png`,root).pathname});
   }
 
-  if(!modern)return;
+  if(!modulePalette)return;
   const modules=[
     ['assets','.assets-page','--brand-muted'],
     ['transactions','.transactions-page','--tx-muted'],
@@ -64,10 +67,10 @@ async function verifyModulePalette({page,theme,appUrl,root}) {
     await page.setViewportSize({width,height:960});
     for(const [route,selector,token] of modules) {
       await page.goto(`${appUrl}/${locale}/${route}?scope=PERSONAL`);
-      const module=page.locator(`.corp-shell.theme-modern .corp-content ${selector}`);
+      const module=page.locator(`.corp-shell.theme-${theme} .corp-content ${selector}`);
       await module.waitFor();
       const muted=await module.evaluate((element,property)=>getComputedStyle(element).getPropertyValue(property).trim(),token);
-      assert.equal(muted,'#586589',`${locale} ${width} ${route} muted text palette`);
+      assert.equal(muted,modulePalette.muted,`${theme} ${locale} ${width} ${route} muted text palette`);
     }
   }
 }
