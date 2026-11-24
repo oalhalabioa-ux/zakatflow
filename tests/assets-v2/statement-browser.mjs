@@ -142,7 +142,7 @@ async function verifyJuneZakatPayment(browser) {
 
   assert.equal(await bankBalance(),2450);
   await page.goto(app+'/ar/assessments?scope=PERSONAL',{waitUntil:'domcontentloaded'});
-  await page.getByLabel('المنهج',{exact:true}).selectOption(method.id);
+  await page.locator('label').filter({hasText:/^المنهج/}).locator('select').selectOption(method.id);
   await page.getByLabel('تاريخ الاحتساب',{exact:true}).fill(assessDate);
   await page.getByLabel('تاريخ بلوغ المحفظة للنصاب',{exact:true}).fill('2025-06-12');
   await page.getByLabel('سعر الذهب الخالص / g',{exact:true}).fill('400');
@@ -165,10 +165,12 @@ async function verifyJuneZakatPayment(browser) {
   await page.reload({waitUntil:'domcontentloaded'});
   const finalRow = page.getByRole('row').filter({hasText:'FINAL'}).filter({hasText:assessDate});
   await finalRow.getByRole('cell').filter({hasText:/22\.50/}).waitFor();
+  await finalRow.scrollIntoViewIfNeeded();
+  await page.screenshot({path:'asset-qa-preview/june-zakat-final-ar.png'});
 
   await page.goto(app+'/ar/payments?scope=PERSONAL',{waitUntil:'domcontentloaded'});
-  await page.getByLabel('الدورة الزكوية',{exact:true}).selectOption(assessment.hawl_cycle_id);
-  await page.getByLabel('البنك أو الصندوق المسدد منه',{exact:true}).selectOption(bank);
+  await page.locator('label').filter({hasText:/^الدورة الزكوية/}).locator('select').selectOption(assessment.hawl_cycle_id);
+  await page.locator('label').filter({hasText:/^البنك أو الصندوق المسدد منه/}).locator('select').selectOption(bank);
   await page.getByLabel('تاريخ الدفع',{exact:true}).fill(paymentDate);
   await page.getByLabel('المبلغ',{exact:true}).fill('22.50');
   const paymentResponse = await clickForPost('/api/payments','حفظ السداد وترحيل الزيادة');
@@ -185,6 +187,8 @@ async function verifyJuneZakatPayment(browser) {
   assert.match(voucher,/^ZP-/);
   assert.equal(await paidRow.count(),1);
   assert.match(await paidRow.innerText(),/22\.50/);
+  await paidRow.scrollIntoViewIfNeeded();
+  await page.screenshot({path:'asset-qa-preview/june-zakat-payment-ar.png'});
   const payments = await get('/api/payments');
   assert.equal(payments.length,1);
   assert.equal(payments[0].id,payment.id);
