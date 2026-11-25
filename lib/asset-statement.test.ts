@@ -101,6 +101,7 @@ describe('stored price basis',()=>{
    basis:'ASSET_UNIT',appliedPrice:'410',value:'3280',unrealized:'880',
   });
   expect(currentAssetValuation({...input,metadata:{karat:18}})).toBeNull();
+  expect(currentAssetValuation({...input,metadata:{market_price:410,market_price_source:'ACQUISITION_COST'}})).toBeNull();
   expect(currentAssetValuation({...input,metadata:{market_price:410,market_price_currency:'USD',fx_rate:3.75}})).toBeNull();
   expect(currentAssetValuation({...input,metadata:{market_price:410,market_valuation_date:'2026-11-22'}})).toBeNull();
  });
