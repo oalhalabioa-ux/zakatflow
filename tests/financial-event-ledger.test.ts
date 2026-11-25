@@ -31,6 +31,11 @@ describe('explicit canonical-event ledger compiler',()=>{
   expect(result.lineage.find(l=>l.eventId==='receipt')?.ruleId).toBe('prior:1');
   expect(result.statements).toEqual(compileEventLedger(fixture()).statements);
  });
+ it('rejects frozen non-cash legs pointing to the same account',()=>{
+  const input=fixture();
+  input.events[0].lines[0].resolvedPosting={ruleId:'captured',debitAccountId:'opex',creditAccountId:'opex'};
+  expect(()=>compileEventLedger(input)).toThrow('INVALID_POSTING_ACCOUNTS');
+ });
  it('rejects a detailed snapshot without resolved legs instead of falling back to its control',()=>{
   const input=fixture();input.policy.rules[0].detailed=true;
   expect(()=>compileEventLedger(input)).toThrow('REPORTING_EVENT_POSTING_REQUIRED');

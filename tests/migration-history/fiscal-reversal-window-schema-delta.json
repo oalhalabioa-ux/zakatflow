@@ -1,0 +1,10 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.financial_fiscal_trial_detail_v1(p_snapshot jsonb, p_retained text)",
+      "fingerprint": "459221a16157afcb939e5a65a600b180"
+    }
+  ]
+}
