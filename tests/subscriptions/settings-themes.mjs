@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {readdirSync} from 'node:fs';
 
 const palettes = {
   'yaqeen-business': { selected: 'rgb(198, 163, 93)', ink: 'rgb(255, 255, 255)', nav: 'rgb(16, 47, 75)' },
@@ -25,7 +26,76 @@ export const readColors = elements => elements.map(el=>{
   return {fg:style.color,bg:getComputedStyle(surface).backgroundColor};
 });
 
-async function verifyModulePalette({page,theme,appUrl,root}) {
+const separateRouteFixtures = new Map([
+  ['admin','redirects to the owner console'],
+  ['assessments/[id]','requires a saved Zakat assessment'],
+  ['cash-vouchers/[id]','requires an institutional cash voucher'],
+  ['chart-of-accounts','requires Financial Opening Workspace'],
+  ['feasibility/shared','requires the sharing flag and team fixtures'],
+  ['feasibility/shared/review','requires a study proposal and the sharing flag'],
+  ['financial-events','requires Financial Budget QA'],
+  ['financial-reporting-policy','requires live institutional statements'],
+  ['login','uses the public sign-in identity'],
+  ['login/invitation','uses the public invitation identity'],
+  ['lots/[id]','requires a saved asset lot'],
+  ['opening-balances','requires Financial Opening Workspace'],
+  ['opening-balances/branches','requires the opening distribution fixtures'],
+  ['opening-balances/centers','requires the opening distribution fixtures'],
+  ['preview/fiscal-years','requires Fiscal Year Review Preview'],
+  ['reports/print','uses the print identity'],
+  ['transactions/[id]','requires a posted transaction'],
+]);
+const routeTargets = new Map([
+  ['dashboard',['dashboard','onboarding']],
+  ['invoice-register',['vat']],
+  ['qard-loans',['loans']],
+]);
+const moduleControls = {
+  assets:['.assets-page','--brand-muted'],
+  transactions:['.transactions-page','--tx-muted'],
+  liquidity:['.liquidity-page','--liq-muted'],
+  vat:['.vat-page','--vat-muted'],
+  'budget-planning':['.budget-plan','--brand-muted'],
+  organizations:['.organizations-page','--org-muted'],
+  prices:['.prices-page','--prices-green','accent'],
+  'settings/financial/setup':['.financial-setup','--setup-gold','accent'],
+};
+
+function listWorkspaceRoutes(root) {
+  return readdirSync(new URL('app/%5Blocale%5D/',root),{recursive:true})
+    .filter(path=>path.endsWith('/page.tsx'))
+    .map(path=>path.slice(0,-'/page.tsx'.length))
+    .sort();
+}
+
+async function verifyWorkspaceRoutes({page,theme,appUrl,root,org,modulePalette}) {
+  const routes=listWorkspaceRoutes(root);
+  for(const route of separateRouteFixtures.keys())assert.ok(routes.includes(route), `removed route fixture: ${route}`);
+  const liveRoutes=routes.filter(route=>!separateRouteFixtures.has(route));
+  const verifiedRoutes=[];
+  for(const [locale,width] of [['ar',390],['en',1440]]) {
+    await page.setViewportSize({width,height:960});
+    for(const route of liveRoutes) {
+      const query=new URLSearchParams(route==='assets/dashboard'||route.startsWith('settings')
+        ? {scope:'ORGANIZATION',organization:org} : {scope:'PERSONAL'});
+      const response=await page.goto(`${appUrl}/${locale}/${route}?${query}`,{waitUntil:'domcontentloaded'});
+      assert.ok(response?.ok(),`${theme} ${locale} ${width} ${route}: HTTP ${response?.status()}`);
+      const actual=new URL(page.url()).pathname;
+      assert.ok((routeTargets.get(route)??[route]).some(target=>actual===`/${locale}/${target}`),`${route} redirected to ${actual}`);
+      const workspace=page.locator(`.corp-shell.theme-${theme} .corp-content`);
+      await workspace.waitFor();
+      const [selector,token,paletteKey]=moduleControls[route]??['','--brand-muted','muted'];
+      const module=selector?workspace.locator(selector):workspace;
+      await module.waitFor();
+      const value=await module.evaluate((element,property)=>getComputedStyle(element).getPropertyValue(property).trim(),token);
+      assert.equal(value,modulePalette[paletteKey??'muted'],`${theme} ${locale} ${width} ${route} ${token}`);
+      verifiedRoutes.push({locale,width,route,actual});
+    }
+  }
+  console.log('WORKSPACE_THEME_ROUTES '+JSON.stringify({theme,verifiedRoutes,separateFixtures:[...separateRouteFixtures]}));
+}
+
+async function verifyModulePalette({page,theme,appUrl,root,org}) {
   const modulePalettes={modern:{accent:'#4355c7',muted:'#586589'},elegant:{accent:'#0d755f',muted:'#536e64'}};
   const modulePalette=modulePalettes[theme];
   const sizes=modulePalette?[390,1440]:[1440];
@@ -54,25 +124,7 @@ async function verifyModulePalette({page,theme,appUrl,root}) {
     await page.screenshot({path:new URL(`tests/subscriptions/screenshots/${theme}-feasibility-${locale}-${width}.png`,root).pathname});
   }
 
-  if(!modulePalette)return;
-  const modules=[
-    ['assets','.assets-page','--brand-muted'],
-    ['transactions','.transactions-page','--tx-muted'],
-    ['liquidity','.liquidity-page','--liq-muted'],
-    ['vat','.vat-page','--vat-muted'],
-    ['budget-planning','.budget-plan','--brand-muted'],
-    ['organizations','.organizations-page','--org-muted'],
-  ];
-  for(const [locale,width] of [['ar',390],['en',1440]]) {
-    await page.setViewportSize({width,height:960});
-    for(const [route,selector,token] of modules) {
-      await page.goto(`${appUrl}/${locale}/${route}?scope=PERSONAL`);
-      const module=page.locator(`.corp-shell.theme-${theme} .corp-content ${selector}`);
-      await module.waitFor();
-      const muted=await module.evaluate((element,property)=>getComputedStyle(element).getPropertyValue(property).trim(),token);
-      assert.equal(muted,modulePalette.muted,`${theme} ${locale} ${width} ${route} muted text palette`);
-    }
-  }
+  if(modulePalette)await verifyWorkspaceRoutes({page,theme,appUrl,root,org,modulePalette});
 }
 
 export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
@@ -134,7 +186,7 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
       if(section==='settings/regulatory')await page.keyboard.press('Escape');
     }
   }
-  await verifyModulePalette({page,theme,appUrl,root});
+  await verifyModulePalette({page,theme,appUrl,root,org});
   await page.goto(`${appUrl}/en/settings?organization=${org}`);
   await page.getByLabel('Organization name',{exact:true}).waitFor();
 }

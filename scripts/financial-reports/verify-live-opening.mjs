@@ -930,6 +930,35 @@ try{
   const {verifyDatedCenterSource}=await import('./verify-dated-center-source.mjs');
   report.datedCenterSource=await verifyDatedCenterSource({actor:a,page,app,out,sql,databaseUrl:url,organization:report.defaultPostingActualCycle.organization});
  });
+ await check('Modern and Elegant palettes in protected finance workspaces',async()=>{
+  const paths=[
+   ['chart-of-accounts','.coa-page','--coa-gold'],
+   ['opening-balances','.ob-tabs button[aria-selected=true]','backgroundColor'],
+   ['opening-balances/branches','.ob-branch-page','color'],
+   ['opening-balances/centers','.ob-branch-page','color'],
+   ['financial-reporting-policy','.fs-root.fs-surface','color'],
+  ];
+  for(const [theme,accent,active,ink] of [
+   ['modern','#4355c7','rgb(67, 85, 199)','rgb(39, 52, 90)'],
+   ['elegant','#0d755f','rgb(13, 117, 95)','rgb(26, 59, 50)'],
+  ]){
+   await page.evaluate(value=>localStorage.setItem('zf-theme',value),theme);
+   for(const [locale,width] of [['ar',390],['en',1440]]){
+    await page.setViewportSize({width,height:960});
+    for(const [route,selector,property] of paths){
+     const response=await page.goto(`${app}/${locale}/${route}?scope=ORGANIZATION&organization=${org}&fiscalStart=2026-01-01`);
+     assert.ok(response?.ok(),`${theme} ${locale} ${route}: ${response?.status()}`);
+     const el=page.locator(`.corp-shell.theme-${theme} .corp-content ${selector}`).first();
+     await el.waitFor();
+     const actual=await el.evaluate((node,key)=>key.startsWith('--')
+      ? getComputedStyle(node).getPropertyValue(key).trim() : getComputedStyle(node)[key],property);
+     assert.equal(actual,property==='--coa-gold'?accent:property==='backgroundColor'?active:ink,`${theme} ${locale} ${route}`);
+     if(route==='opening-balances'||route==='chart-of-accounts')
+      await page.screenshot({path:`${out}/${route}-${theme}-${locale}-${width}.png`});
+    }
+   }
+  }
+ },120000);
  assert.deepEqual(errors,[]);report.browserExceptions=errors;await context.close();
 }catch(error){report.failure={message:error.message,stack:error.stack};try{await page?.screenshot({path:out+'/failure.png',fullPage:true,timeout:5000})}catch{}throw error}finally{await Promise.race([browser?.close(),new Promise(r=>setTimeout(r,5000))]);server?.kill();await writeFile(out+'/results.json',JSON.stringify(report,null,2)+'\n')}
 // Exit only after assertions, evidence writes and cleanup; background SDK handles must not keep CI alive.

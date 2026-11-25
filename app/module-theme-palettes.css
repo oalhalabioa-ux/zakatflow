@@ -106,12 +106,17 @@
     color: var(--brand-text);
   }
 
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root.fs-surface {
+    background: var(--brand-bg);
+    color: var(--brand-text);
+  }
+
   .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root :is(.fs-metric-heading, .fs-card-title h2, .fs-statement-link h2, .fs-filter-toggle) > svg,
   .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root .fs-personal-eyebrow {
     color: var(--brand-primary);
   }
 
-  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root :is(.fs-surface .fs-gold, .fs-surface .fs-default-activate, .fs-personal-actions button, .fs-personal-scope) {
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root :is(.fs-gold, .fs-default-activate, .fs-personal-actions button, .fs-personal-scope) {
     background: var(--brand-primary);
     border-color: var(--brand-primary);
     color: var(--brand-surface);
@@ -161,5 +166,142 @@
   .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root .fs-table tbody .fs-row-total,
   .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root .fs-table tbody .fs-row-total th:first-child {
     background: var(--brand-secondary) !important;
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .asset-card-dialog {
+    --asset-card-navy: var(--brand-secondary);
+    --asset-card-ink: var(--brand-text);
+    --asset-card-gold: var(--brand-primary);
+    --asset-card-light-gold: var(--module-accent-tint);
+    --asset-card-green: var(--brand-primary);
+    --asset-card-surface: var(--brand-surface);
+    --asset-card-soft: var(--brand-surface-soft);
+    --asset-card-line: var(--brand-border);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .asset-card-dialog :is(
+    .asset-card-header,
+    .asset-card-header h2,
+    .asset-card-header :is(button, svg),
+    .asset-card-toolbar .asset-card-primary,
+    .asset-card-toolbar .asset-card-primary svg,
+    .asset-card-tabs button[aria-pressed=true],
+    .asset-card-tabs button[aria-pressed=true] svg
+  ) {
+    color: var(--brand-surface) !important;
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .asset-card-dialog .asset-card-chip[data-active=true] {
+    color: #205347;
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .prices-page {
+    --prices-ink: var(--brand-text);
+    --prices-muted: var(--brand-muted);
+    --prices-line: var(--brand-border);
+    --prices-green: var(--brand-primary);
+    --prices-green-soft: var(--module-accent-tint);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .prices-page :is(.prices-summary-card, .prices-summary-context, .prices-panel, .prices-close, input, select) {
+    background: var(--brand-surface);
+    color: var(--brand-text);
+    border-color: var(--brand-border);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .prices-page :is(.prices-button.secondary, .prices-table th, .prices-summary-icon:not(.fx), .prices-panel-icon:not(.fx)) {
+    background: var(--module-accent-tint);
+    color: var(--brand-secondary);
+    border-color: var(--brand-border);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .prices-page :is(.prices-table td, .prices-fields > label) {
+    color: var(--brand-text);
+    border-color: var(--brand-border);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .prices-page .prices-button.primary:hover:not(:disabled) {
+    background: var(--brand-secondary);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .coa-page {
+    --coa-navy: var(--brand-text);
+    --coa-gold: var(--brand-primary);
+    --coa-line: var(--brand-border);
+    --coa-muted: var(--brand-muted);
+    background: var(--brand-bg);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content :is(
+    .coa-tree-item.selected,
+    .coa-page .coa-register td button,
+    .coa-register thead th,
+    .posting-split tr[data-selected],
+    .ob-account-menu button:is(:hover, .is-active),
+    .financial-setup-mode-grid button.chosen,
+    .financial-setup-industries button.chosen,
+    .financial-setup-chart-tabs button:hover:not([aria-pressed=true])
+  ) {
+    background: var(--module-accent-tint);
+    color: var(--brand-secondary);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content :is(.posting-rules, .ob-branch-page, .ob-surface) {
+    color: var(--brand-text);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content :is(
+    .ob-tabs button[aria-selected=true],
+    .ob-branch-actions button,
+    .ob-branch-filters button,
+    .ob-branch-more,
+    .ob-branch-actions .ob-branch-primary,
+    .ob-branch-table th,
+    .ob-equity-add-btn,
+    .financial-setup-native-heading,
+    .financial-setup-summary-refresh,
+    .financial-setup-chart-tabs button[aria-pressed=true],
+    .financial-setup-steps button.current .financial-setup-number
+  ) {
+    background: var(--brand-primary);
+    border-color: var(--brand-primary);
+    color: var(--brand-surface);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .ob-tabs button[aria-selected=true] > span {
+    background: var(--brand-surface);
+    color: var(--brand-secondary);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .financial-setup {
+    --setup-gold: var(--brand-primary);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .financial-setup-steps button.current {
+    background: var(--module-accent-tint);
+    border-color: var(--brand-primary);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .financial-setup .financial-setup-summary-card .financial-setup-progress-bar span {
+    background: var(--brand-primary);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content :is(
+    .coa-page :is(button, input, select, textarea),
+    .ob-branch-page :is(button, input, select),
+    .ob-account-picker,
+    .ob-icon-control .ob-icon-button,
+    .ob-equity-add-btn,
+    .fs-personal-actions button,
+    .fs-personal-tabs button
+  ):focus-visible {
+    outline-color: var(--brand-primary);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content :is(
+    .financial-setup-native-heading :is(h1, h2, h3, p, strong, button, button svg),
+    .ob-branch-table th :is(strong, small)
+  ) {
+    color: var(--brand-surface) !important;
   }
 }
