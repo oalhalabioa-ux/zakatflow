@@ -440,9 +440,20 @@ try{
   await page.locator('[data-statement-ready="overview"]').waitFor();
   await page.waitForURL(url=>url.searchParams.get('organization')===org);
   assert.equal(await page.locator('#corp-organization-controls').getByRole('combobox',{name:lang==='ar'?'المؤسسة':'Organization',exact:true}).inputValue(),org);
+  if(width===390){
+   await page.getByRole('button',{name:lang==='ar'?'القائمة الجانبية':'Sidebar menu',exact:true}).click();
+   await page.getByRole('button',{name:lang==='ar'?'توسيع القائمة':'Expand sidebar',exact:true}).click();
+  }
+  const reportMenu=page.getByRole('button',{name:lang==='ar'?'التقارير والقوائم المالية':'Financial reports & statements',exact:false});
+  if(await reportMenu.getAttribute('aria-expanded')!=='true')await reportMenu.click();
   const outgoing=page.locator('#corp-financial-reporting-nav').getByRole('link',{name:lang==='ar'?'المركز المالي':'Financial position',exact:true});
+  await outgoing.waitFor({state:'visible'});
   const href=new URL(await outgoing.getAttribute('href'),app);
   assert.equal(href.searchParams.get('scope'),'ORGANIZATION');assert.equal(href.searchParams.get('organization'),org);
+  if(width===390){
+   await page.getByRole('button',{name:lang==='ar'?'إغلاق القائمة':'Close menu',exact:true}).click();
+   await page.locator('#corp-sidebar').waitFor({state:'hidden'});
+  }
   assert.match(await page.locator('.fs-metrics').first().innerText(),/0.00/);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.screenshot({path:out+`/statements-${lang}-${width}.png`,fullPage:true});

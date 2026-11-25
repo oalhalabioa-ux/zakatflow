@@ -79,16 +79,22 @@ const failureText=/unable to|could not|failed to|something went wrong|applicatio
 
 /** Requires the existing synthetic owner, two companies and Gold/Deposit fixtures.
  * All navigation is local and all /api requests must be reads. The failed page
- * stays open so the main runner can capture its sanitized visible diagnostics.
+ * is captured by the main runner before closing; independent routes continue.
  */
-export async function routeOpeningAcceptance({context,app,organizationId,check}){
+export async function routeOpeningAcceptance({context,app,organizationId,otherOrganizationId,unavailableOrganizationId,check}){
  assert.ok(['localhost','127.0.0.1'].includes(new URL(app).hostname),'LOCAL_APP_REQUIRED');
  assert.ok(organizationId,'SYNTHETIC_ORGANIZATION_REQUIRED');
  const outcomes=[];
  for(const [scope,specs] of [['PERSONAL',personal],['ORGANIZATION',business]]){
   for(const spec of specs){
-   await check(`Main module opens: ${scope} /en/${spec.path}`,async()=>{
+   let activePage;
+   try{await check(`Main module opens: ${scope} /en/${spec.path}`,async()=>{
     const page=await context.newPage();
+    activePage=page;
+    if(otherOrganizationId)await page.addInitScript(id=>{
+     sessionStorage.setItem('zf-liquidity-org',id);
+     localStorage.setItem('zf-liquidity-org',id);
+    },otherOrganizationId);
     await page.setViewportSize(routeOpeningCoverage.viewport);
     page.setDefaultTimeout(30000);
     const errors=[],failedReads=[],writes=[],completed=[];
@@ -157,9 +163,46 @@ export async function routeOpeningAcceptance({context,app,organizationId,check})
     assert.deepEqual(failedReads,[],'Module read failed');
     assert.deepEqual(errors,[],'Browser exception');
     outcomes.push({scope,path:'/en/'+spec.path,status:'opened',verifiedReads:required.map(({path})=>path),recordIsolation:Boolean(spec.fixture)});
-    await page.close();
-   });
+   });}catch(error){
+    outcomes.push({scope,path:'/en/'+spec.path,status:'failed',error:error instanceof Error?error.message:String(error)});
+   }finally{
+    await activePage?.close();
+   }
   }
  }
- return {...routeOpeningCoverage,checks:outcomes};
+ const unavailableChecks=[];
+ if(unavailableOrganizationId)for(const path of ['assets','assets/dashboard','reports','debts','debt-collection','loans','debt-advances','users','vat']){
+  let page;
+  try{await check(`Unavailable company is never replaced: /en/${path}`,async()=>{
+   page=await context.newPage();page.setDefaultTimeout(30000);
+   await page.setViewportSize(routeOpeningCoverage.viewport);
+   await page.addInitScript(id=>{sessionStorage.setItem('zf-liquidity-org',id);localStorage.setItem('zf-liquidity-org',id);},otherOrganizationId??organizationId);
+   const substituteReads=[],errors=[],writes=[];
+   page.on('pageerror',error=>errors.push(error.message));
+   page.on('request',request=>{
+    if(!request.url().startsWith(app+'/api/')||request.method()!=='GET')return;
+    const url=new URL(request.url()),company=url.searchParams.get('organization_id')??url.searchParams.get('organization');
+    if(company===organizationId||company===otherOrganizationId)substituteReads.push(url.pathname);
+   });
+   await page.route(app+'/api/**',async route=>{
+    if(!['GET','HEAD','OPTIONS'].includes(route.request().method())){writes.push(new URL(route.request().url()).pathname);await route.abort('blockedbyclient');}
+    else await route.continue();
+   });
+   const query=new URLSearchParams({scope:'ORGANIZATION',organization:unavailableOrganizationId,level:'COMPANY'});
+   const response=await page.goto(app+'/en/'+path+'?'+query,{waitUntil:'domcontentloaded',timeout:90000});
+   assert.equal(response?.status(),200);
+   const picker=page.locator('#corp-organization-controls select').first();
+   await picker.locator(`option[value="${organizationId}"]`).waitFor({state:'attached'});
+   await page.waitForFunction(()=>document.querySelector('#corp-organization-controls select')?.value==='');
+   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+   assert.equal(new URL(page.url()).searchParams.get('organization'),unavailableOrganizationId,'The explicit unavailable URL must remain explicit');
+   assert.deepEqual(substituteReads,[],'An unavailable company was replaced by an authorized company read');
+   assert.deepEqual(writes,[],'Opening attempted a mutation');assert.deepEqual(errors,[],'Browser exception');
+   const tables=page.locator('main table, .investment-table table');
+   for(const label of ['Scope Company A Gold','Scope Company B Gold','Scope Personal Gold'])assert.equal(await tables.getByText(label,{exact:false}).count(),0,'A different scope was shown under an unavailable selection');
+   unavailableChecks.push({path:'/en/'+path,status:'passed'});
+  });}catch(error){unavailableChecks.push({path:'/en/'+path,status:'failed',error:error instanceof Error?error.message:String(error)});}
+  finally{await page?.close();}
+ }
+ return {...routeOpeningCoverage,checks:outcomes,unavailableCompanyChecks:unavailableChecks};
 }

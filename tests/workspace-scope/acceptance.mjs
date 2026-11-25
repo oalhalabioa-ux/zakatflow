@@ -25,7 +25,8 @@ async function check(name,run){
  try{await run();checks.push({name,status:'passed'});console.log('PASS '+name);}
  catch(error){
   checks.push({name,status:'failed',error:error instanceof Error?error.message:String(error)});
-  await captureFailurePage().catch(()=>{report.failurePage={unavailable:true};});
+  await captureFailurePage(name).catch(()=>{report.failurePage??={unavailable:true};});
+  console.log('FAIL '+name+': '+(error instanceof Error?error.message:String(error)));
   throw error;
  }
 }
@@ -43,8 +44,8 @@ async function contextFor(browser,actor,viewport={width:1440,height:1000}){
  await context.addInitScript(()=>localStorage.setItem('zf-theme','yaqeen-business'));
  return context;
 }
-async function captureFailurePage(){
- if(report.failurePage)return;
+async function captureFailurePage(checkName){
+ if(!checkName&&report.failurePage)return;
  // Diagnostics contain only the local synthetic UI, never request headers,
  // cookies, storage, environment variables or HTML containing auth state.
  const page=browser?.contexts().flatMap(context=>context.pages())
@@ -59,17 +60,20 @@ async function captureFailurePage(){
   const value=url.searchParams.get(key);if(value!==null)query.set(key,value);
  }
  const location=url.pathname+(query.size?'?'+query:'');
- report.failurePage={location};
+ const evidence={check:checkName??'Acceptance setup',location};
+ report.failurePages??=[];
+ const prefix='failure-'+(report.failurePages.length+1);
+ report.failurePages.push(evidence);report.failurePage??=evidence;
  try{
   const visible=await page.locator('body').innerText({timeout:5000});
-  await writeFile(out+'/failure-page.txt',redact(location+'\n\n'+visible).slice(0,30000)+'\n');
-  report.failurePage.visibleText='failure-page.txt';
- }catch{report.failurePage.visibleTextUnavailable=true;}
+  await writeFile(out+'/'+prefix+'.txt',redact(location+'\n\n'+visible).slice(0,30000)+'\n');
+  evidence.visibleText=prefix+'.txt';
+ }catch{evidence.visibleTextUnavailable=true;}
  try{
-  await page.screenshot({path:out+'/failure-page.png',fullPage:false,timeout:5000,
+  await page.screenshot({path:out+'/'+prefix+'.png',fullPage:false,timeout:5000,
    mask:[page.locator('input, textarea, [data-sensitive], a[href^="mailto:"], nextjs-portal')]});
-  report.failurePage.screenshot='failure-page.png';
- }catch{report.failurePage.screenshotUnavailable=true;}
+  evidence.screenshot=prefix+'.png';
+ }catch{evidence.screenshotUnavailable=true;}
 }
 const terms=(name,scope,organization_id,bank)=>({name,instrument:'DEPOSIT',ownership_scope:scope,organization_id,party_name:'Scope QA bank',currency:'SAR',principal:1000,face_value:1000,fees:0,annual_rate:5,start_date:'2026-01-01',maturity_date:'2027-01-01',interest_basis:'ACT_365',zakat_basis:'HIJRI_354',zakat_rate:0,zakat_base:1000,zakat_treatment:'INVESTOR',inflation_rate:0,fx_rate:1,funding_account_id:bank});
 let server,browser;
@@ -111,8 +115,11 @@ try{
  ('${colleagueLot}','${colleague.id}','${colleagueAsset}','${colleagueTx}','2026-01-01',40,40,400,400);`);
  assert.equal(value(await fresh.client.rpc('organization_onboarding_required')),true,'Fresh personal actor must have no institution');
  const log=await open(process.env.RUNNER_TEMP+'/workspace-scope-next.log','w');
- server=spawn(process.execPath,['node_modules/next/dist/bin/next','dev','-H','127.0.0.1','-p','3211'],{
-  env:{...process.env,NEXT_PUBLIC_SUPABASE_URL:status.API_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY:status.ANON_KEY,NEXT_PUBLIC_APP_URL:app,NEXT_PUBLIC_APP_ENV:'test',NEXT_TELEMETRY_DISABLED:'1',FINANCIAL_OPENING_WORKSPACE:'true',FINANCIAL_STATEMENTS_LIVE:'true',NEXT_PUBLIC_FEASIBILITY_STUDIES:'true',SUPABASE_SERVICE_ROLE_KEY:'',RESEND_API_KEY:''},
+ const appEnv={...process.env,NEXT_PUBLIC_SUPABASE_URL:status.API_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY:status.ANON_KEY,NEXT_PUBLIC_APP_URL:app,NEXT_PUBLIC_APP_ENV:'test',NEXT_TELEMETRY_DISABLED:'1',FINANCIAL_OPENING_WORKSPACE:'true',FINANCIAL_STATEMENTS_LIVE:'true',NEXT_PUBLIC_FEASIBILITY_STUDIES:'true',SUPABASE_SERVICE_ROLE_KEY:'',RESEND_API_KEY:''};
+ console.log('BUILD Production application against disposable loopback configuration');
+ execFileSync(process.execPath,['node_modules/next/dist/bin/next','build'],{env:appEnv,stdio:['ignore',log.fd,log.fd],timeout:300000});
+ server=spawn(process.execPath,['node_modules/next/dist/bin/next','start','-H','127.0.0.1','-p','3211'],{
+  env:appEnv,
   stdio:['ignore',log.fd,log.fd],
  });
  let ready=false;
@@ -197,6 +204,7 @@ try{
   assert.equal((await outsiderContext.request.get(app+`/api/reports?type=transactions&scope=ORGANIZATION&organization_id=${orgA}`)).status(),403);
  });
  await budgetScopeAcceptance({sql,owner,orgA,orgB,foreignOrg,request,check});
+ report.routeOpening=await routeOpeningAcceptance({context:ownerContext,app,organizationId:orgA,otherOrganizationId:orgB,unavailableOrganizationId:foreignOrg,check});
 
  for(const locale of ['ar','en'])for(const width of [390,1440]){
   const ar=locale==='ar';await page.setViewportSize({width,height:1000});
@@ -274,7 +282,7 @@ try{
   await page.goto(app+`/en/invoice-register?organization=${orgB}&level=COMPANY&month=2026-11`);
   const url=new URL(page.url());assert.equal(url.pathname,'/en/vat');assert.equal(url.searchParams.get('organization'),orgB);assert.equal(url.searchParams.get('section'),'unified');
  });
- report.routeOpening=await routeOpeningAcceptance({context:ownerContext,app,organizationId:orgA,check});
+ assert.equal(checks.filter(result=>result.status==='failed').length,0,'Every independent module opening must pass');
  assert.deepEqual(pageErrors,[],'No uncaught browser exceptions');
  await outsiderContext.close();await ownerContext.close();
  report.status='passed';

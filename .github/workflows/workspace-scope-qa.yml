@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'app/*/dashboard/**'
+      - 'app/*/assets/**'
+      - 'app/*/vat/**'
       - 'app/*/transactions/**'
       - 'app/*/lots/**'
       - 'app/*/enterprise/**'
@@ -23,6 +25,11 @@ on:
       - 'components/FinancialReportingNavigation.tsx'
       - 'components/financial-reports/**'
       - 'components/FinancialRegisterWorkspace.tsx'
+      - 'components/AssetsDashboardWorkspace.tsx'
+      - 'components/asset-financial-reports.tsx'
+      - 'components/Debt*'
+      - 'components/LoansWorkspace.tsx'
+      - 'components/ParticipationWorkspace.tsx'
       - 'components/InvestmentWorkspace.tsx'
       - 'components/FeasibilityWorkspace.tsx'
       - 'components/RecordWorkspaceNotice.tsx'
@@ -31,6 +38,7 @@ on:
       - 'components/settings/**'
       - 'lib/*scope*'
       - 'lib/workspace-organization*'
+      - 'lib/feasibility/workspace-organization*'
       - 'lib/*navigation*'
       - 'hooks/useWorkspaceScope.ts'
       - 'hooks/useRecordWorkspace.ts'

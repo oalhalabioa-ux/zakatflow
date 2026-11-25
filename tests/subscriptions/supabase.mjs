@@ -667,7 +667,9 @@ try {
      assert.equal(await page.locator('#corp-settings-nav a[href*="/settings/financial/setup"]').count(),1);
     assert.ok((await page.locator('#corp-settings-nav a[href*="/billing"]').getAttribute('href')).includes('organization='+secondOrg));
     assert.equal(await page.locator('#corp-settings-nav a[href*="users"]').count(),0);
-    assert.equal(await page.locator('.corp-sidebar-foot a').getAttribute('href'),'/en/account');
+    const accountHref=new URL(await page.locator('.corp-sidebar-foot a').getAttribute('href'),appUrl);
+    assert.equal(accountHref.pathname,'/en/account');assert.equal(accountHref.searchParams.get('scope'),'ORGANIZATION');
+    assert.equal(accountHref.searchParams.has('organization'),false,'Global account preferences must preserve scope without company-owned settings');
     assert.ok(await page.locator('#corp-primary-nav>a[href*="/users"]').count());
     await page.getByLabel('Selected organization',{exact:true}).selectOption(org);
     await page.waitForFunction(()=>document.querySelector('input[required]')?.value==='Trial Institution');

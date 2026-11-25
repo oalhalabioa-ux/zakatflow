@@ -233,11 +233,6 @@ export default function Assets({
     };
   }, []);
   useEffect(() => {
-    if (!catalog.organizations.length || scopeOrgId) return;
-    const preferred = catalog.organizations.find((o:any) => o.organization_kind === "HOLDING") || catalog.organizations[0];
-    if (preferred) setScopeOrgId(preferred.id);
-  }, [catalog.organizations, scopeOrgId]);
-  useEffect(() => {
     try {
       localStorage.setItem("zf-assets-scope", assetScope);
       localStorage.setItem("zf-assets-scope-org", scopeOrgId);

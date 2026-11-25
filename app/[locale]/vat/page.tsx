@@ -1,6 +1,7 @@
 'use client';
 import TopbarCompanyLevel from '@/components/TopbarGroupSwitch';
 import WorkspaceOrganizationPicker from '@/components/WorkspaceOrganizationPicker';
+import {requestedOrganization as resolveRequestedOrganization,rememberedOrganization} from '@/lib/workspace-organization';
 import TopbarOrganizationControls from '@/components/TopbarOrganizationControls';
 import InvoiceDetailsDialog,{invoiceDetailRow} from "@/components/invoice-details-dialog";
 import InvoiceActionsPopover from "@/components/invoice-actions-popover";
@@ -183,16 +184,17 @@ const emptyDocument = (): DocumentDraft => ({
 });
 const emptyDocumentLine = (): DocumentLineDraft => ({ description: '', unit: '', quantity: '1', unit_price: '', discount_amount: '0', discount_mode: 'AMOUNT', supply_type: 'STANDARD' });
 
-export default function VatManagement({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ document_id?:string; month?:string; section?: string | string[]; organization_id?:string | string[]; direction?:string | string[] }> }) {
+export default function VatManagement({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ document_id?:string; month?:string; section?: string | string[]; organization?:string | string[]; organization_id?:string | string[]; direction?:string | string[] }> }) {
   const { locale } = use(params);
-  const { section,document_id:requestedDocument,month:requestedMonth,organization_id:requestedOrganization,direction:requestedDirection } = use(searchParams);
+  const { section,document_id:requestedDocument,month:requestedMonth,organization:canonicalOrganization,organization_id:requestedOrganization,direction:requestedDirection } = use(searchParams);
   const initialDirection=(Array.isArray(requestedDirection)?requestedDirection[0]:requestedDirection)==='PURCHASE'?'PURCHASE':'SALES';
-  const initialOrganization=Array.isArray(requestedOrganization)?requestedOrganization[0]:requestedOrganization;
+  const initialOrganization=(Array.isArray(canonicalOrganization)?canonicalOrganization[0]:canonicalOrganization)??(Array.isArray(requestedOrganization)?requestedOrganization[0]:requestedOrganization);
   const requestedSection = Array.isArray(section) ? section[0] : section;
   const initialTab = requestedSection === 'reports' ? 'reports' : requestedSection === 'unified' ? 'unified' : requestedSection === 'invoices' ? 'register' : requestedSection === 'einvoicing' ? 'einvoicing' : requestedSection === 'aggregate' ? 'aggregate' : 'dashboard';
   const ar = locale === 'ar';
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [organizationId, setOrganizationId] = useState('');
+  const currentOrganizationId=useRef('');
   const initialMonth=typeof requestedMonth==='string'&&/^\d{4}-(0[1-9]|1[0-2])$/.test(requestedMonth)?requestedMonth:currentMonth();
   const [periodMonth, setPeriodMonth] = useState(initialMonth);
   const [reportYear, setReportYear] = useState(() => Number(initialMonth.slice(0, 4)));
@@ -268,6 +270,17 @@ export default function VatManagement({ params, searchParams }: { params: Promis
   const [serviceAddForIndex, setServiceAddForIndex] = useState<number | null>(null);
   const [serviceNameDraft, setServiceNameDraft] = useState('');
   const [notice, setNotice] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+
+  function chooseOrganization(id:string){
+    if(id===currentOrganizationId.current)return;
+    currentOrganizationId.current=id;
+    setOrganizationId(id);setLoadingData(Boolean(id));setNotice(null);
+    setProfile(null);setProfileDraft(emptyProfile);setProfileLoadState('loading');setProfileOpen(false);setProfileDetailsOpen(false);
+    setDocuments([]);setPeriodSummary(null);setPeriodTotals(emptyTotals());setAnnualTotals(emptyTotals());setBranchVatData([]);setMonthlyTrend([]);setSummaryNoteReview(false);
+    setCashAccounts([]);setPaymentDocument(null);setPaymentAccountId('');setPaymentAmount('');setInvoiceDetails(null);setNoteOriginals([]);
+    setAssetTransactions([]);setFxRates([]);setServiceCatalog([]);setServiceAddForIndex(null);setServiceNameDraft('');
+    setDraft(emptyDocument());setAccountingLines([emptyDocumentLine()]);setRegisterFormOpen(false);setEditingDocumentId(null);setRegisterAddMenuOpen(false);
+  }
 
   const sortedOrganizations = useMemo(
     () => [...organizations].sort((a, b) => Number(a.sort_order ?? 100) - Number(b.sort_order ?? 100) || a.name.localeCompare(b.name)),
@@ -388,6 +401,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
 
   useEffect(() => {
     let active = true;
+    setLoadingOrganizations(true);setOrganizations([]);chooseOrganization('');
     fetch('/api/organizations')
       .then(async (response) => {
         const body = await response.json();
@@ -397,12 +411,11 @@ export default function VatManagement({ params, searchParams }: { params: Promis
       .then((rows) => {
         if (!active) return;
         setOrganizations(rows);
-        const holding = rows.find((item) => item.organization_kind === 'HOLDING' && !item.parent_organization_id);
-        const requested=rows.find(item=>item.id===initialOrganization);
-        if(initialOrganization&&!requested){setOrganizationId('');setNotice({kind:'error',text:ar?'المنشأة المحددة غير متاحة لحسابك. اختر منشأة متاحة للمتابعة.':'The requested organization is unavailable. Choose an accessible organization to continue.'});}
-        else setOrganizationId((requested ?? holding ?? rows[0])?.id ?? '');
+        const requested=resolveRequestedOrganization(rows,initialOrganization??null,rememberedOrganization());
+        if(initialOrganization!==undefined&&!requested){setNotice({kind:'error',text:ar?'المنشأة المحددة غير متاحة لحسابك. اختر منشأة متاحة للمتابعة.':'The requested organization is unavailable. Choose an accessible organization to continue.'});}
+        else chooseOrganization(requested?.id??'');
       })
-      .catch((error) => setNotice({ kind: 'error', text: messageFor(error.message, ar) }))
+      .catch((error) => {if(active)setNotice({ kind: 'error', text: messageFor(error.message, ar) });})
       .finally(() => { if (active) setLoadingOrganizations(false); });
     return () => { active = false; };
   }, [ar,initialOrganization]);
@@ -489,7 +502,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
         : Promise.resolve([] as ApiData[][]),
     ])
       .then(([entityRows, branchRows]) => {
-        if (!active) return;
+        if (!active||currentOrganizationId.current!==organizationId) return;
         const body = combineReportData(entityRows, reportPeriod);
         const branches = branchRows.map((rows) => combineReportData(rows, reportPeriod));
         if (body.profile && !reportFrequencyTouched) setReportFrequency(body.profile.filing_frequency);
@@ -525,14 +538,14 @@ export default function VatManagement({ params, searchParams }: { params: Promis
         } : { ...emptyProfile, registered_name: organizations.find((organization) => organization.id === organizationId)?.name ?? '' });
       })
       .catch((error) => {
-        if (!active) return;
+        if (!active||currentOrganizationId.current!==organizationId) return;
         setProfileLoadState('error');
         if (reportScope === 'GROUP') setReportScope('COMPANY');
         setNotice({ kind: 'error', text: reportScope === 'GROUP'
           ? (ar ? 'تعذر تحميل بيانات جميع الفروع؛ أُعيد التقرير إلى مستوى الشركة.' : 'Could not load every branch; the report has been reset to company level.')
           : messageFor(error.message, ar) });
       })
-      .finally(() => { if (active) setLoadingData(false); });
+      .finally(() => { if (active&&currentOrganizationId.current===organizationId) setLoadingData(false); });
     return () => { active = false; };
   }, [organizationId, periodMonth, reportFrequency, reportPeriod.from, reportPeriod.to, reportFrequencyTouched, ar, invoiceRefresh, reportScope, branchOrganizationKey, includeDrafts]);
 
@@ -846,9 +859,11 @@ export default function VatManagement({ params, searchParams }: { params: Promis
 
   useEffect(() => {
     if (!organizationId) return;
+    let active=true;
     fetch(`/api/liquidity?organization_id=${encodeURIComponent(organizationId)}`).then(r=>r.ok?r.json():null).then(body=>{
-      if(body?.accounts)setCashAccounts(body.accounts.map((a:any)=>({id:a.id,name:a.name,currency:a.currency})));
+      if(active&&currentOrganizationId.current===organizationId&&body?.accounts)setCashAccounts(body.accounts.map((a:any)=>({id:a.id,name:a.name,currency:a.currency})));
     }).catch(()=>undefined);
+    return()=>{active=false;};
   },[organizationId]);
 
   const isRegistered = profile?.registration_status === 'REGISTERED';
@@ -856,6 +871,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
   const accountingActions=(document:any)=><><button type="button" className="vat-button secondary" onClick={() => printAccountingDocument(document)}><InvoiceActionLabel icon="print">{ar?'طباعة / PDF':'Print / PDF'}</InvoiceActionLabel></button>{document.document_type === 'PURCHASE' && document.document_kind === 'INVOICE' && <button type="button" className="vat-button primary" onClick={() => openPurchasePayment(document)} disabled={saving || Boolean(document.cash_flow && Number(document.cash_flow.amount)-Number(document.cash_flow.settled_amount||0)<=0)}><InvoiceActionLabel icon="pay">{document.cash_flow && Number(document.cash_flow.amount)-Number(document.cash_flow.settled_amount||0)<=0 ? (ar ? 'مسدد' : 'Paid') : (ar ? 'سداد' : 'Pay')}</InvoiceActionLabel></button>}{['SALES','PURCHASE'].includes(document.document_type) && document.document_kind === 'INVOICE' && !(document as any).asset_transaction_id && <button type="button" className="vat-button secondary" onClick={() => startEditDocument(document)} disabled={saving}><InvoiceActionLabel icon="edit">{ar ? 'تعديل' : 'Edit'}</InvoiceActionLabel></button>}{<button type="button" className="vat-button secondary" disabled={saving} onClick={()=>void postAccountingNote(document)}><InvoiceActionLabel icon="post">{ar?(document.document_kind === 'INVOICE'?'اعتماد المحاسبة':'اعتماد الأثر المحاسبي'):'Post accounting effect'}</InvoiceActionLabel></button>}{document.document_kind !== 'INVOICE' && document.cash_flow && <a className="vat-button secondary" href={ar?'/ar/liquidity':'/en/liquidity'}><InvoiceActionLabel icon="pay">{ar?'تسوية في السيولة':'Settle in liquidity'}</InvoiceActionLabel></a>}<button type="button" className="vat-button vat-action-danger" onClick={() => void deleteDocument(document.id)} disabled={saving} aria-label={ar ? `حذف ${document.document_number}` : `Delete ${document.document_number}`}><InvoiceActionLabel icon="delete">{ar ? 'حذف' : 'Delete'}</InvoiceActionLabel></button></>;
   return (
     <main className="container vat-page" dir={ar ? 'rtl' : 'ltr'}><CurrencyScope currency={baseCurrency} organizationId={organizationId||undefined}/>
+      <TopbarOrganizationControls><WorkspaceOrganizationPicker ar={ar} organizations={organizations} value={organizationId} onChange={chooseOrganization} group={reportScope==='GROUP'} onGroupChange={value=>setReportScope(value?'GROUP':'COMPANY')} disabled={loadingOrganizations||saving}/></TopbarOrganizationControls>
       <header className="vat-header">
         <div>
           <span className="vat-eyebrow">{ar ? 'الضرائب والفوترة' : 'TAX & INVOICING'}</span>
@@ -884,7 +900,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
           <p>{ar ? 'أضف المؤسسة أولًا من صفحة الهيكل المؤسسي.' : 'Add an organization from Organization Structure first.'}</p>
           <a className="vat-button primary" href={`/${locale}/organizations`}>{ar ? 'إدارة المؤسسات' : 'Manage organizations'}</a>
         </section>
-      ) : (
+      ) : !organizationId ? <section className="vat-panel vat-empty" role="status">{ar?'اختر مؤسسة متاحة من البنر لعرض بيانات الضرائب والفوترة.':'Choose an available organization from the banner to view tax and invoicing data.'}</section> : loadingData ? <div className="vat-loading" role="status">{ar?'جارٍ تحميل بيانات الضرائب والفوترة للمؤسسة المختارة…':'Loading tax and invoicing data for the selected organization…'}</div> : (
         <>
           <div className={`vat-settings-grid ${profileOpen || !profile ? 'is-editing' : ''}`}>
             <section id="vat-registration-profile" className={`vat-panel vat-registration vat-config-panel ${profile && !profileOpen ? 'has-summary' : ''} ${!profile && profileLoadState === 'loading' ? 'is-loading' : ''} ${!profile && profileLoadState === 'error' ? 'is-load-error' : ''}`}>
@@ -966,7 +982,6 @@ export default function VatManagement({ params, searchParams }: { params: Promis
           </div>
 
           <section className="vat-report-toolbar" aria-label={ar ? 'مرشحات تقرير الضرائب' : 'Tax report filters'}>
-<TopbarOrganizationControls><WorkspaceOrganizationPicker ar={ar} organizations={organizations} value={organizationId} onChange={id=>{if(id!==organizationId){setProfileLoadState('loading');setProfile(null);setProfileOpen(false);setProfileDetailsOpen(false);setOrganizationId(id);}}} group={reportScope==='GROUP'} onGroupChange={value=>setReportScope(value?'GROUP':'COMPANY')} disabled={loadingOrganizations}/></TopbarOrganizationControls>
 
             <div className="vat-report-filter vat-report-period-filter">
               <span className="vat-filter-label">{ar ? 'الفترة الضريبية' : 'Tax period'}</span>

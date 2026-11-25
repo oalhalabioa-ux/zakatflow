@@ -7,6 +7,7 @@ import SettingsIcon from './SettingsIcon';
 import SetupReturnLink from '@/components/settings/SetupReturnLink';
 import TopbarOrganizationControls from '@/components/TopbarOrganizationControls';
 import WorkspaceOrganizationPicker from '@/components/WorkspaceOrganizationPicker';
+import {rememberedOrganization,requestedOrganization} from '@/lib/workspace-organization';
 
 type Organization = { id: string; name: string };
 type Member = { user_id: string; email: string; name: string; role: string; status: string; created_at: string; custom_role_id?: string | null; custom_role_name?: string | null };
@@ -38,6 +39,7 @@ export default function TeamAccessWorkspace({locale,preferredOrg='',inline=false
   const requestVersion=useRef(0),organizationRequestVersion=useRef(0);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [organizationId, setOrganizationId] = useState('');
+  const currentOrganizationId=useRef(organizationId);currentOrganizationId.current=organizationId;
   const [members, setMembers] = useState<Member[]>([]); const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [approvalPolicy,setApprovalPolicy]=useState('OWNER_CONTROLLED'); const [permissionOverrides,setPermissionOverrides]=useState<PermissionOverride[]>([]); const [governanceReady,setGovernanceReady]=useState(false);
@@ -51,18 +53,24 @@ export default function TeamAccessWorkspace({locale,preferredOrg='',inline=false
 
   const loadOrganizations = useCallback(async () => {
     const version=++organizationRequestVersion.current;
+    currentOrganizationId.current='';
+    requestVersion.current++;setLoading(true);setOrganizationId('');setActorRole('');setActorId('');setGovernanceReady(false);
+    setMembers([]);setInvitations([]);setCustomRoles([]);
     try {
       const response = await fetch('/api/organizations', { cache: 'no-store' });
       if (!response.ok) throw new Error();
       const rows = await response.json() as Organization[];
       if(version!==organizationRequestVersion.current)return;
       setOrganizations(rows);
-      setOrganizationId(current => !preferredOrg && rows.some(item => item.id === current) ? current : rows.find(item => item.id === (preferredOrg || new URLSearchParams(window.location.search).get('organization')))?.id ?? (preferredOrg ? '' : rows[0]?.id ?? ''));
+      const query=new URLSearchParams(window.location.search);
+      const explicit=organizationPicker?query.get('organization')??query.get('organization_id')??(preferredOrg||null):(preferredOrg||null);
+      setOrganizationId(current=>requestedOrganization(rows,explicit,current||rememberedOrganization())?.id??'');
     } catch { if(version===organizationRequestVersion.current)setNotice(ar ? 'تعذر تحميل الجهات.' : 'Could not load organizations.'); }
     finally { if(version===organizationRequestVersion.current)setLoading(false); }
-  }, [ar,preferredOrg]);
+  }, [ar,preferredOrg,organizationPicker]);
 
   const loadUsers = useCallback(async (id: string) => {
+    if(id!==currentOrganizationId.current)return;
     const version=++requestVersion.current;
     setDataLoading(true);setGovernanceReady(false);setActorRole('');setActorId('');
     try {
@@ -94,7 +102,8 @@ export default function TeamAccessWorkspace({locale,preferredOrg='',inline=false
   useEffect(() => { setCanShare(typeof navigator !== 'undefined' && typeof navigator.share === 'function'); }, []);
 
   function chooseOrganization(id:string){
-    if(!organizations.some(item=>item.id===id)||id===organizationId)return;
+    if((id&&!organizations.some(item=>item.id===id))||id===organizationId)return;
+    currentOrganizationId.current=id;
     requestVersion.current++;setMembers([]);setInvitations([]);setCustomRoles([]);setActorRole('');setActorId('');setGovernanceReady(false);setDataLoading(true);resetEditor();setOverrideUser('');setMemberSearch('');setOrganizationId(id);setInviteUrl('');setInviteId('');setRequestedEmailIds([]);setEmailAvailable(false);setInviteEmail('');setNotice('');
   }
 
@@ -211,16 +220,11 @@ export default function TeamAccessWorkspace({locale,preferredOrg='',inline=false
 
   const Container=inline?'section':'main';
   return <Container className={`${inline?'settings-native-team':'container'} ${styles.accessPage}`} dir={ar ? 'rtl' : 'ltr'} style={inline?{maxWidth:'100%',padding:0}:{maxWidth:1180,paddingTop:30,paddingBottom:60}}>
-    {inline&&organizationPicker&&<TopbarOrganizationControls><WorkspaceOrganizationPicker ar={ar} label={ar?'المؤسسة':'Organization'} organizations={organizations} value={organizationId} onChange={chooseOrganization} restore={false} disabled={loading||busy}/></TopbarOrganizationControls>}
+    {organizationPicker&&<TopbarOrganizationControls><WorkspaceOrganizationPicker ar={ar} label={ar?'المؤسسة':'Organization'} organizations={organizations} value={organizationId} onChange={chooseOrganization} disabled={loading||busy}/></TopbarOrganizationControls>}
     <SetupReturnLink locale={locale} organization={setupReturn.organization} visible={setupReturn.visible} embedded={setupReturn.embedded} />
     <header style={{ marginBottom: 24 }}><span className="pill">{ar ? 'إدارة الوصول' : 'ACCESS MANAGEMENT'}</span><h1>{ar ? 'المستخدمون والصلاحيات' : 'Users & permissions'}</h1><p className="muted">{ar ? 'اربط حسابات الدخول بالجهات، وأدر أدوار الأعضاء والدعوات.' : 'Link sign-in accounts to organizations, and manage member roles and invitations.'}</p></header>
     {notice && <div className="card" role="status" style={{ marginBottom: 16 }}>{notice}</div>}
-    <section hidden={inline} className="card" style={{ marginBottom: 20 }}>
-      <label style={{ display: 'grid', gap: 8, maxWidth: 540 }}><strong>{ar ? 'الجهة' : 'Organization'}</strong><select value={organizationId} onChange={event => chooseOrganization(event.target.value)} disabled={loading || busy || !organizations.length || setupReturn.embedded || inline} style={{ padding: 12 }}>
-        {organizations.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-      </select></label>
-      {!loading && !organizations.length && <p className="muted">{ar ? 'لا توجد جهات متاحة في حسابك.' : 'No organizations are available in your account.'}</p>}
-    </section>
+    {!loading&&!organizations.length&&<p className="muted">{ar?'لا توجد جهات متاحة في حسابك.':'No organizations are available in your account.'}</p>}
     {organization && <>
       <div className={styles.accessStats} hidden={inline}>
         <article><span>{ar?'الأدوار المنشأة':'Created roles'}</span><strong>{customRoles.length}</strong></article>
