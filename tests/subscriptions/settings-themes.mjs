@@ -190,7 +190,11 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
   for(const locale of ['ar','en'])for(const width of [390,1440]) {
     await page.setViewportSize({width,height:1000});
     for(const section of ['settings','billing','settings/system','settings/regulatory']) {
-      await page.goto(`${appUrl}/${locale}/${section}?organization=${org}`);
+      // This fixture verifies the six institutional settings areas. Shared
+      // preferences keep that scope while remaining independent of a company.
+      const query=new URLSearchParams({scope:'ORGANIZATION'});
+      if(section!=='settings/system'){query.set('organization',org);query.set('level','COMPANY');}
+      await page.goto(`${appUrl}/${locale}/${section}?${query}`);
       await page.locator('.corp-shell.theme-'+theme).waitFor();
       const selectedTab=section==='billing'?'.yb-billing-tabs button[aria-pressed=true]':'.settings-tabs a[aria-current=page]';
       await page.locator(selectedTab).waitFor();

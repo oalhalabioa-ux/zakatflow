@@ -39,7 +39,8 @@ export default function TeamAccessWorkspace({locale,preferredOrg='',inline=false
   const requestVersion=useRef(0),organizationRequestVersion=useRef(0);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [organizationId, setOrganizationId] = useState('');
-  const currentOrganizationId=useRef(organizationId);currentOrganizationId.current=organizationId;
+  const currentOrganizationId=useRef(''),selectionEpoch=useRef(0),operationRequest=useRef(0),workspaceActive=useRef(true);
+  const [selectionVersion,setSelectionVersion]=useState(0);
   const [members, setMembers] = useState<Member[]>([]); const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
   const [approvalPolicy,setApprovalPolicy]=useState('OWNER_CONTROLLED'); const [permissionOverrides,setPermissionOverrides]=useState<PermissionOverride[]>([]); const [governanceReady,setGovernanceReady]=useState(false);
@@ -51,11 +52,30 @@ export default function TeamAccessWorkspace({locale,preferredOrg='',inline=false
   const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false);
   const organization = useMemo(() => organizations.find(item => item.id === organizationId), [organizations, organizationId]);
 
+  const resetSelection=useCallback((id:string)=>{
+    currentOrganizationId.current=id;selectionEpoch.current++;operationRequest.current++;requestVersion.current++;
+    setSelectionVersion(selectionEpoch.current);setOrganizationId(id);setBusy(false);setDataLoading(Boolean(id));
+    setMembers([]);setInvitations([]);setCustomRoles([]);setActorRole('');setActorId('');setGovernanceReady(false);
+    setApprovalPolicy('OWNER_CONTROLLED');setPermissionOverrides([]);setOverrideUser('');setMemberSearch('');
+    setPresetId('');setEditingRoleId('');setRoleName('');setRoleDescription('');setRolePermissions([]);setPermissionSearch('');
+    setInviteUrl('');setInviteId('');setRequestedEmailIds([]);setEmailAvailable(false);setInviteEmail('');setInviteRole('ACCOUNTANT');setEmail('');setRole('ACCOUNTANT');setNotice('');
+  },[]);
+  useEffect(()=>{
+    workspaceActive.current=true;
+    return()=>{workspaceActive.current=false;selectionEpoch.current++;operationRequest.current++;requestVersion.current++;organizationRequestVersion.current++;};
+  },[]);
+  function currentSelection(version=selectionVersion,id=organizationId){
+    return workspaceActive.current&&Boolean(id)&&version===selectionEpoch.current&&id===currentOrganizationId.current;
+  }
+  function beginOperation(){
+    if(busy||!currentSelection())return null;
+    const version=selectionVersion,id=organizationId,request=++operationRequest.current;
+    return()=>currentSelection(version,id)&&request===operationRequest.current;
+  }
+
   const loadOrganizations = useCallback(async () => {
     const version=++organizationRequestVersion.current;
-    currentOrganizationId.current='';
-    requestVersion.current++;setLoading(true);setOrganizationId('');setActorRole('');setActorId('');setGovernanceReady(false);
-    setMembers([]);setInvitations([]);setCustomRoles([]);
+    resetSelection('');setLoading(true);setOrganizations([]);
     try {
       const response = await fetch('/api/organizations', { cache: 'no-store' });
       if (!response.ok) throw new Error();
@@ -64,14 +84,16 @@ export default function TeamAccessWorkspace({locale,preferredOrg='',inline=false
       setOrganizations(rows);
       const query=new URLSearchParams(window.location.search);
       const explicit=organizationPicker?query.get('organization')??query.get('organization_id')??(preferredOrg||null):(preferredOrg||null);
-      setOrganizationId(current=>requestedOrganization(rows,explicit,current||rememberedOrganization())?.id??'');
+      const next=requestedOrganization(rows,explicit,rememberedOrganization())?.id??'';
+      if(next!==currentOrganizationId.current)resetSelection(next);
     } catch { if(version===organizationRequestVersion.current)setNotice(ar ? 'تعذر تحميل الجهات.' : 'Could not load organizations.'); }
     finally { if(version===organizationRequestVersion.current)setLoading(false); }
-  }, [ar,preferredOrg,organizationPicker]);
+  }, [ar,preferredOrg,organizationPicker,resetSelection]);
 
   const loadUsers = useCallback(async (id: string) => {
-    if(id!==currentOrganizationId.current)return;
-    const version=++requestVersion.current;
+    if(!workspaceActive.current||id!==currentOrganizationId.current)return;
+    const version=++requestVersion.current,epoch=selectionEpoch.current;
+    const current=()=>workspaceActive.current&&version===requestVersion.current&&epoch===selectionEpoch.current&&id===currentOrganizationId.current;
     setDataLoading(true);setGovernanceReady(false);setActorRole('');setActorId('');
     try {
     if (!id) { setMembers([]); setInvitations([]); setCustomRoles([]); return; }
@@ -80,11 +102,11 @@ export default function TeamAccessWorkspace({locale,preferredOrg='',inline=false
       fetch(`/api/organizations/roles?organization_id=${encodeURIComponent(id)}`, { cache: 'no-store' }),
       fetch(`/api/organizations/permissions?organization_id=${encodeURIComponent(id)}`, { cache: 'no-store' }),
     ]);
-    if(version!==requestVersion.current)return;
+    if(!current())return;
     const body = await response.json().catch(() => ({}));
     const roleBody = await rolesResponse.json().catch(() => ({}));
     const governanceBody = await governanceResponse.json().catch(() => ({}));
-    if(version!==requestVersion.current)return;
+    if(!current())return;
     if (!response.ok) {
       setMembers([]); setInvitations([]); setCustomRoles([]);
       setNotice(response.status === 403 ? (ar ? 'تتطلب إدارة المستخدمين صلاحية مالك أو مسؤول في الجهة المحددة.' : 'User management requires owner or admin access to the selected organization.') : (ar ? 'تعذر تحميل المستخدمين.' : 'Could not load users.'));
@@ -94,17 +116,16 @@ export default function TeamAccessWorkspace({locale,preferredOrg='',inline=false
     const governedRoles=governanceResponse.ok ? governanceBody.roles ?? [] : [];
     setCustomRoles(governedRoles.length ? governedRoles.map((r:CustomRole)=>({...r,member_count:(roleBody.roles??[]).find((x:CustomRole)=>x.id===r.id)?.member_count??0})) : (rolesResponse.ok ? roleBody.roles ?? [] : []));
     setApprovalPolicy(governanceBody.approval_policy ?? 'OWNER_CONTROLLED'); setPermissionOverrides(governanceBody.overrides ?? []); setGovernanceReady(governanceResponse.ok); setNotice(!rolesResponse.ok || !governanceResponse.ok ? (ar?'تعذر تحميل بعض بيانات الصلاحيات. أعد التحميل قبل التعديل.':'Some permission data could not load. Reload before editing.'):'');
-    }catch{if(version===requestVersion.current){setMembers([]);setInvitations([]);setCustomRoles([]);setNotice(ar?'تعذر تحميل بيانات الوصول. أعد المحاولة.':'Could not load access data. Please retry.');}}finally{if(version===requestVersion.current)setDataLoading(false);}
+    }catch{if(current()){setMembers([]);setInvitations([]);setCustomRoles([]);setNotice(ar?'تعذر تحميل بيانات الوصول. أعد المحاولة.':'Could not load access data. Please retry.');}}finally{if(current())setDataLoading(false);}
   }, [ar]);
 
   useEffect(() => { void loadOrganizations();return()=>{organizationRequestVersion.current++;}; }, [loadOrganizations]);
-  useEffect(() => { void loadUsers(organizationId);return()=>{requestVersion.current++;}; }, [loadUsers, organizationId]);
+  useEffect(() => { void loadUsers(organizationId);return()=>{requestVersion.current++;}; }, [loadUsers, organizationId, selectionVersion]);
   useEffect(() => { setCanShare(typeof navigator !== 'undefined' && typeof navigator.share === 'function'); }, []);
 
   function chooseOrganization(id:string){
-    if((id&&!organizations.some(item=>item.id===id))||id===organizationId)return;
-    currentOrganizationId.current=id;
-    requestVersion.current++;setMembers([]);setInvitations([]);setCustomRoles([]);setActorRole('');setActorId('');setGovernanceReady(false);setDataLoading(true);resetEditor();setOverrideUser('');setMemberSearch('');setOrganizationId(id);setInviteUrl('');setInviteId('');setRequestedEmailIds([]);setEmailAvailable(false);setInviteEmail('');setNotice('');
+    if((id&&!organizations.some(item=>item.id===id))||id===currentOrganizationId.current)return;
+    resetSelection(id);
   }
 
   const roleValue = (value: string, customRoleId?: string | null) => customRoleId ? `CUSTOM:${customRoleId}` : value;
@@ -126,96 +147,114 @@ export default function TeamAccessWorkspace({locale,preferredOrg='',inline=false
     : `You are invited to join ${organization?.name ?? 'the organization'} on Yaqeen Business.\nInvited email: ${inviteEmail}\nRole: ${roleLabel(inviteRole)}\nSign in using the same email to accept (valid for 7 days): ${inviteUrl}`;
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(inviteMessage)}`;
 
-  async function seedDefaultRoles(){setBusy(true);setNotice('');try{const r=await fetch('/api/organizations/permissions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({organization_id:organizationId})});const b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.error??'REQUEST_FAILED');await loadUsers(organizationId);setNotice(ar?'تم تجهيز الأدوار الافتراضية القابلة للتعديل.':'Editable default roles are ready.');}catch(e){setNotice(message(e instanceof Error?e.message:'',ar));}finally{setBusy(false);}}
-  async function savePolicy(policy:string){setBusy(true);try{const r=await fetch('/api/organizations/permissions',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({organization_id:organizationId,action:'policy',policy})});const b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.error??'REQUEST_FAILED');setApprovalPolicy(policy);setNotice(ar?'تم حفظ سياسة الاعتماد.':'Approval policy saved.');}catch(e){setNotice(message(e instanceof Error?e.message:'',ar));}finally{setBusy(false);}}
-  async function setOverride(userId:string,permission:string,effect:string){setBusy(true);try{const r=await fetch('/api/organizations/permissions',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({organization_id:organizationId,action:'override',user_id:userId,permission,effect:effect||null})});const b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.error??'REQUEST_FAILED');await loadUsers(organizationId);setNotice(ar?'تم حفظ الاستثناء على صلاحيات المستخدم.':'User permission override saved.');}catch(e){setNotice(message(e instanceof Error?e.message:'',ar));}finally{setBusy(false);}}
+  async function seedDefaultRoles(){
+    const isCurrent=beginOperation();if(!isCurrent)return;setBusy(true);setNotice('');
+    try{const r=await fetch('/api/organizations/permissions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({organization_id:organizationId})});const b=await r.json().catch(()=>({}));if(!isCurrent())return;if(!r.ok)throw new Error(b.error??'REQUEST_FAILED');await loadUsers(organizationId);if(isCurrent())setNotice(ar?'تم تجهيز الأدوار الافتراضية القابلة للتعديل.':'Editable default roles are ready.');}
+    catch(e){if(isCurrent())setNotice(message(e instanceof Error?e.message:'',ar));}finally{if(isCurrent())setBusy(false);}
+  }
+  async function savePolicy(policy:string){
+    const isCurrent=beginOperation();if(!isCurrent)return;setBusy(true);
+    try{const r=await fetch('/api/organizations/permissions',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({organization_id:organizationId,action:'policy',policy})});const b=await r.json().catch(()=>({}));if(!isCurrent())return;if(!r.ok)throw new Error(b.error??'REQUEST_FAILED');setApprovalPolicy(policy);setNotice(ar?'تم حفظ سياسة الاعتماد.':'Approval policy saved.');}
+    catch(e){if(isCurrent())setNotice(message(e instanceof Error?e.message:'',ar));}finally{if(isCurrent())setBusy(false);}
+  }
+  async function setOverride(userId:string,permission:string,effect:string){
+    const isCurrent=beginOperation();if(!isCurrent)return;setBusy(true);
+    try{const r=await fetch('/api/organizations/permissions',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({organization_id:organizationId,action:'override',user_id:userId,permission,effect:effect||null})});const b=await r.json().catch(()=>({}));if(!isCurrent())return;if(!r.ok)throw new Error(b.error??'REQUEST_FAILED');await loadUsers(organizationId);if(isCurrent())setNotice(ar?'تم حفظ الاستثناء على صلاحيات المستخدم.':'User permission override saved.');}
+    catch(e){if(isCurrent())setNotice(message(e instanceof Error?e.message:'',ar));}finally{if(isCurrent())setBusy(false);}
+  }
   async function createInvite(event: React.FormEvent) {
-    event.preventDefault(); if (!organizationId) return; setBusy(true); setNotice(''); setInviteUrl('');
+    event.preventDefault();const isCurrent=beginOperation();if(!isCurrent)return;setBusy(true);setNotice('');setInviteUrl('');
     try {
       const response = await fetch('/api/organizations/users', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ organization_id: organizationId, email, ...rolePayload(role), locale }) });
       const body = await response.json().catch(() => ({}));
+      if(!isCurrent())return;
       if (!response.ok) throw new Error(body.error ?? 'REQUEST_FAILED');
       setInviteId(body.id);setInviteUrl(body.invite_url); setInviteEmail(email.trim()); setInviteRole(role); setEmail(''); setNotice(ar ? 'أنشئت الدعوة. اختر طريقة المشاركة المناسبة.' : 'Invitation created. Choose how to share it.');
-      await loadUsers(organizationId); onSaved?.();
-    } catch (error) { setNotice(message(error instanceof Error ? error.message : '', ar)); }
-    finally { setBusy(false); }
+      await loadUsers(organizationId);if(isCurrent())onSaved?.();
+    } catch (error) { if(isCurrent())setNotice(message(error instanceof Error ? error.message : '', ar)); }
+    finally { if(isCurrent())setBusy(false); }
   }
 
   async function emailInvite(id=inviteId){
-    if(busy||requestedEmailIds.includes(id)||!id)return;setBusy(true);setNotice('');
+    if(busy||requestedEmailIds.includes(id)||!id)return;const isCurrent=beginOperation();if(!isCurrent)return;setBusy(true);setNotice('');
     try{
       const response=await fetch('/api/organizations/invitations/email',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({organization_id:organizationId,invitation_id:id,locale})});
       const body=await response.json().catch(()=>({}));
+      if(!isCurrent())return;
       if(!response.ok){
         setNotice(response.status===401?mailCopy.sessionExpired:response.status===409?mailCopy.invalid:body.error==='EMAIL_DELIVERY_UNAVAILABLE'?mailCopy.unavailable:mailCopy.failed);
         return;
       }
       if(body.status!=='accepted'){setNotice(mailCopy.failed);return;}
       setRequestedEmailIds(current=>[...current,id]);setNotice(mailCopy.accepted);
-    }catch{setNotice(mailCopy.failed)}finally{setBusy(false)}
+    }catch{if(isCurrent())setNotice(mailCopy.failed)}finally{if(isCurrent())setBusy(false)}
   }
 
   async function copyInviteLink() {
+    const version=selectionVersion,id=organizationId;if(!currentSelection(version,id))return;
     try {
       await navigator.clipboard.writeText(inviteUrl);
-      setNotice(ar ? 'تم نسخ رابط الدعوة.' : 'Invite link copied.');
+      if(currentSelection(version,id))setNotice(ar ? 'تم نسخ رابط الدعوة.' : 'Invite link copied.');
     } catch {
-      setNotice(ar ? 'تعذر النسخ تلقائيًا. حدّد الرابط وانسخه يدويًا.' : 'Could not copy automatically. Select and copy the link manually.');
+      if(currentSelection(version,id))setNotice(ar ? 'تعذر النسخ تلقائيًا. حدّد الرابط وانسخه يدويًا.' : 'Could not copy automatically. Select and copy the link manually.');
     }
   }
 
   async function shareInvite() {
-    if (!navigator.share) return;
+    const version=selectionVersion,id=organizationId;if(!navigator.share||!currentSelection(version,id))return;
     try {
       await navigator.share({ title: mailCopy.shareTitle, text: inviteMessage, url: inviteUrl });
     } catch (error) {
-      if (error instanceof Error && error.name !== 'AbortError') setNotice(ar ? 'تعذرت المشاركة من الجهاز.' : 'Device sharing failed.');
+      if (currentSelection(version,id)&&error instanceof Error && error.name !== 'AbortError') setNotice(ar ? 'تعذرت المشاركة من الجهاز.' : 'Device sharing failed.');
     }
   }
 
   async function updateMember(member: Member, nextRole: string, nextStatus: string) {
+    const isCurrent=beginOperation();if(!isCurrent)return;
     setBusy(true); setNotice('');
     try {
       const response = await fetch('/api/organizations/users', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ organization_id: organizationId, user_id: member.user_id, ...rolePayload(nextRole), status: nextStatus }) });
-      const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.error ?? 'REQUEST_FAILED');
-      await loadUsers(organizationId); onSaved?.(); setNotice(ar ? 'تم تحديث صلاحيات المستخدم.' : 'User access updated.');
-    } catch (error) { setNotice(message(error instanceof Error ? error.message : '', ar)); }
-    finally { setBusy(false); }
+      const body = await response.json().catch(() => ({}));if(!isCurrent())return;if(!response.ok)throw new Error(body.error??'REQUEST_FAILED');
+      await loadUsers(organizationId);if(!isCurrent())return;onSaved?.();setNotice(ar?'تم تحديث صلاحيات المستخدم.':'User access updated.');
+    } catch (error) { if(isCurrent())setNotice(message(error instanceof Error ? error.message : '', ar)); }
+    finally { if(isCurrent())setBusy(false); }
   }
 
   async function revokeInvite(id: string) {
+    const isCurrent=beginOperation();if(!isCurrent)return;
     setBusy(true);
     try {
       const response = await fetch(`/api/organizations/users?invitation_id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-      const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.error ?? 'REQUEST_FAILED');
-      await loadUsers(organizationId); onSaved?.(); setNotice(ar ? 'ألغيت الدعوة.' : 'Invitation revoked.');
-    } catch (error) { setNotice(message(error instanceof Error ? error.message : '', ar)); }
-    finally { setBusy(false); }
+      const body = await response.json().catch(() => ({}));if(!isCurrent())return;if(!response.ok)throw new Error(body.error??'REQUEST_FAILED');
+      await loadUsers(organizationId);if(!isCurrent())return;onSaved?.();setNotice(ar?'ألغيت الدعوة.':'Invitation revoked.');
+    } catch (error) { if(isCurrent())setNotice(message(error instanceof Error ? error.message : '', ar)); }
+    finally { if(isCurrent())setBusy(false); }
   }
 
   async function saveCustomRole(event: React.FormEvent) {
-    event.preventDefault(); if (!organizationId) return; setBusy(true); setNotice('');
+    event.preventDefault();const isCurrent=beginOperation();if(!isCurrent)return;setBusy(true);setNotice('');
     try {
       const templateRole = customRoles.find(item => item.id === editingRoleId && item.is_system_template);
       const response = templateRole
         ? await fetch('/api/organizations/permissions', { method:'PATCH', headers:{'content-type':'application/json'}, body:JSON.stringify({ organization_id:organizationId, action:'role', role_id:templateRole.id, permissions:rolePermissions, amount_limits:templateRole.amount_limits ?? {} }) })
         : await fetch('/api/organizations/roles', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ organization_id: organizationId, id: editingRoleId || undefined, name: roleName, description: roleDescription, permissions: rolePermissions }) });
-      const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.error ?? 'REQUEST_FAILED');
+      const body = await response.json().catch(() => ({}));if(!isCurrent())return;if(!response.ok)throw new Error(body.error??'REQUEST_FAILED');
       setRoleName(''); setRoleDescription(''); setRolePermissions([]); setEditingRoleId('');setPresetId('');setPermissionSearch(''); setActiveTab('roles'); await loadUsers(organizationId);
-      setNotice(ar ? 'تم حفظ الدور وصلاحياته.' : 'Role and permissions saved.');
-    } catch (error) { setNotice(message(error instanceof Error ? error.message : '', ar)); }
-    finally { setBusy(false); }
+      if(isCurrent())setNotice(ar?'تم حفظ الدور وصلاحياته.':'Role and permissions saved.');
+    } catch (error) { if(isCurrent())setNotice(message(error instanceof Error ? error.message : '', ar)); }
+    finally { if(isCurrent())setBusy(false); }
   }
 
   async function deleteCustomRole(id: string) {
     if(!window.confirm(ar?'حذف هذا الدور؟ لا يمكن حذف الدور المرتبط بأعضاء أو دعوات.':'Delete this role? Roles linked to members or invitations cannot be deleted.'))return;
+    const isCurrent=beginOperation();if(!isCurrent)return;
     setBusy(true); setNotice('');
     try {
       const response = await fetch(`/api/organizations/roles?organization_id=${encodeURIComponent(organizationId)}&role_id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-      const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.error ?? 'REQUEST_FAILED');
-      await loadUsers(organizationId); onSaved?.(); setNotice(ar ? 'تم حذف الدور.' : 'Role deleted.');
-    } catch (error) { setNotice(message(error instanceof Error ? error.message : '', ar)); }
-    finally { setBusy(false); }
+      const body = await response.json().catch(() => ({}));if(!isCurrent())return;if(!response.ok)throw new Error(body.error??'REQUEST_FAILED');
+      await loadUsers(organizationId);if(!isCurrent())return;onSaved?.();setNotice(ar?'تم حذف الدور.':'Role deleted.');
+    } catch (error) { if(isCurrent())setNotice(message(error instanceof Error ? error.message : '', ar)); }
+    finally { if(isCurrent())setBusy(false); }
   }
 
   const Container=inline?'section':'main';

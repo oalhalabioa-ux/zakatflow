@@ -5,17 +5,17 @@ import {setTimeout as delay} from 'node:timers/promises';
 
 const api=(path,kind='any')=>({path,kind});
 const shared=[
- {path:'dashboard',personal:'.platform-personal .platform-summary',business:'.platform-dashboard:not(.platform-personal) .platform-summary'},
+ {path:'dashboard',personal:'.platform-personal .yql-root[aria-busy="false"] .yql-refresh-sources:enabled',business:'.platform-dashboard:not(.platform-personal) .yql-root[aria-busy="false"] .yql-refresh-sources:enabled'},
  {path:'assets/dashboard',personal:'.yqa-assets-summary .yqa-summary-groups',business:'.org-assets-dashboard[aria-busy="false"] .org-assets-links',businessReads:[api('/api/financial-register','scoped')]},
  {path:'assets',marker:'table[data-scope]',reads:[api('/api/assets')],fixture:'Gold'},
- {path:'investments',marker:'.investment-table',reads:[api('/api/investments','scoped')],fixture:'Deposit'},
+ {path:'investments',marker:'.investment-portfolio[aria-busy="false"] .investment-portfolio-kpis',personalReads:[api('/api/investments','scoped'),api('/api/personal-contracts')],businessReads:[api('/api/investments','scoped'),api('/api/participation-contracts','company')],openDeposits:true,fixture:'Deposit'},
  {path:'transactions',marker:'.transaction-table-wrap table',reads:[api('/api/transactions')],fixture:'Gold'},
  {path:'lots',marker:'main table',reads:[api('/api/lots','scoped')],fixture:'Gold'},
  ...['cash-and-banks','financial-position'].map(path=>({path,marker:'.finance-workspace[aria-busy="false"] .finance-metrics',reads:[api('/api/financial-register','scoped')]})),
  ...['receivables','payables','debt-report'].map(path=>({path,marker:'.finance-workspace[aria-busy="false"] .finance-table',reads:[api('/api/financial-register','scoped')]})),
  {path:'debts',marker:'.debt-metrics-caption',reads:[api('/api/debt-overview','scoped')]},
  {path:'loans',marker:'.debt-kpis',personalReads:[api('/api/personal-contracts')],businessReads:[api('/api/debt-contracts','company')]},
- {path:'debt-advances',marker:'.debt-kpis',personalReads:[api('/api/personal-financing')],businessReads:[api('/api/debt-overview','scoped')]},
+ {path:'debt-advances',personal:'.debt-kpis',business:'.finance-table table',personalReads:[api('/api/personal-financing')],businessReads:[api('/api/debt-overview','scoped')]},
  {path:'debt-collection',marker:'.debt-collection-alerts',reads:[api('/api/debt-collection','scoped')]},
  {path:'assessments',personal:'#assessment-panel-REGISTER:not([hidden]) .assessment-register',business:'#assessment-panel-MANUAL:not([hidden])',personalReads:[api('/api/assessments/report'),api('/api/zakat-cycles')],businessReads:[api('/api/assessments/manual','company')],businessText:'Scope assessment A'},
  {path:'payments',personal:'.zpay-kpis',business:'h1:text-is("Corporate Zakat payments")',personalReads:[api('/api/payments'),api('/api/zakat-cycles')],businessReads:[api('/api/liquidity','company'),api('/api/assessments/manual','company')],businessText:'Matching operations: 0'},
@@ -32,7 +32,7 @@ const personal=[...shared,
 ];
 const business=[...shared,
  {path:'liquidity',marker:'.liq-kpi-grid',reads:[api('/api/liquidity','company')]},
- {path:'vat',marker:'.vat-config-summary-trigger',reads:[api('/api/vat','company')]},
+ {path:'vat',marker:'.vat-config-summary-trigger, .vat-profile-form',reads:[api('/api/vat','company')]},
  {path:'budget-planning',marker:'.budget-tabs',reads:[api('/api/budget-plans','company')]},
  {path:'organizations',marker:'.orgs-list-item',reads:[api('/api/organizations')]},
  {path:'users',marker:'nav[aria-label="User and role management"]',reads:[api('/api/organizations/users','company'),api('/api/organizations/roles','company'),api('/api/organizations/permissions','company')]},
@@ -77,6 +77,26 @@ const errorSelectors=[
 ].join(',');
 const failureText=/unable to|could not|failed to|something went wrong|application error|internal server error|not authorized|access denied|organization unavailable|تعذر|غير مصرح|انتهت جلسة/i;
 
+async function within(promise,milliseconds,message){
+ let timer;
+ try{return await Promise.race([promise,new Promise((_,reject)=>{
+  timer=setTimeout(()=>reject(new Error(message())),milliseconds);
+ })]);}finally{clearTimeout(timer);}
+}
+const pendingEndpoints=pending=>[...new Set(pending?.values()??[])].join(', ')||'none';
+async function settleFrames(page,pending){
+ await within((async()=>{
+  // A background tab may suspend animation frames even after its DOM is ready.
+  await page.bringToFront();
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+ })(),5000,()=>`Browser did not settle two animation frames within 5000ms; pending API responses: ${pendingEndpoints(pending)}`);
+}
+async function finishResponses(pending){
+ const deadline=Date.now()+30000;
+ while(pending.size)await within(Promise.allSettled([...pending.keys()]),Math.max(1,deadline-Date.now()),
+  ()=>`API response bodies did not finish within 30000ms: ${pendingEndpoints(pending)}`);
+}
+
 /** Requires the existing synthetic owner, two companies and Gold/Deposit fixtures.
  * All navigation is local and all /api requests must be reads. The failed page
  * is captured by the main runner before closing; independent routes continue.
@@ -98,7 +118,7 @@ export async function routeOpeningAcceptance({context,app,organizationId,otherOr
     await page.setViewportSize(routeOpeningCoverage.viewport);
     page.setDefaultTimeout(30000);
     const errors=[],failedReads=[],writes=[],completed=[];
-    const pending=new Set();
+    const pending=new Map();
     const required=spec.reads??(scope==='PERSONAL'?spec.personalReads:spec.businessReads)??[];
     page.on('pageerror',error=>errors.push(error.message));
     await page.route(app+'/api/**',async route=>{
@@ -118,14 +138,15 @@ export async function routeOpeningAcceptance({context,app,organizationId,otherOr
       if(!response.ok())failedReads.push(new URL(response.url()).pathname+' HTTP '+response.status());
       else completed.push(response);
      })().catch(()=>{}).finally(()=>pending.delete(task));
-     pending.add(task);
+     pending.set(task,new URL(response.url()).pathname);
     });
     const query=new URLSearchParams({scope});
     if(scope==='ORGANIZATION'&&!spec.account){query.set('organization',organizationId);query.set('level','COMPANY');}
     const response=await page.goto(app+'/en/'+spec.path+'?'+query,{waitUntil:'domcontentloaded',timeout:90000});
     assert.equal(response?.status(),200,'Expected a successful authenticated page');
     assert.equal(new URL(page.url()).pathname,'/en/'+spec.path,'Unexpected redirect');
-    await page.locator('.corp-workspace-scope button[aria-pressed="true"]').filter({hasText:scope==='PERSONAL'?'Personal':'Business'}).waitFor();
+    const activeScope=page.locator('.corp-workspace-scope button[aria-pressed="true"]').filter({visible:true});
+    await activeScope.filter({hasText:scope==='PERSONAL'?'Personal':'Business'}).waitFor();
     const deadline=Date.now()+30000;
     while(!required.every(read=>completed.some(response=>matchesRead(response,read,scope,organizationId)))){
      assert.deepEqual(writes,[],'Opening a route attempted an API mutation');
@@ -136,6 +157,15 @@ export async function routeOpeningAcceptance({context,app,organizationId,otherOr
     }
     const marker=spec.marker??(scope==='PERSONAL'?spec.personal:spec.business);
     await page.locator(marker).first().waitFor();
+    if(spec.openDeposits){
+     // The main entry is the portfolio dashboard. Its active-only summaries do
+     // not list these draft fixtures; open the read-only deposit register only
+     // after both dashboard sources and its content have finished loading.
+     await page.locator('.investment-portfolio .finance-note').waitFor({state:'hidden'});
+     assert.equal(await page.locator('.investment-workspace .error').filter({visible:true}).count(),0,'Investment dashboard source failed');
+     await page.locator('.investment-tabs').getByRole('button',{name:'الودائع',exact:true}).click();
+     await page.locator('.investment-table').waitFor();
+    }
     if(scope==='ORGANIZATION'&&spec.businessText)await page.getByText(spec.businessText,{exact:false}).first().waitFor();
     if(spec.fixture){
      const expected=`Scope ${scope==='PERSONAL'?'Personal':'Company A'} ${spec.fixture}`;
@@ -146,9 +176,10 @@ export async function routeOpeningAcceptance({context,app,organizationId,otherOr
      assert.equal(await table.getByText(`Scope Company B ${spec.fixture}`,{exact:false}).count(),0,'Another company appeared in company records');
     }
     // React may commit the result immediately after the body finishes.
-    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-    await Promise.allSettled([...pending]);
+    await settleFrames(page,pending);
+    await finishResponses(pending);
     const final=new URL(page.url());
+    assert.equal(await activeScope.count(),1,'Expected one visible active workspace scope control');
     assert.equal(final.searchParams.get('scope'),scope,'Scope changed while opening the module');
     if(scope==='PERSONAL')for(const key of ['organization','organization_id','entity','entity_id','group','level'])assert.equal(final.searchParams.has(key),false,'Personal URL retained '+key);
     else if(!spec.account){
@@ -194,7 +225,7 @@ export async function routeOpeningAcceptance({context,app,organizationId,otherOr
    const picker=page.locator('#corp-organization-controls select').first();
    await picker.locator(`option[value="${organizationId}"]`).waitFor({state:'attached'});
    await page.waitForFunction(()=>document.querySelector('#corp-organization-controls select')?.value==='');
-   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+   await settleFrames(page);
    assert.equal(new URL(page.url()).searchParams.get('organization'),unavailableOrganizationId,'The explicit unavailable URL must remain explicit');
    assert.deepEqual(substituteReads,[],'An unavailable company was replaced by an authorized company read');
    assert.deepEqual(writes,[],'Opening attempted a mutation');assert.deepEqual(errors,[],'Browser exception');

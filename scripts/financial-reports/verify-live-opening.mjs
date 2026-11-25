@@ -451,7 +451,7 @@ try{
   const href=new URL(await outgoing.getAttribute('href'),app);
   assert.equal(href.searchParams.get('scope'),'ORGANIZATION');assert.equal(href.searchParams.get('organization'),org);
   if(width===390){
-   await page.getByRole('button',{name:lang==='ar'?'إغلاق القائمة':'Close menu',exact:true}).click();
+   await page.locator('#corp-sidebar').getByRole('button',{name:lang==='ar'?'إغلاق القائمة':'Close menu',exact:true}).click();
    await page.locator('#corp-sidebar').waitFor({state:'hidden'});
   }
   assert.match(await page.locator('.fs-metrics').first().innerText(),/0.00/);

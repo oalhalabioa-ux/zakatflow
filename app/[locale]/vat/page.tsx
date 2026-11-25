@@ -195,6 +195,9 @@ export default function VatManagement({ params, searchParams }: { params: Promis
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [organizationId, setOrganizationId] = useState('');
   const currentOrganizationId=useRef('');
+  const selectionEpoch=useRef(0),operationRequest=useRef(0),workspaceActive=useRef(true);
+  const [selectionVersion,setSelectionVersion]=useState(0);
+  useEffect(()=>{workspaceActive.current=true;return()=>{workspaceActive.current=false;};},[]);
   const initialMonth=typeof requestedMonth==='string'&&/^\d{4}-(0[1-9]|1[0-2])$/.test(requestedMonth)?requestedMonth:currentMonth();
   const [periodMonth, setPeriodMonth] = useState(initialMonth);
   const [reportYear, setReportYear] = useState(() => Number(initialMonth.slice(0, 4)));
@@ -236,11 +239,12 @@ export default function VatManagement({ params, searchParams }: { params: Promis
   const sequenceRequest = useRef(0);
   useEffect(() => {
     sequenceRequest.current += 1;
+    operationRequest.current++;setSaving(false);setNoteOriginals([]);
     setInvoiceSequenceInitialized(false);
     setReservedAccountingNumber(null);
     setEditingDocumentId(null);
     setRegisterFormOpen(false);
-  }, [organizationId, registerDirection, salesEntryMode]);
+  }, [organizationId, selectionVersion, registerDirection, salesEntryMode]);
   const [registerAddMenuOpen, setRegisterAddMenuOpen] = useState(false);
   const [registerFilters, setRegisterFilters] = useState({ ...emptyInvoiceFilters });
   const [summaryNoteReview, setSummaryNoteReview] = useState(false);
@@ -273,6 +277,8 @@ export default function VatManagement({ params, searchParams }: { params: Promis
 
   function chooseOrganization(id:string){
     if(id===currentOrganizationId.current)return;
+    selectionEpoch.current++;operationRequest.current++;sequenceRequest.current++;
+    setSelectionVersion(selectionEpoch.current);setSaving(false);
     currentOrganizationId.current=id;
     setOrganizationId(id);setLoadingData(Boolean(id));setNotice(null);
     setProfile(null);setProfileDraft(emptyProfile);setProfileLoadState('loading');setProfileOpen(false);setProfileDetailsOpen(false);
@@ -280,6 +286,15 @@ export default function VatManagement({ params, searchParams }: { params: Promis
     setCashAccounts([]);setPaymentDocument(null);setPaymentAccountId('');setPaymentAmount('');setInvoiceDetails(null);setNoteOriginals([]);
     setAssetTransactions([]);setFxRates([]);setServiceCatalog([]);setServiceAddForIndex(null);setServiceNameDraft('');
     setDraft(emptyDocument());setAccountingLines([emptyDocumentLine()]);setRegisterFormOpen(false);setEditingDocumentId(null);setRegisterAddMenuOpen(false);
+  }
+
+  function currentSelection(version=selectionVersion,id=organizationId){
+    return workspaceActive.current&&Boolean(id)&&version===selectionEpoch.current&&id===currentOrganizationId.current;
+  }
+  function beginOperation(){
+    if(!currentSelection())return null;
+    const version=selectionVersion,id=organizationId,request=++operationRequest.current;
+    return()=>currentSelection(version,id)&&request===operationRequest.current;
   }
 
   const sortedOrganizations = useMemo(
@@ -433,7 +448,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
     return () => { active = false; };
   }, [ar]);
 
-  useEffect(()=>{let active=true;fetch('/api/transactions').then(r=>r.ok?r.json():[]).then(rows=>{if(active)setAssetTransactions(rows.filter((t:any)=>t.organization_id===organizationId&&['PURCHASE','SALE'].includes(t.transaction_type)&&t.metadata?.financial_event_id&&!t.reference&&!t.metadata?.invoice_reference));}).catch(()=>{if(active)setAssetTransactions([])});return()=>{active=false};},[organizationId]);
+  useEffect(()=>{let active=true;fetch('/api/transactions').then(r=>r.ok?r.json():[]).then(rows=>{if(active&&currentSelection())setAssetTransactions(rows.filter((t:any)=>t.organization_id===organizationId&&['PURCHASE','SALE'].includes(t.transaction_type)&&t.metadata?.financial_event_id&&!t.reference&&!t.metadata?.invoice_reference));}).catch(()=>{if(active&&currentSelection())setAssetTransactions([])});return()=>{active=false};},[organizationId,selectionVersion]);
   useEffect(() => {
     if (!organizationId) { setFxRates([]); return; }
     let active = true;
@@ -443,10 +458,10 @@ export default function VatManagement({ params, searchParams }: { params: Promis
         if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
         return body as VatFxRate[];
       })
-      .then((rows) => { if (active) setFxRates(rows); })
-      .catch((error) => { if (active) setNotice({ kind: 'error', text: messageFor(error.message, ar) }); });
+      .then((rows) => { if (active&&currentSelection()) setFxRates(rows); })
+      .catch((error) => { if (active&&currentSelection()) setNotice({ kind: 'error', text: messageFor(error.message, ar) }); });
     return () => { active = false; };
-  }, [organizationId, ar]);
+  }, [organizationId, selectionVersion, ar]);
 
   useEffect(() => {
     if (!selectedOrganization) return;
@@ -502,7 +517,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
         : Promise.resolve([] as ApiData[][]),
     ])
       .then(([entityRows, branchRows]) => {
-        if (!active||currentOrganizationId.current!==organizationId) return;
+        if (!active||!currentSelection()) return;
         const body = combineReportData(entityRows, reportPeriod);
         const branches = branchRows.map((rows) => combineReportData(rows, reportPeriod));
         if (body.profile && !reportFrequencyTouched) setReportFrequency(body.profile.filing_frequency);
@@ -538,16 +553,16 @@ export default function VatManagement({ params, searchParams }: { params: Promis
         } : { ...emptyProfile, registered_name: organizations.find((organization) => organization.id === organizationId)?.name ?? '' });
       })
       .catch((error) => {
-        if (!active||currentOrganizationId.current!==organizationId) return;
+        if (!active||!currentSelection()) return;
         setProfileLoadState('error');
         if (reportScope === 'GROUP') setReportScope('COMPANY');
         setNotice({ kind: 'error', text: reportScope === 'GROUP'
           ? (ar ? 'تعذر تحميل بيانات جميع الفروع؛ أُعيد التقرير إلى مستوى الشركة.' : 'Could not load every branch; the report has been reset to company level.')
           : messageFor(error.message, ar) });
       })
-      .finally(() => { if (active&&currentOrganizationId.current===organizationId) setLoadingData(false); });
+      .finally(() => { if (active&&currentSelection()) setLoadingData(false); });
     return () => { active = false; };
-  }, [organizationId, periodMonth, reportFrequency, reportPeriod.from, reportPeriod.to, reportFrequencyTouched, ar, invoiceRefresh, reportScope, branchOrganizationKey, includeDrafts]);
+  }, [organizationId, selectionVersion, periodMonth, reportFrequency, reportPeriod.from, reportPeriod.to, reportFrequencyTouched, ar, invoiceRefresh, reportScope, branchOrganizationKey, includeDrafts]);
 
   useEffect(() => {
     if (!hasBranches && reportScope === 'GROUP') setReportScope('COMPANY');
@@ -616,15 +631,16 @@ export default function VatManagement({ params, searchParams }: { params: Promis
         else inputTax = inputTax.add(tax.mul(document.recoverable_percent || 0).div(100));
       }
       return { month, outputTax: outputTax.toFixed(2), inputTax: inputTax.toFixed(2) };
-    })).then((rows) => { if (active) setMonthlyTrend(rows); })
-      .catch(() => { if (active) setMonthlyTrend([]); })
-      .finally(() => { if (active) setMonthlyTrendLoading(false); });
+    })).then((rows) => { if (active&&currentSelection()) setMonthlyTrend(rows); })
+      .catch(() => { if (active&&currentSelection()) setMonthlyTrend([]); })
+      .finally(() => { if (active&&currentSelection()) setMonthlyTrendLoading(false); });
     return () => { active = false; };
-  }, [organizationId, period.from, period.to, reportScope, reportOrganizationIds, includeDrafts, invoiceRefresh]);
+  }, [organizationId, selectionVersion, period.from, period.to, reportScope, reportOrganizationIds, includeDrafts, invoiceRefresh]);
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!organizationId) return;
+    if (!organizationId||saving) return;
+    const isCurrent=beginOperation();if(!isCurrent)return;
     setSaving(true);
     setNotice(null);
     try {
@@ -649,20 +665,22 @@ export default function VatManagement({ params, searchParams }: { params: Promis
         }),
       });
       const body = await response.json();
+      if(!isCurrent())return;
       if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
       setProfile(body);
       setProfileOpen(false);
       setNotice({ kind: 'success', text: ar ? 'تم حفظ إعدادات ضريبة القيمة المضافة.' : 'VAT settings saved.' });
     } catch (error: any) {
-      setNotice({ kind: 'error', text: messageFor(error.message, ar) });
+      if(isCurrent())setNotice({ kind: 'error', text: messageFor(error.message, ar) });
     } finally {
-      setSaving(false);
+      if(isCurrent())setSaving(false);
     }
   }
 
   async function addDocument(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!organizationId || saving) return;
+    const isCurrent=beginOperation();if(!isCurrent)return;
     setSaving(true);
     setNotice(null);
     try {
@@ -698,6 +716,7 @@ export default function VatManagement({ params, searchParams }: { params: Promis
         if (!number) {
           const response = await fetch('/api/vat/invoice-numbering', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({organization_id:organizationId,first_number:draft.document_number})});
           const body = await response.json();
+          if(!isCurrent())return;
           if (!response.ok) throw new Error(body.error || 'INVOICE_NUMBERING_FAILED');
           number = body.invoice_number as string;
           setReservedAccountingNumber(number);
@@ -706,10 +725,12 @@ export default function VatManagement({ params, searchParams }: { params: Promis
         }
         payload.document_number = number;
       }
+      if(!isCurrent())return;
       const response = await fetch('/api/vat', {
         method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),
       });
       const body = await response.json();
+      if(!isCurrent())return;
       if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
       setDraft({ ...emptyDocument(), document_type: registerDirection });
       setEditingDocumentId(null);
@@ -720,49 +741,60 @@ export default function VatManagement({ params, searchParams }: { params: Promis
       setNotice({ kind: 'success', text: ar ? 'تم تسجيل المستند الضريبي.' : 'VAT document recorded.' });
       await reloadData();
     } catch (error: any) {
-      setNotice({ kind: 'error', text: messageFor(error.message, ar) });
+      if(isCurrent())setNotice({ kind: 'error', text: messageFor(error.message, ar) });
     } finally {
-      setSaving(false);
+      if(isCurrent())setSaving(false);
     }
   }
 
   async function postAccountingNote(document: VatDocument) {
+    if(!organizationId||saving)return;
+    const isCurrent=beginOperation();if(!isCurrent)return;
     setSaving(true); setNotice(null);
     try {
       const response = await fetch(document.document_kind === 'INVOICE' ? '/api/vat/recognition' : '/api/vat/notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({organization_id:organizationId,document_id:document.id})});
       const body = await response.json();
+      if(!isCurrent())return;
       if (!response.ok) throw new Error(body.error || 'VAT_NOTE_POST_FAILED');
       setInvoiceRefresh(value=>value+1);
       setNotice({kind:'success',text:response.status===202 ? (ar?'الإشعار بانتظار الموافقة المالية.':'Note awaits financial approval.') : (ar?'تم ترحيل أثر الإشعار؛ التسوية النقدية إجراء منفصل.':'Note effect posted; cash settlement is separate.')});
-    } catch(error:any) { setNotice({kind:'error',text:messageFor(error.message,ar)}); }
-    finally { setSaving(false); }
+    } catch(error:any) { if(isCurrent())setNotice({kind:'error',text:messageFor(error.message,ar)}); }
+    finally { if(isCurrent())setSaving(false); }
   }
 
   async function startRegisterEntry(kind: DocumentDraft['document_kind']) {
-    if (saving) return;
+    if (!organizationId||saving) return;
+    const currentOperation=beginOperation();if(!currentOperation)return;
     const requestId = ++sequenceRequest.current;
+    const isCurrent=()=>currentOperation()&&requestId===sequenceRequest.current;
     let nextNumber = '';
-    setNotice(null);
+    setNotice(null);setNoteOriginals([]);setSaving(true);
     try {
       if (registerDirection === 'SALES' && kind === 'INVOICE') {
-        setSaving(true);
         const response = await fetch(`/api/vat/invoice-numbering?organization_id=${encodeURIComponent(organizationId)}`);
         const body = await response.json();
+        if(!isCurrent())return;
         if (!response.ok) throw new Error(body.error || 'INVOICE_NUMBERING_FAILED');
-        if (requestId !== sequenceRequest.current) return;
         setInvoiceSequenceInitialized(Boolean(body.initialized));
         nextNumber = body.next_number || '';
       }
+      if(kind!=='INVOICE'){
+        const response=await fetch(`/api/vat/notes?organization_id=${encodeURIComponent(organizationId)}&side=${registerDirection}`);
+        const body=await response.json();
+        if(!isCurrent())return;
+        if(!response.ok)throw new Error(body?.error||'VAT_NOTE_ORIGINAL_LOAD_FAILED');
+        setNoteOriginals(body.originals||[]);
+      }
+      if(!isCurrent())return;
       setEditingDocumentId(null);
       setReservedAccountingNumber(null);
       setDraft({ ...emptyDocument(), document_type: registerDirection, document_kind: kind, document_number:nextNumber });
-      if (kind !== 'INVOICE') fetch(`/api/vat/notes?organization_id=${encodeURIComponent(organizationId || '')}&side=${registerDirection}`).then(async response=>{if(!response.ok)throw new Error('VAT_NOTE_ORIGINAL_LOAD_FAILED');return response.json();}).then(body=>setNoteOriginals(body.originals || [])).catch(error=>setNotice({kind:'error',text:messageFor(error.message,ar)}));
       setAccountingLines([emptyDocumentLine()]);
       setRegisterFormOpen(true);
       setRegisterAddMenuOpen(false);
     } catch(error:any) {
-      setNotice({kind:'error',text:messageFor(error.message,ar)});
-    } finally { setSaving(false); }
+      if(isCurrent())setNotice({kind:'error',text:messageFor(error.message,ar)});
+    } finally { if(isCurrent())setSaving(false); }
   }
 
   function startEditDocument(document: VatDocument) {
@@ -819,6 +851,8 @@ export default function VatManagement({ params, searchParams }: { params: Promis
   }
 
   async function confirmPurchasePayment() {
+    if(!organizationId||saving)return;
+    const isCurrent=beginOperation();if(!isCurrent)return;
     const document=paymentDocument, flow=document?.cash_flow;
     if(!document||!flow?.id)return;
     const outstanding=Math.max(0,Number(flow.amount)-Number(flow.settled_amount||0)), amount=Number(paymentAmount);
@@ -828,32 +862,35 @@ export default function VatManagement({ params, searchParams }: { params: Promis
     try{
       const response=await fetch(`/api/liquidity/${flow.id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'ACTUAL',account_id:paymentAccountId,amount,settlement_date:paymentDate})});
       const body=await response.json();
+      if(!isCurrent())return;
       if(!response.ok&&response.status!==202)throw new Error(body?.error||`HTTP_${response.status}`);
       setPaymentDocument(null);
       setNotice({kind:'success',text:response.status===202?(ar?'تم تسجيل السداد وهو بانتظار الموافقة المالية.':'Payment recorded and is pending financial approval.'):(ar?'تم تسجيل السداد وتحديث ذمة المورد والسيولة.':'Payment posted; supplier payable and liquidity were updated.')});
       await reloadData();
-    }catch(error:any){setNotice({kind:'error',text:messageFor(error.message||'PAYMENT_FAILED',ar)});}finally{setSaving(false);}
+    }catch(error:any){if(isCurrent())setNotice({kind:'error',text:messageFor(error.message||'PAYMENT_FAILED',ar)});}finally{if(isCurrent())setSaving(false);}
   }
 
   async function deleteDocument(documentId: string) {
-    if (!organizationId || !window.confirm(ar ? 'حذف هذا المستند من السجل؟' : 'Delete this document from the register?')) return;
+    if (!organizationId||saving||!window.confirm(ar ? 'حذف هذا المستند من السجل؟' : 'Delete this document from the register?')) return;
+    const isCurrent=beginOperation();if(!isCurrent)return;
     setSaving(true);
     setNotice(null);
     try {
       const response = await fetch(`/api/vat?organization_id=${encodeURIComponent(organizationId)}&document_id=${encodeURIComponent(documentId)}`, { method: 'DELETE' });
       const body = await response.json();
+      if(!isCurrent())return;
       if (!response.ok) throw new Error(body?.error || `HTTP_${response.status}`);
       setNotice({ kind: 'success', text: ar ? 'تم حذف المستند.' : 'Document deleted.' });
       await reloadData();
     } catch (error: any) {
-      setNotice({ kind: 'error', text: messageFor(error.message, ar) });
+      if(isCurrent())setNotice({ kind: 'error', text: messageFor(error.message, ar) });
     } finally {
-      setSaving(false);
+      if(isCurrent())setSaving(false);
     }
   }
 
   async function reloadData() {
-    if (!organizationId) return;
+    if (!currentSelection()) return;
     setInvoiceRefresh((revision) => revision + 1);
   }
 
@@ -861,10 +898,10 @@ export default function VatManagement({ params, searchParams }: { params: Promis
     if (!organizationId) return;
     let active=true;
     fetch(`/api/liquidity?organization_id=${encodeURIComponent(organizationId)}`).then(r=>r.ok?r.json():null).then(body=>{
-      if(active&&currentOrganizationId.current===organizationId&&body?.accounts)setCashAccounts(body.accounts.map((a:any)=>({id:a.id,name:a.name,currency:a.currency})));
+      if(active&&currentSelection()&&body?.accounts)setCashAccounts(body.accounts.map((a:any)=>({id:a.id,name:a.name,currency:a.currency})));
     }).catch(()=>undefined);
     return()=>{active=false;};
-  },[organizationId]);
+  },[organizationId,selectionVersion]);
 
   const isRegistered = profile?.registration_status === 'REGISTERED';
 
@@ -1125,12 +1162,12 @@ export default function VatManagement({ params, searchParams }: { params: Promis
                   label={draft.document_type === 'SALES' ? (ar ? 'العميل / المشتري' : 'Customer / buyer') : (ar ? 'المورد' : 'Supplier')}
                   value={draft.counterparty_contact_id}
                   required
-                  onChange={(contact: VatContact | null) => setDraft({
+                  onChange={(contact: VatContact | null) => {if(!currentSelection())return;setDraft({
                     ...draft,
                     counterparty_contact_id: contact?.id ?? '',
                     counterparty_name: contact?.name ?? '',
                     counterparty_tax_number: contact?.vat_number ?? '',
-                  })}
+                  });}}
                 />}
               </div>
               {!editingDocumentId&&draft.document_kind==='INVOICE'&&assetTransactions.some(t=>t.transaction_type===(draft.document_type==='PURCHASE'?'PURCHASE':'SALE'))&&<label><span>{ar?'ربط بحركة أصل سابقة دون فاتورة — اختياري':'Link an asset transaction without an invoice — optional'}</span><select value={draft.asset_transaction_id||''} onChange={e=>{const t=assetTransactions.find(t=>t.id===e.target.value);if(!t){setDraft({...draft,asset_transaction_id:null});return;}setDraft({...draft,asset_transaction_id:t.id,transaction_date:t.transaction_date,due_date:t.metadata?.due_date||t.transaction_date,document_number:draft.document_type==='PURCHASE'?(t.reference||draft.document_number):draft.document_number,recoverable_percent:String(t.metadata?.recoverable_percent??100)});setInvoiceCurrency(t.currency);setExchangeRate(String(t.metadata?.fx_rate??1));setAccountingPricesIncludeVat(false);setAccountingLines([{...emptyDocumentLine(),description:t.asset_accounts?.name||'Asset',quantity:String(t.quantity||1),unit_price:String(Number(t.gross_value)/(Number(t.quantity)||1)),supply_type:Number(t.metadata?.vat_amount)>0?'STANDARD':'OUT_OF_SCOPE'}]);}}><option value="">{ar?'بدون ربط':'No link'}</option>{assetTransactions.filter(t=>t.transaction_type===(draft.document_type==='PURCHASE'?'PURCHASE':'SALE')).map(t=><option value={t.id} key={t.id}>{t.asset_accounts?.name} · {t.transaction_date} · {t.gross_value} {t.currency}</option>)}</select><small>{ar?'يجب أن تتطابق القيمة والضريبة والعملة والصرف والاستحقاق مع حركة الأصل المحفوظة.':'Net, VAT, currency, exchange rate and due date must match the saved asset transaction.'}</small></label>}
