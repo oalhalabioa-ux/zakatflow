@@ -769,7 +769,7 @@ try {
     await context.close();
   });
   await check(
-    "fresh account completes real organization onboarding with a five-seat trial",
+    "fresh account opens its personal dashboard and completes explicit organization onboarding with a five-seat trial",
     async () => {
       const newcomer = clients[7],
         jar = [];
@@ -798,7 +798,17 @@ try {
         jar.map((c) => ({ name: c.name, value: c.value, url: appUrl })),
       );
       const page = await context.newPage();
-      await page.goto(appUrl + "/en/dashboard");
+      const personalDashboard = await page.goto(appUrl + "/en/dashboard");
+      assert.ok(personalDashboard?.ok(), "A personal dashboard does not require an organization");
+      await page.locator(".platform-dashboard.platform-personal").filter({visible:true}).waitFor();
+      assert.equal(new URL(page.url()).pathname, "/en/dashboard");
+      assert.equal(
+        (await rpc(newcomer, "organization_onboarding_required", {})).data,
+        true,
+        "Opening the personal dashboard must not create an organization or trial",
+      );
+      // Starting an institution is an explicit corporate journey.
+      await page.goto(appUrl + "/en/dashboard?scope=ORGANIZATION");
       await page
         .getByRole("heading", {
           name: "Create your organization and start your trial",
