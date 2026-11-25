@@ -51,6 +51,17 @@ describe('branch route isolation',()=>{
   expect(response.status).toBe(200);expect(await response.json()).toEqual({scope:'BRANCH'});
   expect(state.branchCalls[0][1]).toBe(branch);
  });
+ it('requests ledger details only for the authorized headquarters or branch source',async()=>{
+  state.error='';
+  const url=request().url.replace('action=statements','action=ledger');
+  const response=await GET(new Request(url+'&branch=HQ'));
+  expect(response.status).toBe(200);
+  expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+  expect(state.branchCalls[0].slice(1)).toEqual(['HQ',true]);
+  expect((await GET(new Request(url+'&scope=GROUP_WITH_SUBSIDIARIES'))).status).toBe(400);
+  state.error='REPORTING_ACCESS_DENIED';
+  expect((await GET(new Request(url+'&branch=HQ'))).status).toBe(403);
+ });
  it('rejects duplicated selectors and branch selectors on other actions',async()=>{
   for(const suffix of ['&branch=HQ&branch=ALL','&scope=BRANCH&branch=HQ'])
    expect((await GET(new Request(request().url+suffix))).status).toBe(400);

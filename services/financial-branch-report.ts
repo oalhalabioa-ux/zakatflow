@@ -5,7 +5,7 @@ import {branchReportEnvelope,compileBranchReport} from '../lib/financial-branch-
 import {normalizeStatementSource,statementQuery} from '../lib/financial-statement-source';
 import {assertStableFinancialReplay} from '../lib/financial-source-replay';
 
-export async function liveBranchReport(input:unknown,selection:unknown){
+export async function liveBranchReport(input:unknown,selection:unknown,includePeriodLedger=false){
  assertLiveStatements();
  const query=statementQuery.parse(input),branch=z.union([z.literal('HQ'),z.string().uuid()]).parse(selection);
  const {supabase}=await requireUser();
@@ -18,7 +18,7 @@ export async function liveBranchReport(input:unknown,selection:unknown){
  // remain mandatory. Match them to the atomic source, not just its totals.
  const verified=await liveStatementSource(query);
  assertStableFinancialReplay(normalizeStatementSource(envelope.source,query),verified);
- return compileBranchReport(envelope,query,branch==='HQ'?null:branch);
+ return compileBranchReport(envelope,query,branch==='HQ'?null:branch,includePeriodLedger);
 }
 
 export async function liveReportBranches(organization:unknown){

@@ -1,9 +1,11 @@
 import {validStatementComparison,statementChange} from './financial-statement-comparison';
 import Decimal from 'decimal.js';
-import {statementSourceExport,type StatementSourceSnapshot,type StatementView} from './financial-statement-source';
+import {statementSourceExport,statementSourceMetadata,type StatementSourceSnapshot,type StatementView} from './financial-statement-source';
 
-export type StatementHubView=StatementView|'overview'|'statements'|'kpis';
-export const STATEMENT_HUB_TITLES={overview:['لوحة التقارير والقوائم المالية','Financial reports dashboard'],statements:['القوائم المالية','Financial statements'],income:['قائمة الدخل','Income statement'],position:['قائمة المركز المالي','Statement of financial position'],'cash-flow':['قائمة التدفقات النقدية','Cash flow statement'],kpis:['المؤشرات المالية','Financial indicators']} as const;
+import {ledgerAccount,trialBalanceColumns,ledgerEntryColumns,type LedgerReportView} from './financial-period-ledger';
+
+export type StatementHubView=StatementView|LedgerReportView|'overview'|'statements'|'kpis';
+export const STATEMENT_HUB_TITLES={overview:['لوحة التقارير والقوائم المالية','Financial reports dashboard'],statements:['القوائم المالية','Financial statements'],income:['قائمة الدخل','Income statement'],position:['قائمة المركز المالي','Statement of financial position'],'cash-flow':['قائمة التدفقات النقدية','Cash flow statement'],kpis:['المؤشرات المالية','Financial indicators'],'trial-balance':['ميزان مراجعة الفترة','Trial balance'],'general-ledger':['دفتر الأستاذ العام','General ledger']} as const;
 const Money=Decimal.clone({precision:50});
 export type StatementIndicator={id:string;ar:string;en:string;value:string|null;format:'amount'|'ratio'|'percent';formula:[string,string];reason?:[string,string];icon:string};
 /** Read-only views of one reconciled snapshot. No benchmark, comparison or opening is inferred. */
@@ -28,7 +30,8 @@ export function statementSummary(s:StatementSourceSnapshot){
  return{revenue:i.revenue,netProfit:i.netProfit,expenses,assets:p.assets,liabilities:p.liabilities,equity:p.equity,closingCash:c.closing,operatingCash:c.operating,currentAssets:currentAssets.toFixed(4),currentLiabilities:currentLiabilities.toFixed(4),indicators};
 }
 
-export function statementHubExport(s:StatementSourceSnapshot,view:StatementHubView,en:boolean,comparison?:StatementSourceSnapshot|null):string[][]{
+export function statementHubExport(s:StatementSourceSnapshot,view:StatementHubView,en:boolean,comparison?:StatementSourceSnapshot|null,accountId=''):string[][]{
+ if(view==='trial-balance'||view==='general-ledger')return ledgerExport(s,view,en,accountId);
  if(view==='income'||view==='position'||view==='cash-flow')return statementSourceExport(s,view,en,comparison);
  const t=(ar:string,english:string)=>en?english:ar,summary=statementSummary(s),base=statementSourceExport(s,'income',en,comparison);
  const rows=base.slice(0,base.findIndex(r=>r.length===0));
@@ -39,5 +42,27 @@ export function statementHubExport(s:StatementSourceSnapshot,view:StatementHubVi
  const cashByMonth=new Map(s.cashMonths.map(m=>[m.month,m.closing]));
  rows.push([],[t('الشهر','Month'),t('الإيرادات','Revenue'),t('المصروفات','Expenses'),t('صافي الربح','Net profit'),t('النقد الختامي','Closing cash')],...s.incomeMonths.map(m=>[m.month,m.revenue,m.expenses,m.netProfit,cashByMonth.get(m.month)??'']));
  rows.push([],[t('القيود المصدرية','Source journals'),...s.statements.sourceJournalIds],[t('القيد','Journal'),t('الحدث','Event'),t('السطر','Line'),t('قاعدة الترحيل','Posting rule')],...s.lineage.map(l=>[l.journalId,l.eventId,l.lineId,l.ruleId]));
+ return rows;
+}
+
+function ledgerExport(s:StatementSourceSnapshot,view:LedgerReportView,en:boolean,accountId:string):string[][]{
+ const ledger=s.periodLedger;
+ if(!ledger)throw Error('REPORTING_LEDGER_UNAVAILABLE');
+ const t=(ar:string,english:string)=>en?english:ar,labelIndex=en?2:1;
+ const rows=[...statementSourceMetadata(s,en),[t('التقرير','Report'),STATEMENT_HUB_TITLES[view][en?1:0]],[]];
+ if(view==='trial-balance'){
+  rows.push([t('رمز الحساب','Account code'),t('الحساب','Account'),...trialBalanceColumns.map(column=>column[labelIndex])]);
+  for(const account of ledger.accounts)rows.push([account.id,en?account.en:account.ar,...trialBalanceColumns.map(([key])=>account[key])]);
+  rows.push(['',t('الإجمالي','Total'),...trialBalanceColumns.map(([key])=>ledger.totals[key])]);
+ }else{
+  const account=ledgerAccount(ledger,accountId);
+  if(account){
+   rows.push([t('الحساب','Account'),account.id,en?account.en:account.ar],
+    [t('رصيد أول الفترة','Opening balance'),account.opening],
+    [t('رصيد آخر الفترة','Closing balance'),account.closing],[],
+    ledgerEntryColumns.map(column=>column[labelIndex]));
+   for(const line of account.entries)rows.push(ledgerEntryColumns.map(([key])=>line[key]??''));
+  }
+ }
  return rows;
 }

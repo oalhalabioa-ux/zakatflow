@@ -19,10 +19,11 @@ export async function GET(request:Request){try{const q=new URL(request.url).sear
  if(q.get('action')==='cost-center-statements'){if(q.has('scope')||q.has('branch'))throw Error('REPORTING_INPUT_INVALID');if(!centerReportsEnabled(q.get('organization')))throw Error('REPORTING_DISABLED');return NextResponse.json(await liveDimensionalStatements({organization:q.get('organization'),from:q.get('from'),to:q.get('to')}),{headers});}
  if(q.get('action')==='cost-center-options'){if(q.has('scope'))throw Error('REPORTING_INPUT_INVALID');if(!centerReportsEnabled(q.get('organization')))throw Error('REPORTING_DISABLED');return NextResponse.json(await liveDimensionalCenterOptions({organization:q.get('organization'),from:q.get('from'),to:q.get('to')},q.has('branch')?q.get('branch'):undefined),{headers});}
  if(q.get('action')==='cost-center-income'){if(q.has('scope'))throw Error('REPORTING_INPUT_INVALID');return NextResponse.json(await liveCostCenterIncome({organization:q.get('organization'),from:q.get('from'),to:q.get('to')},q.has('branch')?q.get('branch'):undefined),{headers});}
- if(q.get('action')!=='statements')throw Error('REPORTING_INPUT_INVALID');
+ const includePeriodLedger=q.get('action')==='ledger';
+ if(q.get('action')!=='statements'&&!includePeriodLedger)throw Error('REPORTING_INPUT_INVALID');
  if(q.has('scope'))throw Error('REPORTING_INPUT_INVALID');
- if(q.has('branch'))return NextResponse.json(await liveBranchReport({organization:q.get('organization'),from:q.get('from'),to:q.get('to')},q.get('branch')),{headers});
- return NextResponse.json(await liveStatementSource({organization:q.get('organization'),from:q.get('from'),to:q.get('to')}),{headers});
+ if(q.has('branch'))return NextResponse.json(await liveBranchReport({organization:q.get('organization'),from:q.get('from'),to:q.get('to')},q.get('branch'),includePeriodLedger),{headers});
+ return NextResponse.json(await liveStatementSource({organization:q.get('organization'),from:q.get('from'),to:q.get('to')},includePeriodLedger),{headers});
  }catch(e){
   const code=e instanceof Error?e.message:'REPORTING_UNAVAILABLE';
   // Emit a code-only diagnostic in isolated QA, never in Production. No

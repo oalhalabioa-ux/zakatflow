@@ -85,6 +85,63 @@ export async function verifyStatementAcceptance({a,b,viewer,sql,app,cookie,conte
    }
   }finally{await hub.close()}
  });
+ await check('Period ledger API, account drill-down and authorized exports reconcile to the same statements',async()=>{
+  const ledgerQuery=query.replace('action=statements','action=ledger').replace('from=2026-01-01','from=2026-02-01');
+  const response=await fetch(base+ledgerQuery,{headers:{cookie}});
+  assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'private, no-store');
+  const payload=await response.json(),ledger=payload.periodLedger;
+  assert.equal(ledger.totals.openingDebit,ledger.totals.openingCredit);
+  assert.equal(ledger.totals.periodDebit,ledger.totals.periodCredit);
+  assert.equal(ledger.totals.closingDebit,ledger.totals.closingCredit);
+  assert.equal((await fetch(base+ledgerQuery,{headers:{}})).status,401);
+  assert.equal((await fetch(base+ledgerQuery.replace(STATEMENT_ORG,STATEMENT_OTHER),{headers:{cookie}})).status,403);
+  const tab=await context.newPage();tab.on('pageerror',error=>errors.push(error.message));
+  try{
+   for(const lang of ['ar','en']){
+    await tab.setViewportSize({width:1672,height:941});
+    await tab.goto(app+'/design-preview/financial-reports/source-statements?screen=trial-balance&lang='+lang);
+    await tab.locator('[data-statement-ready="trial-balance"]').waitFor();
+    await tab.getByLabel(lang==='ar'?'من تاريخ':'From date',{exact:true}).fill('2026-02-01');
+    const bank=tab.locator('[data-ledger-account="bank"]');
+    await tab.waitForFunction(()=>document.querySelector('[data-ledger-account="bank"]')?.textContent.includes('585.0000'));
+    assert.deepEqual(await bank.locator('td').allTextContents(),['585.0000','0.0000','30.0000','40.0000','575.0000','0.0000']);
+    await tab.screenshot({path:'docs/financial-reports/evidence-v3/trial-balance-'+lang+'.png',fullPage:true});
+    await bank.getByRole('button').click();
+    const report=tab.locator('[data-statement-ready="general-ledger"]');
+    await report.waitFor();
+    assert.equal(await report.locator('select').inputValue(),'bank');
+    assert.equal(await report.locator('tr[data-journal-id]').count(),2);
+    await tab.setViewportSize({width:390,height:844});
+    await tab.waitForFunction(()=>getComputedStyle(document.querySelector('.corp-workspace')).marginInlineStart==='0px');
+    assert.equal(await tab.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+    await tab.screenshot({path:'docs/financial-reports/evidence-v3/general-ledger-'+lang+'-mobile.png',fullPage:true});
+   }
+   await tab.setViewportSize({width:1672,height:941});
+   for(const [label,extension]of[['CSV','csv'],['Excel','xlsx']]){
+    const result=tab.waitForEvent('download');
+    await tab.getByRole('button',{name:'Export report',exact:true}).click();
+    await tab.getByRole('button',{name:label,exact:true}).click();
+    const download=await result;
+    const path='docs/financial-reports/evidence-v3/general-ledger-selected-en.'+extension;
+    await download.saveAs(path);
+    if(extension==='csv'){
+     const {readFile}=await import('node:fs/promises');
+     const csv=await readFile(path,'utf8');
+     assert.match(csv,/575[.]0000/);assert.match(csv,/Opening balance/);
+    }else{
+     const {default:ExcelJS}=await import('exceljs');
+     const workbook=new ExcelJS.Workbook();await workbook.xlsx.readFile(path);
+     assert.ok(workbook.worksheets[0].getSheetValues().some(row=>row?.includes('545.0000')));
+    }
+   }
+   await tab.evaluate(()=>{window.print=()=>{document.body.dataset.ledgerPrint='yes'}});
+   await tab.getByRole('button',{name:'Export report',exact:true}).click();
+   await tab.getByRole('button',{name:'Print / Save PDF',exact:true}).click();
+   await tab.waitForFunction(()=>document.body.dataset.ledgerPrint==='yes');
+   const pdf=await tab.pdf({path:'docs/financial-reports/evidence-v3/general-ledger-selected-en.pdf',format:'A4'});
+   assert.equal(pdf.subarray(0,5).toString(),'%PDF-');
+  }finally{await tab.close()}
+ });
  await check('Offline interactive preview uses the same React table and supports all three statements in both languages',async()=>{
   const offline=await context.newPage();offline.on('pageerror',e=>errors.push(e.message));
   try{await offline.goto('file://'+process.cwd()+'/docs/financial-reports/evidence-v3/statement-expand-collapse-preview.html');for(const lang of['ar','en']){if(lang==='en')await offline.getByRole('button',{name:'Switch to English',exact:true}).click();for(const hubView of['overview','statements','kpis']){const hubLabel=({overview:['لوحة التقارير والقوائم المالية','Financial reports dashboard'],statements:['القوائم المالية','Financial statements'],kpis:['المؤشرات المالية','Financial indicators']})[hubView][lang==='en'?1:0];await offline.getByRole('button',{name:hubLabel,exact:true}).first().click();await offline.locator(`[data-statement-ready="${hubView}"]`).waitFor();assert.equal(await offline.locator('.fs-spark,.fs-change').count(),0)}for(const view of['income','position','cash-flow']){const label=({income:['قائمة الدخل','Income statement'],position:['قائمة المركز المالي','Financial position'],'cash-flow':['التدفقات النقدية','Cash flow']})[view][lang==='en'?1:0];await offline.getByRole('button',{name:label,exact:true}).click();const toggle=offline.locator('.fs-statement-group-toggle').first();await toggle.click();assert.equal(await toggle.getAttribute('aria-expanded'),'false');await toggle.press('Space');assert.equal(await toggle.getAttribute('aria-expanded'),'true')}}await offline.setViewportSize({width:390,height:844});assert.equal(await offline.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)}finally{await offline.close()}

@@ -22,7 +22,7 @@ export const branchReportEnvelope=z.object({
  * First validate the complete company ledger, then reconcile EVERY segment.
  * The service additionally verifies the same company against live source attestations.
  */
-export function compileBranchReportWithSource(raw:unknown,query:StatementQuery,branchId:string|null){
+export function compileBranchReportWithSource(raw:unknown,query:StatementQuery,branchId:string|null,includePeriodLedger=false){
  const p=branchReportEnvelope.parse(raw);
  const company=normalizeStatementSource(p.source,query);
  if(p.entities.some(e=>e.organizationId!==query.organization)||new Set(p.entities.map(e=>e.id)).size!==p.entities.length)
@@ -47,7 +47,7 @@ export function compileBranchReportWithSource(raw:unknown,query:StatementQuery,b
  // above. The segment engine supplies independent balance/cash reconciliations.
  const selectedSource={...p.source,controls:undefined,opening:rows,events,
   coverage:{...p.source.coverage,eventCount:events.length,lineCount:events.reduce((n,e)=>n+e.lines.length,0)}};
- const result=normalizeStatementSource(selectedSource,query);
+ const result=normalizeStatementSource(selectedSource,query,includePeriodLedger);
  const expected=reconciled.segments.find(s=>s.branchId===branchId)!.statement;
  if(JSON.stringify(result.statements)!==JSON.stringify(expected)||company.statements.organizationId!==query.organization)
   throw Error('REPORTING_BRANCH_RECONCILIATION_REQUIRED');
@@ -55,6 +55,6 @@ export function compileBranchReportWithSource(raw:unknown,query:StatementQuery,b
  return{source:selectedSource,snapshot};
 }
 
-export function compileBranchReport(raw:unknown,query:StatementQuery,branchId:string|null):StatementSourceSnapshot{
- return compileBranchReportWithSource(raw,query,branchId).snapshot;
+export function compileBranchReport(raw:unknown,query:StatementQuery,branchId:string|null,includePeriodLedger=false):StatementSourceSnapshot{
+ return compileBranchReportWithSource(raw,query,branchId,includePeriodLedger).snapshot;
 }
