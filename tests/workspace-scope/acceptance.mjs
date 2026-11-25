@@ -7,6 +7,7 @@ import {setTimeout as delay} from 'node:timers/promises';
 import {createClient} from '@supabase/supabase-js';
 import {createServerClient} from '@supabase/ssr';
 import {budgetScopeAcceptance} from './budget-checks.mjs';
+import {routeOpeningAcceptance} from './route-opening-checks.mjs';
 
 const root=process.env.SCOPE_QA_WORKDIR;
 assert.ok(root&&process.env.RUNNER_TEMP&&root.startsWith(process.env.RUNNER_TEMP+'/'),'DISPOSABLE_RUNNER_REQUIRED');
@@ -22,7 +23,11 @@ const value=result=>{if(result.error)throw Error(result.error.message);return re
 async function check(name,run){
  console.log('CHECK '+name);
  try{await run();checks.push({name,status:'passed'});console.log('PASS '+name);}
- catch(error){checks.push({name,status:'failed',error:error instanceof Error?error.message:String(error)});throw error;}
+ catch(error){
+  checks.push({name,status:'failed',error:error instanceof Error?error.message:String(error)});
+  await captureFailurePage().catch(()=>{report.failurePage={unavailable:true};});
+  throw error;
+ }
 }
 async function actor(){
  const email=`scope-${randomUUID()}@workspace.invalid`,password=randomUUID()+'Aa7!';
@@ -37,6 +42,34 @@ async function contextFor(browser,actor,viewport={width:1440,height:1000}){
  await context.addCookies(actor.cookies.map(({name,value})=>({name,value,url:app})));
  await context.addInitScript(()=>localStorage.setItem('zf-theme','yaqeen-business'));
  return context;
+}
+async function captureFailurePage(){
+ if(report.failurePage)return;
+ // Diagnostics contain only the local synthetic UI, never request headers,
+ // cookies, storage, environment variables or HTML containing auth state.
+ const page=browser?.contexts().flatMap(context=>context.pages())
+  .filter(page=>!page.isClosed()&&page.url().startsWith(app+'/')).at(-1);
+ if(!page)return;
+ const redact=text=>text
+  .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,'[synthetic email]')
+  .replace(/\beyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g,'[redacted token]')
+  .replace(/\b(?:sb_secret_|sb_publishable_)[A-Za-z0-9_-]+\b/g,'[redacted key]');
+ const url=new URL(page.url()),query=new URLSearchParams();
+ for(const key of ['scope','organization','organization_id','level']){
+  const value=url.searchParams.get(key);if(value!==null)query.set(key,value);
+ }
+ const location=url.pathname+(query.size?'?'+query:'');
+ report.failurePage={location};
+ try{
+  const visible=await page.locator('body').innerText({timeout:5000});
+  await writeFile(out+'/failure-page.txt',redact(location+'\n\n'+visible).slice(0,30000)+'\n');
+  report.failurePage.visibleText='failure-page.txt';
+ }catch{report.failurePage.visibleTextUnavailable=true;}
+ try{
+  await page.screenshot({path:out+'/failure-page.png',fullPage:false,timeout:5000,
+   mask:[page.locator('input, textarea, [data-sensitive], a[href^="mailto:"], nextjs-portal')]});
+  report.failurePage.screenshot='failure-page.png';
+ }catch{report.failurePage.screenshotUnavailable=true;}
 }
 const terms=(name,scope,organization_id,bank)=>({name,instrument:'DEPOSIT',ownership_scope:scope,organization_id,party_name:'Scope QA bank',currency:'SAR',principal:1000,face_value:1000,fees:0,annual_rate:5,start_date:'2026-01-01',maturity_date:'2027-01-01',interest_basis:'ACT_365',zakat_basis:'HIJRI_354',zakat_rate:0,zakat_base:1000,zakat_treatment:'INVESTOR',inflation_rate:0,fx_rate:1,funding_account_id:bank});
 let server,browser;
@@ -207,15 +240,15 @@ try{
   await page.setViewportSize({width:1440,height:1000});
   await page.goto(app+'/en/transactions?scope=PERSONAL');
   await page.getByRole('button',{name:'Add transaction',exact:true}).click();
-  const asset=page.getByLabel('الأصل',{exact:true});await asset.locator(`option[value="${personalAsset}"]`).waitFor({state:'attached'});await asset.selectOption(personalAsset);
-  await page.getByLabel('النوع',{exact:true}).selectOption('SALE');
+  const asset=page.getByRole('combobox',{name:/^الأصل(?:\s|$)/});await asset.locator(`option[value="${personalAsset}"]`).waitFor({state:'attached'});await asset.selectOption(personalAsset);
+  await page.getByRole('combobox',{name:/^النوع(?:\s|$)/}).selectOption('SALE');
   const proceeds=page.getByLabel('إيداع متحصلات البيع في');
   const ids=await proceeds.locator('option').evaluateAll(options=>options.map(o=>o.value).filter(Boolean));assert.deepEqual(ids,[personalBank]);
   await page.locator('.corp-workspace-scope button').filter({hasText:'Business'}).click();
   await page.locator('#transaction-entry').waitFor({state:'hidden'});
   await page.waitForFunction(()=>document.querySelector('#corp-organization-controls select')?.value);
   await page.getByRole('button',{name:'Add transaction',exact:true}).click();
-  assert.equal(await page.getByLabel('الأصل',{exact:true}).inputValue(),'');
+  assert.equal(await page.getByRole('combobox',{name:/^الأصل(?:\s|$)/}).inputValue(),'');
   await page.locator('.corp-workspace-scope button').filter({hasText:'Personal'}).click();
   await page.locator('#transaction-entry').waitFor({state:'hidden'});
  });
@@ -241,11 +274,13 @@ try{
   await page.goto(app+`/en/invoice-register?organization=${orgB}&level=COMPANY&month=2026-11`);
   const url=new URL(page.url());assert.equal(url.pathname,'/en/vat');assert.equal(url.searchParams.get('organization'),orgB);assert.equal(url.searchParams.get('section'),'unified');
  });
+ report.routeOpening=await routeOpeningAcceptance({context:ownerContext,app,organizationId:orgA,check});
  assert.deepEqual(pageErrors,[],'No uncaught browser exceptions');
  await outsiderContext.close();await ownerContext.close();
  report.status='passed';
 }catch(error){
  report.status='failed';report.error=error instanceof Error?error.message:String(error);
+ await captureFailurePage().catch(()=>{report.failurePage={unavailable:true};});
  process.exitCode=1;
 }finally{
  report.finishedAt=new Date().toISOString();report.pageErrors=pageErrors;

@@ -158,14 +158,26 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     }
     phase(caseName,'feasibility-selected-pdf-omits-governance');
     phase(caseName,'personal-study-opened-and-reloaded');
+    assert.equal(new URL(page.url()).searchParams.has('organization'),false,
+     'A personal URL must not retain an institutional selection');
+    phase(caseName,'topbar-switch-to-organization');
+    await switcher.getByRole('button',{name:'Business',exact:true}).click();
+    await page.waitForFunction(()=>new URLSearchParams(location.search).get('scope')==='ORGANIZATION');
+    // This fresh context has never chosen a company. Select the authorized
+    // fixture in the banner rather than reviving the removed personal URL.
+    await organizationPicker.waitFor({state:'visible'});
+    assert.equal(await organizationPicker.isEnabled(),true);
+    await organizationPicker.click();
+    const companyDialog=page.getByRole('dialog',{name:'Choose organization from the main banner',exact:true});
+    const companyChoice=companyDialog.getByRole('radio',{name:new RegExp(marker+' '+caseName+' Institution')});
+    assert.equal(await companyChoice.count(),1,'The authorized company must be offered in the banner');
+    await companyChoice.check();
     const firstCompanyRead=page.waitForResponse(r=>{
      const parsed=new URL(r.url());
      return parsed.pathname==='/api/feasibility/organization-projects'&&
       parsed.searchParams.get('organization')===org&&r.request().method()==='GET';
     });
-    phase(caseName,'topbar-switch-to-organization');
-    await switcher.getByRole('button',{name:'Business',exact:true}).click();
-    await page.waitForFunction(()=>new URLSearchParams(location.search).get('scope')==='ORGANIZATION');
+    await companyDialog.getByRole('button',{name:'Select organization',exact:true}).click();
     const companyGet=await firstCompanyRead;
     phase(caseName,'organization-projects-get-'+companyGet.status());
     assert.equal(companyGet.status(),200,'Organization Feasibility GET must be authorized');
@@ -535,6 +547,20 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    assert.equal(source.study.water.operationsPlan.returnsPct,2);
    assert.equal(source.study.water.operationsPlan.distributionChannel,'distributors');
    phase(caseName,'personal-saved');
+   // Select the recipient through the banner as the copy UI requires. A
+   // personal URL intentionally cannot carry an institutional selection.
+   const copyScope=page.getByRole('group',{name:'نطاق العمل',exact:true});
+   await copyScope.getByRole('button',{name:'مؤسسي',exact:true}).click();
+   await page.getByRole('button',{name:'اختيار المؤسسة من البنر الرئيسي',exact:true}).click();
+   const recipientPicker=page.getByRole('dialog',{name:'اختيار المؤسسة من البنر الرئيسي',exact:true});
+   await recipientPicker.getByRole('radio',{name:/QA421 Copy destination/}).check();
+   const recipientRead=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/feasibility/organization-projects'&&
+    new URL(r.url()).searchParams.get('organization')===target&&r.request().method()==='GET');
+   await recipientPicker.getByRole('button',{name:'اختيار المؤسسة',exact:true}).click();
+   assert.equal((await recipientRead).status(),200);
+   await copyScope.getByRole('button',{name:'شخصي',exact:true}).click();
+   await page.getByRole('button',{name:'اختيار المؤسسة من البنر الرئيسي',exact:true}).waitFor({state:'hidden'});
+   assert.equal(new URL(page.url()).searchParams.has('organization'),false);
    await page.getByRole('button',{name:'نسخ إلى مؤسسة',exact:true}).click();
    const dialog=page.getByRole('dialog');
    await dialog.getByText(marker+' Copy destination',{exact:true}).waitFor();

@@ -6,7 +6,7 @@ import {useWorkspaceScope} from '../hooks/useWorkspaceScope';
 import {isClientWorkspaceScope,isWorkspaceScopePage,rememberWorkspaceScope,rememberedWorkspaceScope} from '../lib/topbar-navigation';
 import {rememberedOrganization,rememberedCompanyGroup} from '../lib/workspace-organization';
 import {updateClientWorkspaceScope} from '../lib/workspace-scope-client';
-import {workspaceNavigationHref} from '../lib/workspace-navigation-href';
+import {workspaceNavigationHref,workspaceScopeHydrationHref} from '../lib/workspace-navigation-href';
 import {useWorkspaceNavigation} from './WorkspaceNavigation';
 import {currentWorkspaceScope,workspaceScopeHref,searchNavigation,navigationHref,type WorkspaceScope} from '../lib/topbar-navigation';
 export default function TopbarNavigation({locale}:{locale:string}){
@@ -18,7 +18,7 @@ export default function TopbarNavigation({locale}:{locale:string}){
    rememberWorkspaceScope(resolved);
    const href=workspaceScopeHref(locale,page,q.toString(),resolved);
    const serverOwned=!isClientWorkspaceScope(page);
-   const target=serverOwned?workspaceNavigationHref(href,{scope:resolved,organization:rememberedOrganization(),group:rememberedCompanyGroup()}):href;
+   const target=serverOwned?workspaceScopeHydrationHref(locale,page,q.toString(),resolved):href;
    if(target!==path+(q.size?'?'+q:'')){
     if(serverOwned)router.replace(target,{scroll:false});
     else updateClientWorkspaceScope(resolved,true);

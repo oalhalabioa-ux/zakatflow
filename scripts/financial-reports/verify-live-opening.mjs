@@ -425,7 +425,28 @@ try{
   await branchPicker.selectOption('ALL');await page.locator('[data-statement-ready="income"]').waitFor();assert.equal(await picker.inputValue(),'ALL');
   const group=await page.request.get(app+'/api/financial-reporting/live-statements?'+new URLSearchParams({action:'group-review',organization:org,from:'2026-01-01',to:'2026-12-31'}));assert.equal(group.status(),200,await group.text());const review=await group.json();assert.equal(review.consolidated,false);assert.equal(review.registryComplete,false);assert.equal(review.members[0].organizationId,org);
  });
- for(const lang of ['ar','en'])for(const width of [1672,390])await check('Actual approved page layout '+lang+' '+width,async()=>{await page.setViewportSize({width,height:width===390?844:941});await page.goto(app+'/'+lang+'/opening-balances');await page.locator('[data-opening-ready="'+org+'"]').waitFor();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);const selector=page.locator('#corp-organization-controls select');await selector.waitFor();assert.ok(await selector.evaluate(el=>el.getBoundingClientRect().width>=100&&el.closest('#corp-organization-controls').clientWidth>=100&&el.closest('.corp-topbar').getBoundingClientRect().bottom>=el.getBoundingClientRect().bottom));await page.screenshot({path:out+`/opening-${lang}-${width}.png`,fullPage:true});await page.goto(app+'/'+lang+'/financial-reports');await page.locator('[data-statement-ready="overview"]').waitFor();assert.match(await page.locator('.fs-metrics').first().innerText(),/0.00/);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:out+`/statements-${lang}-${width}.png`,fullPage:true})});
+ for(const lang of ['ar','en'])for(const width of [1672,390])await check('Actual approved page layout '+lang+' '+width,async()=>{
+  await page.setViewportSize({width,height:width===390?844:941});
+  await page.goto(app+'/'+lang+'/opening-balances');
+  await page.locator('[data-opening-ready="'+org+'"]').waitFor();
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  const selector=page.locator('#corp-organization-controls select');await selector.waitFor();
+  assert.ok(await selector.evaluate(el=>el.getBoundingClientRect().width>=100&&el.closest('#corp-organization-controls').clientWidth>=100&&el.closest('.corp-topbar').getBoundingClientRect().bottom>=el.getBoundingClientRect().bottom));
+  await page.screenshot({path:out+`/opening-${lang}-${width}.png`,fullPage:true});
+  // B was genuinely revoked above. A bare report entry must authorize the saved
+  // selection before promoting it into its URL, then publish its valid fallback.
+  await page.evaluate(id=>{sessionStorage.setItem('zf-liquidity-org',id);localStorage.setItem('zf-liquidity-org',id)},other);
+  await page.goto(app+'/'+lang+'/financial-reports');
+  await page.locator('[data-statement-ready="overview"]').waitFor();
+  await page.waitForURL(url=>url.searchParams.get('organization')===org);
+  assert.equal(await page.locator('#corp-organization-controls').getByRole('combobox',{name:lang==='ar'?'المؤسسة':'Organization',exact:true}).inputValue(),org);
+  const outgoing=page.locator('#corp-financial-reporting-nav').getByRole('link',{name:lang==='ar'?'المركز المالي':'Financial position',exact:true});
+  const href=new URL(await outgoing.getAttribute('href'),app);
+  assert.equal(href.searchParams.get('scope'),'ORGANIZATION');assert.equal(href.searchParams.get('organization'),org);
+  assert.match(await page.locator('.fs-metrics').first().innerText(),/0.00/);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await page.screenshot({path:out+`/statements-${lang}-${width}.png`,fullPage:true});
+ });
  await check('Personal position opens from reporting and only reads the signed-in owner cash register',async()=>{
   await page.setViewportSize({width:1672,height:941});
   sql(`insert into public.asset_accounts(user_id,ownership_scope,asset_type,name,currency) values
@@ -440,19 +461,41 @@ try{
   assert.ok(data.accounts.some(x=>x.name==='Owner QA personal cash'));
   assert.ok(data.accounts.every(x=>x.organizationId===null&&x.name!=='Other QA personal cash'));
  });
- await check('Financial reports open in Business from either dashboard scope',async()=>{
+ await check('Report navigation preserves personal scope and requires a deliberate Business switch for corporate statements',async()=>{
   await page.setViewportSize({width:1672,height:941});
   for(const scope of ['PERSONAL','ORGANIZATION']){
    await page.goto(app+'/en/dashboard?scope='+scope+'&organization='+org);
    const menu=page.getByRole('button',{name:/Financial reports & statements/i});
    if(await menu.getAttribute('aria-expanded')!=='true')await menu.click();
+   if(scope==='PERSONAL'){
+    const personalLink=page.getByRole('link',{name:'Personal financial statements',exact:true});
+    const href=new URL(await personalLink.getAttribute('href'),app);
+    assert.equal(href.searchParams.get('scope'),'PERSONAL');assert.equal(href.searchParams.has('organization'),false);
+    assert.equal(await page.locator('#corp-financial-reporting-nav').getByRole('link',{name:'Financial position',exact:true}).count(),0,'Personal report navigation must not silently expose a corporate statement shortcut');
+    const personalRead=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/financial-reporting/personal');
+    await personalLink.click();const response=await personalRead;
+    assert.equal(response.status(),200,await response.text());const personal=await response.json();assert.equal(personal.scope,'PERSONAL');
+    assert.ok(personal.cashAccounts.some(account=>account.name==='Owner QA personal cash'));
+    assert.ok(personal.cashAccounts.every(account=>account.name!=='Other QA personal cash'));
+    await page.getByRole('heading',{name:'My personal financial reports',exact:true}).waitFor();
+    assert.equal(await page.getByRole('button',{name:'Personal',exact:true}).getAttribute('aria-pressed'),'true');
+    assert.equal(await page.locator('[data-statement-ready]').count(),0);
+    const personalUrl=new URL(page.url());assert.equal(personalUrl.searchParams.get('scope'),'PERSONAL');assert.equal(personalUrl.searchParams.has('organization'),false);
+    await page.getByRole('button',{name:'Business',exact:true}).click();
+    await page.locator('[data-statement-ready="overview"]').waitFor();
+    assert.equal(await page.getByRole('button',{name:'Business',exact:true}).getAttribute('aria-pressed'),'true');
+    const switched=new URL(page.url());assert.equal(switched.searchParams.get('scope'),'ORGANIZATION');assert.equal(switched.searchParams.get('organization'),org);
+   }
+   const corporateMenu=page.getByRole('button',{name:/Financial reports & statements/i});
+   if(await corporateMenu.getAttribute('aria-expanded')!=='true')await corporateMenu.click();
    await page.getByRole('link',{name:'Financial position',exact:true}).click();
    await page.locator('[data-statement-ready="position"]').waitFor();
    assert.equal(await page.getByRole('button',{name:'Business',exact:true}).getAttribute('aria-pressed'),'true');
-   const url=new URL(page.url());assert.equal(url.searchParams.get('organization'),org);assert.equal(url.searchParams.get('screen'),'position');
+   const url=new URL(page.url());assert.equal(url.searchParams.get('scope'),'ORGANIZATION');assert.equal(url.searchParams.get('organization'),org);assert.equal(url.searchParams.get('screen'),'position');
   }
-  await page.goto(app+'/en/financial-reports?screen=position&organization='+other);
+  await page.goto(app+'/en/financial-reports?scope=ORGANIZATION&screen=position&organization='+other);
   await page.getByRole('heading',{name:'No authorized statement sources'}).waitFor();
+  assert.equal(new URL(page.url()).searchParams.get('organization'),other,'An explicit revoked company must never fall back to the remembered authorized company');
   assert.equal(await page.locator('[data-statement-ready]').count(),0);
  });
  await check('Expired subscription keeps authorized reads and blocks opening writes',async()=>{sql(`update public.platform_subscriptions set trial_started_at=now()-interval '31 days',trial_ends_at=now()-interval '1 day' where organization_id='${org}'`);const r=await a.client.rpc('financial_opening_workspace',scope);assert.ifError(r.error);assert.equal(r.data.canSave,false);assert.equal(r.data.canApprove,false);assert.ok((await a.client.rpc('save_financial_opening',{...scope,p_expected_version:0,p_source_revision:r.data.source.revision,p_entries:{},p_reason:''})).error);sql(`update public.platform_subscriptions set trial_started_at=now(),trial_ends_at=now()+interval '30 days' where organization_id='${org}'`)});

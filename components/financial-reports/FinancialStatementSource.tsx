@@ -5,7 +5,8 @@ import {CostCenterStatements} from './CostCenterStatements';
 import {useCostCenterIncome,CostCenterPicker,CostCenterReport} from './CostCenterIncome';
 import TopbarOrganizationControls from '../TopbarOrganizationControls';
 import WorkspaceOrganizationPicker from '../WorkspaceOrganizationPicker';
-import {rememberedOrganization} from '../../lib/workspace-organization';
+import {rememberedOrganization,rememberOrganization} from '../../lib/workspace-organization';
+import {currentWorkspaceScope,rememberedWorkspaceScope} from '../../lib/topbar-navigation';
 import {useEffect,useRef,useState} from 'react';
 import Decimal from 'decimal.js';
 import {priorStatementPeriod,validStatementComparison} from '../../lib/financial-statement-comparison';
@@ -63,7 +64,7 @@ export default function FinancialStatementSource({initialView='income',initialEn
  const endpoint=live?'/api/financial-reporting/live-statements':'/api/financial-reporting/statements',expectedOrigin=live?'LIVE_CANONICAL_EVENTS':'LOCAL_QA_CANONICAL_EVENTS';
  const branchQuery:Record<string,string>=branch==='ALL'?{}:{branch};
  const requestedBranch=branch==='ALL'?undefined:branch;
- const contextIdentity=useRef('');
+ const contextIdentity=useRef(''),contextRequest=useRef(0);
  const currentSelection=useRef({organization,branch,from,to});currentSelection.current={organization,branch,from,to};
  const organizationContext=context.find(o=>o.organizationId===organization);
  const expectedCurrency=organizationContext?.currency??'';
@@ -71,7 +72,35 @@ export default function FinancialStatementSource({initialView='income',initialEn
  const centerEnabled=live&&scopeReady&&(view==='income'||dimensional);
  const center=useCostCenterIncome({dimensional,enabled:centerEnabled,organization,from,to,currency:expectedCurrency,refresh,branch});
  const centerSelected=centerEnabled&&center.value!=='ALL';
- useEffect(()=>{const identity=endpoint+'|'+preferredOrg;const preserve=contextIdentity.current===identity;contextIdentity.current=identity;const abort=new AbortController();setSnapshot(null);setContext([]);setError('');setLoading(true);fetch(endpoint+'?action=context',{signal:abort.signal,cache:'no-store'}).then(async r=>{if(!r.ok)throw Error(r.status===401?'UNAUTHORIZED':r.status===403?'DENIED':'UNAVAILABLE');return r.json()}).then((rows:Context)=>{if(abort.signal.aborted)return;setContext(rows);const preserved=preserve?rows.find(row=>row.organizationId===currentSelection.current.organization&&row.fiscalStart<=currentSelection.current.from&&row.fiscalEnd>=currentSelection.current.to):undefined;const initial=preserved??(preferredOrg?rows.find(row=>row.organizationId===preferredOrg):(live?rows.find(row=>row.organizationId===rememberedOrganization()):undefined)??rows[0]);if(!preserved)setBranch('ALL');setOrganization(initial?.organizationId??'');setFrom(preserved?currentSelection.current.from:initial?.fiscalStart??'');setTo(preserved?currentSelection.current.to:initial?(live&&initial.fiscalEnd>new Date().toISOString().slice(0,10)?new Date().toISOString().slice(0,10):initial.fiscalEnd):'');setLoading(false)}).catch(e=>{if(!abort.signal.aborted){setError(e.message);setLoading(false)}});return()=>abort.abort()},[refresh,endpoint,preferredOrg]);
+ useEffect(()=>{
+  const identity=endpoint+'|'+preferredOrg,preserve=contextIdentity.current===identity;
+  contextIdentity.current=identity;
+  const epoch=++contextRequest.current,requestedPath=window.location.pathname,abort=new AbortController();
+  const current=()=>!abort.signal.aborted&&epoch===contextRequest.current;
+  setSnapshot(null);setContext([]);setError('');setLoading(true);
+  fetch(endpoint+'?action=context',{signal:abort.signal,cache:'no-store'}).then(async r=>{
+   if(!r.ok)throw Error(r.status===401?'UNAUTHORIZED':r.status===403?'DENIED':'UNAVAILABLE');
+   return r.json();
+  }).then((rows:Context)=>{
+   if(!current())return;
+   setContext(rows);
+   const preserved=preserve?rows.find(row=>row.organizationId===currentSelection.current.organization&&row.fiscalStart<=currentSelection.current.from&&row.fiscalEnd>=currentSelection.current.to):undefined;
+   const initial=preserved??(preferredOrg?rows.find(row=>row.organizationId===preferredOrg):(live?rows.find(row=>row.organizationId===rememberedOrganization()):undefined)??rows[0]);
+   if(!preserved)setBranch('ALL');
+   setOrganization(initial?.organizationId??'');
+   setFrom(preserved?currentSelection.current.from:initial?.fiscalStart??'');
+   setTo(preserved?currentSelection.current.to:initial?(live&&initial.fiscalEnd>new Date().toISOString().slice(0,10)?new Date().toISOString().slice(0,10):initial.fiscalEnd):'');
+   setLoading(false);
+   // Only the successful authorized catalog may publish an implicit fallback.
+   // Never overwrite a newer explicit company, a scope switch, or another page.
+   const query=new URLSearchParams(window.location.search);
+   const scope=currentWorkspaceScope(window.location.pathname.split('/').slice(2).join('/'),window.location.search,rememberedWorkspaceScope());
+   if(live&&initial&&!preferredOrg&&current()&&window.location.pathname===requestedPath&&scope==='ORGANIZATION'&&!query.has('organization')&&!query.has('organization_id')){
+    rememberOrganization(initial.organizationId);
+   }
+  }).catch(e=>{if(current()){setError(e.message);setLoading(false)}});
+  return()=>abort.abort();
+ },[refresh,endpoint,preferredOrg]);
  useEffect(()=>{
   const abort=new AbortController();setBranches([]);setBranchesLoading(false);
   if(!live||!organization)return()=>abort.abort();

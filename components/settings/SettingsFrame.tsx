@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { rememberedOrganization } from "@/lib/workspace-organization";
 import { useWorkspaceScope } from "@/hooks/useWorkspaceScope";
+import type { WorkspaceScope } from "@/lib/topbar-navigation";
 import { settingSections, isSettingsSectionActive } from "./navigation";
 import "./settings.css";
 import "./settings-refinement.css";
@@ -12,15 +13,17 @@ import SettingsIcon from "./SettingsIcon";
 export default function SettingsFrame({
   locale,
   children,
+  initialScope,
 }: {
   locale: string;
   children: ReactNode;
+  initialScope?: WorkspaceScope;
 }) {
   const ar = locale === "ar",
     path = usePathname(),
     [organization, setOrganization] = useState("");
   const relativePath=path.split('/').slice(2).join('/');
-  const [scope]=useWorkspaceScope(relativePath==='settings/personal-setup'?'PERSONAL':'ORGANIZATION');
+  const [scope]=useWorkspaceScope(relativePath==='settings/personal-setup'?'PERSONAL':initialScope??'ORGANIZATION');
   const personal=relativePath==='settings/personal-setup'||relativePath==='settings/system'&&scope==='PERSONAL';
   const [fromSetup,setFromSetup]=useState(false);
   useEffect(() => {

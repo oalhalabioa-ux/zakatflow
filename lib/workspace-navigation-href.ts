@@ -1,6 +1,14 @@
-import {clearOrganizationScopeQuery,currentWorkspaceScope,isSharedWorkspacePage,isWorkspaceScopePage,type WorkspaceScope} from './topbar-navigation';
+import {clearOrganizationScopeQuery,currentWorkspaceScope,isSharedWorkspacePage,isWorkspaceScopePage,workspaceScopeHref,type WorkspaceScope} from './topbar-navigation';
 
 type Selection={scope:WorkspaceScope;organization?:string|null;group?:boolean};
+
+/** Hydration may normalize an explicit selection, but only a page's authorized catalog can restore a saved company. */
+export function workspaceScopeHydrationHref(locale:string,page:string,query:string,scope:WorkspaceScope){
+ const q=new URLSearchParams(query);
+ return workspaceNavigationHref(workspaceScopeHref(locale,page,query,scope),{
+  scope,organization:q.get('organization')??q.get('organization_id'),group:q.get('level')==='GROUP',
+ });
+}
 
 /** Resolve sidebar and search links from the same banner selection. */
 export function workspaceNavigationHref(href:string,selection:Selection):string{

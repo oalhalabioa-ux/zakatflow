@@ -1,9 +1,35 @@
-import {describe,expect,it} from 'vitest';
-import {workspaceNavigationHref} from './workspace-navigation-href';
+import {afterEach,describe,expect,it,vi} from 'vitest';
+import {workspaceNavigationHref,workspaceScopeHydrationHref} from './workspace-navigation-href';
+import {requestedOrganization,rememberedOrganization} from './workspace-organization';
 import {currentWorkspaceScope,isClientWorkspaceScope,workspaceScopeHref} from './topbar-navigation';
 
 const personal={scope:'PERSONAL' as const,organization:'old-company',group:true};
 const business={scope:'ORGANIZATION' as const,organization:'company-a',group:true};
+afterEach(()=>vi.unstubAllGlobals());
+
+describe('server workspace hydration',()=>{
+ it('does not turn a revoked remembered company into an explicit request before catalog authorization',()=>{
+  vi.stubGlobal('sessionStorage',{getItem:()=> 'revoked-b'});
+  vi.stubGlobal('localStorage',{getItem:()=> 'revoked-b'});
+  const href=workspaceScopeHydrationHref('ar','financial-reports','','ORGANIZATION');
+  const query=new URL(href,'https://app.invalid').searchParams;
+  expect(query.get('scope')).toBe('ORGANIZATION');
+  expect(query.has('organization')).toBe(false);expect(query.has('organization_id')).toBe(false);
+  expect(requestedOrganization([{id:'company-a',name:'A'}],query.get('organization'),rememberedOrganization())?.id).toBe('company-a');
+ });
+ it('keeps an explicit unavailable company fail-closed, including its alias and group level',()=>{
+  for(const selection of ['organization=revoked-b','organization_id=revoked-b']){
+   const href=workspaceScopeHydrationHref('en','financial-reports',selection+'&level=GROUP','ORGANIZATION');
+   const query=new URL(href,'https://app.invalid').searchParams;
+   expect(query.get('organization')).toBe('revoked-b');expect(query.get('level')).toBe('GROUP');
+   expect(requestedOrganization([{id:'company-a',name:'A'}],query.get('organization'),'company-a')).toBeUndefined();
+  }
+ });
+ it('clears stale corporate dimensions when an explicit personal report hydrates',()=>{
+  expect(workspaceScopeHydrationHref('ar','financial-reports','scope=PERSONAL&organization=old-b&level=GROUP&screen=position','PERSONAL'))
+   .toBe('/ar/financial-reports?scope=PERSONAL');
+ });
+});
 
 describe('navigation follows the banner scope',()=>{
  it.each(['assets','assets/dashboard','transactions','lots','assessments','payments','cash-and-banks','receivables','payables','loans','debt-advances','debt-collection','debt-report','financial-position','investments','reports','reports/print','feasibility','financial-reports','prices','workflow','enterprise'])(
