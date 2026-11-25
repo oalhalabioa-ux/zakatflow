@@ -95,7 +95,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     await page.getByRole('button',{name:'Operations',exact:true}).click();
     assert.equal(await collectionPeriod.inputValue(),'45');
     await page.getByRole('button',{name:'Report and export',exact:true}).click();
-    const report=page.getByRole('heading',{name:'Feasibility report',exact:true});
+    const report=page.getByRole('heading',{name:'Comprehensive investment report',exact:true});
     await report.waitFor();
     const reportContents=page.getByRole('navigation',{name:'Report contents'});
     const fundingSection=page.locator('[data-report-section="funding"]');
@@ -437,7 +437,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    await sidebar.getByRole('group',{name:'أقسام دراسات جدوى المشاريع',exact:true})
     .getByRole('button',{name:'التقرير والتصدير',exact:true}).tap();
    await sidebar.waitFor({state:'hidden'});
-   await page.getByRole('heading',{name:'التقرير الشامل',exact:true}).waitFor();
+   await page.getByRole('heading',{name:'التقرير الاستثماري الشامل',exact:true}).waitFor();
    assert.equal(await mobileMenu.getAttribute('aria-expanded'),'false');
    await page.screenshot({path:new URL('./screenshots/qa438-water-report-ar-mobile.png',import.meta.url).pathname,fullPage:true});
    for(const [locale,operations,hoursLabel,periodLabel] of [
@@ -573,7 +573,14 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
     const loaded=await portfolio;
     assert.equal(loaded.status(),200);
     if(expected){
-     await page.getByRole('button',{name:/QA Personal water copy source/}).waitFor();
+     await page.getByRole('heading',{name:studyTitle,exact:true}).waitFor();
+     await page.getByRole('navigation',{name:'Study sections',exact:true})
+      .getByRole('button',{name:'Report and export',exact:true}).click();
+     const reportContents=page.getByRole('navigation',{name:'Report contents',exact:true});
+     const fundingStatus=reportContents.getByRole('link',{name:'Funding and shareholder loans',exact:true});
+     assert.equal(await fundingStatus.locator('[data-complete]').getAttribute('data-complete'),'false');
+     await page.getByRole('link',{name:/Review open requirements/}).press('Enter');
+     assert.equal(await page.locator('.fs-report-requirements').evaluate(el=>document.activeElement===el),true);
     }else{
      await page.getByRole('heading',{name:'No studies for the selected organization',exact:true}).waitFor();
     }
