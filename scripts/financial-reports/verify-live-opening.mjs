@@ -453,8 +453,8 @@ try{
   assert.doesNotMatch(csv,/Other QA personal cash/);
   const xlsxDownload=page.waitForEvent('download');
   await report.getByRole('button',{name:'Excel',exact:true}).click();
-  const {Workbook}=await import('exceljs');
-  const workbook=new Workbook();await workbook.xlsx.readFile(await (await xlsxDownload).path());
+  const {default:ExcelJS}=await import('exceljs');
+  const workbook=new ExcelJS.Workbook();await workbook.xlsx.readFile(await (await xlsxDownload).path());
   const values=[];workbook.worksheets[0].eachRow(row=>values.push(...row.values));
   assert.ok(values.includes('Owner QA personal cash'));
   assert.ok(!values.includes('Other QA personal cash'));
