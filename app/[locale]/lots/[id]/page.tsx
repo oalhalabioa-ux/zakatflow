@@ -1,9 +1,11 @@
 'use client';
 import {Money,CurrencyScope} from '@/components/DisplayCurrency';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import RecordWorkspaceNotice from '@/components/RecordWorkspaceNotice';
+import {useRecordWorkspace} from '@/hooks/useRecordWorkspace';
+import {recordWorkspaceHref} from '@/lib/record-workspace-scope';
 
 export default function LotDetail() {
   const params = useParams<{ locale: string; id: string }>();
@@ -11,33 +13,27 @@ export default function LotDetail() {
   const id = params.id;
   const ar = locale === 'ar';
 
-  const [x, setX] = useState<any>();
-
-  useEffect(() => {
-    if (!id) return;
-
-    fetch(`/api/lots/${id}`)
-      .then((r) => r.json())
-      .then(setX);
-  }, [id]);
-
-  if (!x) {
+  const {data:x,owner,selection,loading,error,matches}=useRecordWorkspace('lots',id);
+  if (loading) {
     return (
       <main className="container">
-        <p>Loading…</p>
+        <p role="status">{ar?'جارٍ تحميل الدفعة والتحقق من نطاقها…':'Loading and checking the lot workspace…'}</p>
       </main>
     );
   }
+  if(error||!matches||!owner||!selection)return <main className="container"><RecordWorkspaceNotice {...{locale,id,owner,selection,error}} collection="lots"/></main>;
+  const baseCurrency=x.transactions?.base_currency??x.asset_accounts?.currency??'SAR';
 
   return (
     <main className="container">
+      <CurrencyScope currency={baseCurrency} organizationId={owner.organizationId??undefined}/>
       <div className="page-head">
         <div>
           <h1>{ar ? 'تفاصيل الدفعة' : 'Lot Detail'}</h1>
           <p className="muted">{x.id}</p>
         </div>
 
-        <Link className="btn secondary" href={`/${locale}/lots`}>
+        <Link className="btn secondary" href={recordWorkspaceHref(locale,'lots',selection)}>
           {ar ? 'عودة' : 'Back'}
         </Link>
       </div>
@@ -46,7 +42,7 @@ export default function LotDetail() {
         <Card t={ar ? 'الأصل' : 'Asset'} v={x.asset_accounts?.name} />
         <Card
           t={ar ? 'القيمة المتبقية' : 'Remaining Value'}
-          v={<Money value={x.remaining_value_base} currency={x.transactions?.base_currency || "SAR"}/>}
+          v={<Money value={x.remaining_value_base} currency={baseCurrency} organizationId={owner.organizationId}/>}
         />
         <Card
           t={ar ? 'بداية الحول' : 'Hawl Start'}
@@ -83,7 +79,7 @@ export default function LotDetail() {
               <tr key={a.id}>
                 <td>{a.transaction_id}</td>
                 <td>{a.quantity}</td>
-                <td><Money value={a.value_base} currency={x.transactions?.base_currency || "SAR"}/></td>
+                <td><Money value={a.value_base} currency={baseCurrency} organizationId={owner.organizationId}/></td>
                 <td>{a.allocation_method}</td>
               </tr>
             ))}
@@ -109,7 +105,7 @@ export default function LotDetail() {
               <tr key={a.id}>
                 <td>{a.zakat_assessments?.assessment_date}</td>
                 <td>{a.eligibility_status}</td>
-                <td><Money value={a.zakat_amount} currency={a.zakat_assessments?.currency || x.transactions?.base_currency || "SAR"}/></td>
+                <td><Money value={a.zakat_amount} currency={a.zakat_assessments?.currency || baseCurrency} organizationId={owner.organizationId}/></td>
                 <td>{a.explanation}</td>
               </tr>
             ))}
@@ -124,7 +120,7 @@ function Card({ t, v }: { t: string; v: any }) {
   return (
     <div className="card">
       <div className="muted">{t}</div>
-      <div className="metric">{v || '—'}</div>
+      <div className="metric">{v ?? '—'}</div>
     </div>
   );
 }

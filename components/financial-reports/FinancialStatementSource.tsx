@@ -5,7 +5,8 @@ import {CostCenterStatements} from './CostCenterStatements';
 import {useCostCenterIncome,CostCenterPicker,CostCenterReport} from './CostCenterIncome';
 import TopbarOrganizationControls from '../TopbarOrganizationControls';
 import WorkspaceOrganizationPicker from '../WorkspaceOrganizationPicker';
-import {rememberedOrganization} from '../../lib/workspace-organization';
+import {rememberedOrganization,rememberOrganization} from '../../lib/workspace-organization';
+import {currentWorkspaceScope,rememberedWorkspaceScope} from '../../lib/topbar-navigation';
 import {useEffect,useRef,useState} from 'react';
 import Decimal from 'decimal.js';
 import {priorStatementPeriod,validStatementComparison} from '../../lib/financial-statement-comparison';
@@ -63,15 +64,44 @@ export default function FinancialStatementSource({initialView='income',initialEn
  const endpoint=live?'/api/financial-reporting/live-statements':'/api/financial-reporting/statements',expectedOrigin=live?'LIVE_CANONICAL_EVENTS':'LOCAL_QA_CANONICAL_EVENTS';
  const branchQuery:Record<string,string>=branch==='ALL'?{}:{branch};
  const requestedBranch=branch==='ALL'?undefined:branch;
- const contextIdentity=useRef('');
+ const contextIdentity=useRef(''),contextRequest=useRef(0);
  const currentSelection=useRef({organization,branch,from,to});currentSelection.current={organization,branch,from,to};
  const organizationContext=context.find(o=>o.organizationId===organization);
+ const periodAvailable=context.some(o=>o.organizationId===organization&&!!o.fiscalStart&&!!o.fiscalEnd);
  const expectedCurrency=organizationContext?.currency??'';
  const dimensional=organizationContext?.dimensionalCenters===true&&(view==='position'||view==='cash-flow');
  const centerEnabled=live&&scopeReady&&(view==='income'||dimensional);
  const center=useCostCenterIncome({dimensional,enabled:centerEnabled,organization,from,to,currency:expectedCurrency,refresh,branch});
  const centerSelected=centerEnabled&&center.value!=='ALL';
- useEffect(()=>{const identity=endpoint+'|'+preferredOrg;const preserve=contextIdentity.current===identity;contextIdentity.current=identity;const abort=new AbortController();setSnapshot(null);setContext([]);setError('');setLoading(true);fetch(endpoint+'?action=context',{signal:abort.signal,cache:'no-store'}).then(async r=>{if(!r.ok)throw Error(r.status===401?'UNAUTHORIZED':r.status===403?'DENIED':'UNAVAILABLE');return r.json()}).then((rows:Context)=>{if(abort.signal.aborted)return;setContext(rows);const preserved=preserve?rows.find(row=>row.organizationId===currentSelection.current.organization&&row.fiscalStart<=currentSelection.current.from&&row.fiscalEnd>=currentSelection.current.to):undefined;const initial=preserved??(preferredOrg?rows.find(row=>row.organizationId===preferredOrg):(live?rows.find(row=>row.organizationId===rememberedOrganization()):undefined)??rows[0]);if(!preserved)setBranch('ALL');setOrganization(initial?.organizationId??'');setFrom(preserved?currentSelection.current.from:initial?.fiscalStart??'');setTo(preserved?currentSelection.current.to:initial?(live&&initial.fiscalEnd>new Date().toISOString().slice(0,10)?new Date().toISOString().slice(0,10):initial.fiscalEnd):'');setLoading(false)}).catch(e=>{if(!abort.signal.aborted){setError(e.message);setLoading(false)}});return()=>abort.abort()},[refresh,endpoint,preferredOrg]);
+ useEffect(()=>{
+  const identity=endpoint+'|'+preferredOrg,preserve=contextIdentity.current===identity;
+  contextIdentity.current=identity;
+  const epoch=++contextRequest.current,requestedPath=window.location.pathname,abort=new AbortController();
+  const current=()=>!abort.signal.aborted&&epoch===contextRequest.current;
+  setSnapshot(null);setContext([]);setError('');setLoading(true);
+  fetch(endpoint+'?action=context',{signal:abort.signal,cache:'no-store'}).then(async r=>{
+   if(!r.ok)throw Error(r.status===401?'UNAUTHORIZED':r.status===403?'DENIED':'UNAVAILABLE');
+   return r.json();
+  }).then((rows:Context)=>{
+   if(!current())return;
+   setContext(rows);
+   const preserved=preserve?rows.find(row=>row.organizationId===currentSelection.current.organization&&row.fiscalStart<=currentSelection.current.from&&row.fiscalEnd>=currentSelection.current.to):undefined;
+   const initial=preserved??(preferredOrg?rows.find(row=>row.organizationId===preferredOrg):(live?rows.find(row=>row.organizationId===rememberedOrganization()):undefined)??rows[0]);
+   if(!preserved)setBranch('ALL');
+   setOrganization(initial?.organizationId??'');
+   setFrom(preserved?currentSelection.current.from:initial?.fiscalStart??'');
+   setTo(preserved?currentSelection.current.to:initial?(live&&initial.fiscalEnd>new Date().toISOString().slice(0,10)?new Date().toISOString().slice(0,10):initial.fiscalEnd):'');
+   setLoading(false);
+   // Only the successful authorized catalog may publish an implicit fallback.
+   // Never overwrite a newer explicit company, a scope switch, or another page.
+   const query=new URLSearchParams(window.location.search);
+   const scope=currentWorkspaceScope(window.location.pathname.split('/').slice(2).join('/'),window.location.search,rememberedWorkspaceScope());
+   if(live&&initial&&!preferredOrg&&current()&&window.location.pathname===requestedPath&&scope==='ORGANIZATION'&&!query.has('organization')&&!query.has('organization_id')){
+    rememberOrganization(initial.organizationId);
+   }
+  }).catch(e=>{if(current()){setError(e.message);setLoading(false)}});
+  return()=>abort.abort();
+ },[refresh,endpoint,preferredOrg]);
  useEffect(()=>{
   const abort=new AbortController();setBranches([]);setBranchesLoading(false);
   if(!live||!organization)return()=>abort.abort();
@@ -83,7 +113,7 @@ export default function FinancialStatementSource({initialView='income',initialEn
    .finally(()=>{if(!abort.signal.aborted)setBranchesLoading(false)});
   return()=>abort.abort();
  },[live,organization,endpoint,refresh]);
- useEffect(()=>{setSnapshot(null);setComparison(null);if(!scopeReady||centerSelected){setLoading(false);setError('');return}if(!organization||!from||!to||!context.some(o=>o.organizationId===organization))return;const abort=new AbortController();setLoading(true);setError('');const q=new URLSearchParams({action:'statements',organization,from,to,...branchQuery});fetch(endpoint+'?'+q,{signal:abort.signal,cache:'no-store'}).then(readStatementResponse).then(async(s:StatementSourceSnapshot)=>{if(abort.signal.aborted)return;if(!matchesStatementRequest(s,{organization,from,to,currency:expectedCurrency,origin:expectedOrigin,branch:requestedBranch}))throw Error('UNAVAILABLE');let previous:StatementSourceSnapshot|null=null;const period=priorStatementPeriod(from,to);if(live&&context.some(o=>o.organizationId===organization&&o.fiscalStart<=period.from&&o.fiscalEnd>=period.to)){const response=await fetch(endpoint+'?'+new URLSearchParams({action:'statements',organization,...period,...branchQuery}),{signal:abort.signal,cache:'no-store'});if(response.status===401||response.status===403)throw Error('DENIED');if(response.ok)previous=validStatementComparison(s,await response.json())}if(abort.signal.aborted)return;setComparison(previous);setSnapshot(s);setLoading(false)}).catch(e=>{if(!abort.signal.aborted){setError(e.message);setLoading(false)}});return()=>abort.abort()},[organization,from,to,context,endpoint,expectedOrigin,expectedCurrency,scopeReady,branch,centerSelected]);
+ useEffect(()=>{setSnapshot(null);setComparison(null);if(!scopeReady||centerSelected){setLoading(false);setError('');return}if(!organization||!context.some(o=>o.organizationId===organization))return;if(!periodAvailable||!from||!to){setLoading(false);setError('');return}const abort=new AbortController();setLoading(true);setError('');const q=new URLSearchParams({action:'statements',organization,from,to,...branchQuery});fetch(endpoint+'?'+q,{signal:abort.signal,cache:'no-store'}).then(readStatementResponse).then(async(s:StatementSourceSnapshot)=>{if(abort.signal.aborted)return;if(!matchesStatementRequest(s,{organization,from,to,currency:expectedCurrency,origin:expectedOrigin,branch:requestedBranch}))throw Error('UNAVAILABLE');let previous:StatementSourceSnapshot|null=null;const period=priorStatementPeriod(from,to);if(live&&context.some(o=>o.organizationId===organization&&o.fiscalStart<=period.from&&o.fiscalEnd>=period.to)){const response=await fetch(endpoint+'?'+new URLSearchParams({action:'statements',organization,...period,...branchQuery}),{signal:abort.signal,cache:'no-store'});if(response.status===401||response.status===403)throw Error('DENIED');if(response.ok)previous=validStatementComparison(s,await response.json())}if(abort.signal.aborted)return;setComparison(previous);setSnapshot(s);setLoading(false)}).catch(e=>{if(!abort.signal.aborted){setError(e.message);setLoading(false)}});return()=>abort.abort()},[organization,from,to,context,endpoint,expectedOrigin,expectedCurrency,scopeReady,branch,centerSelected,periodAvailable]);
  useEffect(()=>{
   setScopeDiagnostics(null);setScopeChecking(false);
   if(!live||reportScope==='COMPANY_WITH_BRANCHES'||!organization||!from||!to||!context.some(o=>o.organizationId===organization))return;
@@ -98,10 +128,11 @@ export default function FinancialStatementSource({initialView='income',initialEn
  },[live,reportScope,organization,from,to,context,endpoint,refresh]);
  // Scope is checked during render too, so an organization/period change cannot
  // expose stale numbers or enable export before its effect clears the old result.
- const ready=scopeReady&&matchesStatementRequest(snapshot,{organization,from,to,currency:expectedCurrency,origin:expectedOrigin,branch:requestedBranch})?snapshot:null;
+ const ready=scopeReady&&periodAvailable&&!!from&&!!to&&matchesStatementRequest(snapshot,{organization,from,to,currency:expectedCurrency,origin:expectedOrigin,branch:requestedBranch})?snapshot:null;
  const activeKey=useRef('');activeKey.current=[organization,from,to,view,en,refresh,reportScope,branch,center.value].join('|');
  const previous=ready?validStatementComparison(ready,comparison):null;
  const selected=context.find(o=>o.organizationId===organization&&o.fiscalStart<=from&&o.fiscalEnd>=to)??context.find(o=>o.organizationId===organization);
+ const periodIssue=selected?(!periodAvailable?'SETUP':!from||!to?'DATES':null):null;
  const currentDraft=scopeReady&&branch==='ALL'&&draftPreview&&draftPreview.organizationId===organization&&draftPreview.fiscalStart===selected?.fiscalStart?draftPreview:null;
  const displayDraft=Boolean(currentDraft&&(!ready||preferDraft));
  const draftFiscalStart=selected?.fiscalStart??'';
@@ -158,6 +189,12 @@ export default function FinancialStatementSource({initialView='income',initialEn
   {!live&&<div className="fs-demo-note">{t('بيانات اختبار محلية من أحداث محفوظة في قاعدة مؤقتة؛ ليست قوائم المؤسسة.','Local test data from saved events in a disposable database; not organization financial statements.')}</div>}
   <div className="fs-source-period">{centerSelected?(center.data?.rows.find(r=>r.centerId===(center.value==='UNALLOCATED'?null:center.value))?.name??t('المركز المختار','Selected center'))+' · '+t('العملة الأساسية','Base currency'):branch==='ALL'?t('كامل المؤسسة وجميع كياناتها · العملة الأساسية','Entire organization and all entities · base currency'):branch==='HQ'?t('المركز الرئيسي · العملة الأساسية','Headquarters · base currency'):(branches.find(b=>b.id===branch)?.name??'')+' · '+t('العملة الأساسية','Base currency')} {selected?.currency} · {centerSelected?t('المركز المختار فقط؛ دون مقارنة معتمدة','Selected center only; no approved comparison'):displayDraft?t('معاينة مسودة؛ بلا مقارنة أو ترحيل رسمي','Draft preview; no comparison or official posting'):previous?t('مقارنة بالفترة المقابلة من السنة السابقة','Compared with the same period last year'):t('دون بيانات مقارنة؛ لا تعرض أسهم نمو','No comparison data; growth arrows are unavailable')}</div>
   {periodFilters}
+  {!centerSelected&&!loading&&!error&&periodIssue&&<ReportCard className="fs-source-period-required" icon="calendar" title={periodIssue==='SETUP'?t('يلزم إعداد السنة المالية','Financial period setup required'):t('حدّد فترة التقرير','Choose the report dates')}>
+   <div role="status" data-statement-prerequisite={periodIssue}>
+    <p>{periodIssue==='SETUP'?t('لا توجد فترة مالية متاحة لهذه المؤسسة. راجع إعداد السنة المالية أولًا، ثم حدّث هذه الصفحة للتحقق من جاهزية القوائم.','No financial period is available for this organization. Review its fiscal year setup, then refresh this page to check statement readiness.'):t('أدخل تاريخ البداية والنهاية ضمن الفترة المالية المتاحة لعرض التقرير.','Enter both From and To dates within the available financial period to load the report.')}</p>
+    {periodIssue==='SETUP'&&<a href={`/${en?'en':'ar'}/settings/financial/fiscal-years?scope=ORGANIZATION&organization=${encodeURIComponent(organization)}&level=COMPANY`}>{t('إعداد السنة المالية للمؤسسة','Set up this organization’s fiscal year')}</a>}
+   </div>
+  </ReportCard>}
   {!centerSelected&&loading&&<p role="status" className="fs-source-loading">{t('جارٍ التحقق من المصدر وتسوية القوائم…','Validating the source and reconciling statements…')}</p>}
   {!centerSelected&&error&&<div role="alert" className="fs-source-error">{['REPORTING_BRANCH_OPENING_REQUIRED','REPORTING_BRANCH_OPENING_STALE'].includes(error)?<>{t('يلزم توزيع الأرصدة الافتتاحية على الفروع واعتمادها قبل إصدار تقرير الفرع. تبقى أرقام الشركة متاحة باختيار جميع الفروع.','Approve the branch opening allocation before issuing branch statements. Company figures remain available under All branches.')} <a href={`/${en?'en':'ar'}/opening-balances/branches?organization=${encodeURIComponent(organization)}&fiscalStart=${selected?.fiscalStart??''}`}>{t('توزيع الأرصدة على الفروع','Allocate branch openings')}</a></>:error==='REPORTING_BRANCH_SOURCE_UNRESOLVED'?t('توجد حركة غير مربوطة بفرع أو تحويل بين الفروع يحتاج تسوية محاسبية. راجع ربط الحركات؛ تبقى أرقام الشركة متاحة باختيار جميع الفروع.','A transaction has unresolved branch attribution or an interbranch transfer needs accounting clearance. Review source assignments; company figures remain available under All branches.'):error==='REPORTING_CLOSED_DIMENSIONS_UNAVAILABLE'?t('تقرير الفرع لهذه السنة المغلقة يحتاج نسخة معتمدة من توزيعها التاريخي.','Branch reporting for this closed year requires frozen historical dimensions.'):error==='REPORTING_APPROVED_POLICY_REQUIRED'?<>{t('الأرصدة الافتتاحية المعتمدة محفوظة، لكن إصدار القوائم يتطلب اعتماد قواعد الترحيل لهذه السنة المالية.','Approved opening balances remain saved, but the posting rules for this fiscal year must be approved before statements can be issued.')} <a href={`/${en?'en':'ar'}/financial-reporting-policy?organization=${encodeURIComponent(organization)}`}>{t('مراجعة واعتماد قواعد الترحيل','Review and approve posting rules')}</a></>:displayDraft?t('القوائم الرسمية غير متاحة حالياً. تظهر أدناه معاينة المسودة غير المعتمدة فقط.','Official statements are not yet available. Only the unapproved draft preview is shown below.'):error==='UNAUTHORIZED'?t('سجّل الدخول للاطلاع على المصادر المصرح بها.','Sign in to view authorized sources.'):error==='DENIED'?t('لم تعد صلاحية الاطلاع متاحة. أُخفيت الأرقام السابقة.','Access is no longer available. Previous figures have been cleared.'):error==='EXPORT_FAILED'?t('تعذر تجهيز التصدير.','Could not prepare the export.'):t('تعذر التحقق من المصدر الكامل والسياسة والأرصدة. لا تُعرض أرقام بديلة.','The complete source, policy and openings could not be verified. No substitute figures are displayed.')}</div>}
   {live&&!centerSelected&&!loading&&organization&&selected&&!ready&&!['DENIED','UNAUTHORIZED'].includes(error)&&<ReportCard title={t('المصادر والسجلات','Sources and registers')}><p>{t('هذه الروابط ليست بديلاً عن القوائم المالية. لا تُعرض أرصدة النقد منفردة داخل قائمة المركز المالي عند تعذر اكتمالها.','These links are not a substitute for financial statements. Cash balances are not shown as a partial financial position when the complete statement is unavailable.')}</p><a href={`/${en?'en':'ar'}/transactions?scope=ORGANIZATION&organization=${organization}`}>{t('سجل العمليات','Transactions')}</a> · <a href={`/${en?'en':'ar'}/opening-balances?organization=${organization}`}>{t('الأرصدة والسندات الافتتاحية','Opening balances and vouchers')}</a></ReportCard>}

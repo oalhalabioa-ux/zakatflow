@@ -1,4 +1,8 @@
-'use client';
-import {Money,CurrencyScope} from '@/components/DisplayCurrency';
-import {useEffect,useState} from 'react';
-export default function Enterprise(){const [d,setD]=useState<any>(); useEffect(()=>{fetch('/api/consolidation').then(r=>r.json()).then(setD)},[]); return <main className="p-8 max-w-7xl mx-auto"><h1 className="text-3xl font-bold">Enterprise Zakat</h1><div className="grid md:grid-cols-3 gap-4 my-8"><div className="p-5 rounded-2xl bg-white border"><div className="text-slate-500">Total Zakatable</div><b className="text-2xl"><Money value={d?.totalZakatableValue} currency={d?.baseCurrency || "SAR"}/></b></div><div className="p-5 rounded-2xl bg-white border"><div className="text-slate-500">Consolidated Zakat Due</div><b className="text-2xl"><Money value={d?.totalZakatDue} currency={d?.baseCurrency || "SAR"}/></b></div><div className="p-5 rounded-2xl bg-white border"><div className="text-slate-500">Assessments</div><b className="text-2xl">{d?.lineCount??0}</b></div></div><div className="overflow-auto bg-white border rounded-2xl"><table className="w-full text-sm"><thead><tr><th className="p-3 text-start">Entity</th><th className="p-3 text-start">Assessment</th><th className="p-3 text-end">Zakat</th></tr></thead><tbody>{(d?.lines||[]).map((x:any)=><tr key={x.assessmentId} className="border-t"><td className="p-3">{x.entityName}</td><td className="p-3">{x.assessmentId}</td><td className="p-3 text-end"><Money value={x.zakatDue} currency={x.currency}/></td></tr>)}</tbody></table></div></main>}
+import {redirect} from 'next/navigation';
+import {legacyAssessmentHref} from '@/lib/legacy-workspace-navigation';
+
+/** The legacy account-wide consolidation must not appear as a selected company's result. */
+export default async function Enterprise({params,searchParams}:{params:Promise<{locale:string}>;searchParams:Promise<Record<string,string|string[]|undefined>>}){
+ const[{locale},query]=await Promise.all([params,searchParams]);
+ redirect(legacyAssessmentHref(locale,query));
+}

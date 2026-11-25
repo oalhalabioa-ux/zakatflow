@@ -1,9 +1,9 @@
 'use client';
 
 import WorkspaceOrganizationPicker from './WorkspaceOrganizationPicker';
-import {organizationTree,organizationOptionLabel,preferredOrganization,rememberedOrganization,rememberedCompanyGroup,rememberOrganization} from '../lib/workspace-organization';
+import {organizationTree,organizationOptionLabel,requestedOrganization,rememberedOrganization,rememberedCompanyGroup,rememberOrganization} from '../lib/workspace-organization';
 import TopbarOrganizationControls from './TopbarOrganizationControls';
-import {useEffect,useMemo,useState,type ReactNode} from 'react';
+import {useEffect,useMemo,useRef,useState,type ReactNode} from 'react';
 import {organizationDisplayName} from '@/lib/organization-display';
 
 export type BudgetOrganization={id:string;name:string;parent_organization_id?:string|null;organization_kind:'HOLDING'|'SUBSIDIARY';sort_order:number;created_at?:string};
@@ -21,10 +21,17 @@ const COST_CENTER_TYPES:Array<{value:CostCenterType;ar:string;en:string}>= [
 const centerTypeLabel=(type:CostCenterType,ar:boolean)=>COST_CENTER_TYPES.find(item=>item.value===type)?.[ar?'ar':'en']??type;
 const sortOrganizations=(items:Organization[])=>organizationTree(items).map(row=>row.organization);
 
-export default function BudgetOrganizationManager({ar,value,onChange,onCostCentersChange,onOrganizationsChange,disabled=false,topbar=false}:{topbar?:boolean;ar:boolean;value:string;disabled?:boolean;onChange:(name:string,options?:{defaultSelection?:boolean;group?:boolean})=>void;onCostCentersChange?:(centers:CostCenter[])=>void;onOrganizationsChange?:(organizations:BudgetOrganization[])=>void}){
+export default function BudgetOrganizationManager({ar,value,onChange,onCostCentersChange,onOrganizationsChange,disabled=false,topbar=false}:{topbar?:boolean;ar:boolean;value:string;disabled?:boolean;onChange:(name:string,options?:{defaultSelection?:boolean;group?:boolean;organizationId?:string})=>void;onCostCentersChange?:(centers:CostCenter[])=>void;onOrganizationsChange?:(organizations:BudgetOrganization[])=>void}){
  const [organizations,setOrganizations]=useState<Organization[]>([]);
+ const callbacks=useRef({onChange,onCostCentersChange,onOrganizationsChange,value});callbacks.current={onChange,onCostCentersChange,onOrganizationsChange,value};
+ const appliedSelection=useRef<string|null>(null);
+ const localSelection=useRef(false);
+ const centerRequest=useRef(0);
+ const centerAbort=useRef<AbortController|null>(null);
+ useEffect(()=>()=>centerAbort.current?.abort(),[]);
  const [centers,setCenters]=useState<CostCenter[]>([]);
  const [selectedId,setSelectedId]=useState('');
+ const selectedIdRef=useRef(selectedId);selectedIdRef.current=selectedId;
  const [open,setOpen]=useState(false);
  const [newOrganization,setNewOrganization]=useState('');
  const [organizationDraft,setOrganizationDraft]=useState('');
@@ -43,107 +50,140 @@ export default function BudgetOrganizationManager({ar,value,onChange,onCostCente
    const response=await fetch('/api/organizations',{cache:'no-store'});
    if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body.error||`LOAD_FAILED_${response.status}`)}
    const body=await response.json();
-   if(Array.isArray(body)){const sorted=sortOrganizations(body);setOrganizations(sorted);onOrganizationsChange?.(sorted)}
+   if(Array.isArray(body)){const sorted=sortOrganizations(body);setOrganizations(sorted);callbacks.current.onOrganizationsChange?.(sorted)}
    return Array.isArray(body)?body:[];
   }catch(error){if(showError)setMessage(ar?`تعذر تحميل المنشآت. أعد المحاولة. ${error instanceof Error?`(${error.message})`:''}`:(error instanceof Error?error.message:'Could not load organizations.'));return []}
   finally{setLoading(false)}
  };
  const loadCenters=async(organizationId:string,showError=false)=>{
-  if(!organizationId){setCenters([]);onCostCentersChange?.([]);return}
+  const request=++centerRequest.current;centerAbort.current?.abort();const controller=new AbortController();centerAbort.current=controller;
+  setCenters([]);callbacks.current.onCostCentersChange?.([]);
+  if(!organizationId)return;
   try{
-   const response=await fetch(`/api/organizations/cost-centers?organization_id=${encodeURIComponent(organizationId)}`,{cache:'no-store'});
+   const response=await fetch(`/api/organizations/cost-centers?organization_id=${encodeURIComponent(organizationId)}`,{cache:'no-store',signal:controller.signal});
    if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body.error||`LOAD_CENTERS_FAILED_${response.status}`)}
    const body=await response.json();
+   if(controller.signal.aborted||request!==centerRequest.current)return [];
    const next=Array.isArray(body)?body:[];
-   setCenters(next);setCenterDrafts(Object.fromEntries(next.map((center:CostCenter)=>[center.id,center.name])));setCenterTypeDrafts(Object.fromEntries(next.map((center:CostCenter)=>[center.id,center.center_type])));onCostCentersChange?.(next);
+   setCenters(next);setCenterDrafts(Object.fromEntries(next.map((center:CostCenter)=>[center.id,center.name])));setCenterTypeDrafts(Object.fromEntries(next.map((center:CostCenter)=>[center.id,center.center_type])));callbacks.current.onCostCentersChange?.(next);
    return next;
-  }catch(error){if(showError)setMessage(ar?`تعذر تحميل مراكز التكلفة. ${error instanceof Error?`(${error.message})`:''}`:(error instanceof Error?error.message:'Could not load cost centers.'));return []}
+  }catch(error){if(controller.signal.aborted||request!==centerRequest.current)return [];if(showError)setMessage(ar?`تعذر تحميل مراكز التكلفة. ${error instanceof Error?`(${error.message})`:''}`:(error instanceof Error?error.message:'Could not load cost centers.'));return []}
  };
- useEffect(()=>{void (async()=>{const loaded=await loadOrganizations();const saved=rememberedOrganization();if(value&&!saved)return;const holding=preferredOrganization(loaded as Organization[],saved);if(!holding)return;setSelectedId(holding.id);setOrganizationDraft(holding.name);onChange(holding.name,{defaultSelection:true,group:rememberedCompanyGroup()&&(loaded as Organization[]).some(o=>o.parent_organization_id===holding.id)});await loadCenters(holding.id)})()},[]);
+ const restoreSelection=(loaded:Organization[],initial=false)=>{
+  const query=new URLSearchParams(window.location.search),explicit=query.get('organization')??query.get('organization_id');
+  const saved=rememberedOrganization();if(initial&&callbacks.current.value&&!saved&&explicit===null)return;
+  const holding=requestedOrganization(loaded,explicit,saved);
+  const group=!!holding&&(query.has('level')?query.get('level')==='GROUP':rememberedCompanyGroup())&&loaded.some(o=>o.parent_organization_id===holding.id);
+  const key=(holding?.id??'')+':'+group;
+  // The shared picker dispatches before its onChange callback. Apply each URL
+  // selection once so that deliberate changes and history cannot load twice.
+  if(key===appliedSelection.current&&selectedIdRef.current===(holding?.id??''))return;
+  appliedSelection.current=key;++centerRequest.current;centerAbort.current?.abort();setSaving(false);
+  if(!holding){selectedIdRef.current='';setSelectedId('');setOrganizationDraft('');setCenters([]);callbacks.current.onCostCentersChange?.([]);callbacks.current.onChange('');setMessage(explicit!==null?(ar?'المؤسسة المحددة في الرابط غير متاحة. اختر مؤسسة مصرحًا بها.':'The organization in this link is unavailable. Select an organization you can access.'):'');return;}
+  setMessage('');
+  selectedIdRef.current=holding.id;setSelectedId(holding.id);setOrganizationDraft(holding.name);
+  callbacks.current.onChange(holding.name,{organizationId:holding.id,defaultSelection:initial,group});
+  void loadCenters(holding.id);
+ };
+ useEffect(()=>{let cancelled=false;void (async()=>{
+  const loaded=await loadOrganizations();if(cancelled)return;restoreSelection(loaded,true);
+ })();return()=>{cancelled=true}},[]);
  useEffect(()=>{
-  const selected=organizations.find(item=>item.name===value);
-  if(selected&&selected.id!==selectedId){setSelectedId(selected.id);setOrganizationDraft(selected.name);loadCenters(selected.id)}
-  if(!value&&selectedId){setSelectedId('');setOrganizationDraft('');setCenters([]);onCostCentersChange?.([])}
-  if(value&&!selected){setSelectedId('');setOrganizationDraft('');setCenters([]);onCostCentersChange?.([])}
+  const read=()=>{if(!localSelection.current&&organizations.length)restoreSelection(organizations)};
+  window.addEventListener('popstate',read);window.addEventListener('zf-organization-selection',read);
+  return()=>{window.removeEventListener('popstate',read);window.removeEventListener('zf-organization-selection',read)};
+ },[organizations,ar]);
+ useEffect(()=>{
+  const selected=organizations.find(item=>item.id===selectedId&&item.name===value)??(organizations.filter(item=>item.name===value).length===1?organizations.find(item=>item.name===value):undefined);
+  if(selected&&selected.id!==selectedId){selectedIdRef.current=selected.id;setSelectedId(selected.id);setOrganizationDraft(selected.name);loadCenters(selected.id)}
+  if((!value&&selectedId)||(value&&!selected&&selectedId)){++centerRequest.current;centerAbort.current?.abort();selectedIdRef.current='';setSelectedId('');setOrganizationDraft('');setCenters([]);callbacks.current.onCostCentersChange?.([])}
  },[organizations,value,selectedId]);
  const selectedOrganization=useMemo(()=>organizations.find(item=>item.id===selectedId),[organizations,selectedId]);
  const holdingOrganization=useMemo(()=>sortOrganizations(organizations).find(item=>item.organization_kind==='HOLDING'&&!item.parent_organization_id),[organizations]);
 
  const chooseOrganization=(id:string)=>{
-  if(organizations.some(o=>o.id===id))rememberOrganization(id);
-  if(id==='__legacy__'){onChange(value);return}
+  if(id==='__legacy__'){callbacks.current.onChange(callbacks.current.value);return}
+  if(organizations.some(o=>o.id===id)){rememberOrganization(id);restoreSelection(organizations);return;}
   if(!id){
-   setSelectedId('');setOrganizationDraft('');setCenters([]);onCostCentersChange?.([]);onChange('');
+   ++centerRequest.current;centerAbort.current?.abort();appliedSelection.current=null;selectedIdRef.current='';setSaving(false);setMessage('');
+   setSelectedId('');setOrganizationDraft('');setCenters([]);callbacks.current.onCostCentersChange?.([]);callbacks.current.onChange('');
    return;
   }
-  setSelectedId(id);
-  const selected=organizations.find(item=>item.id===id);
-  setOrganizationDraft(selected?.name??'');
-  onChange(selected?.name??'');
-  loadCenters(id,true);
  };
  const openManager=async()=>{
+  const generation=centerRequest.current;
   setMessage('');
   setOpen(true);
   const fresh=await loadOrganizations(true);
-  const selected=fresh.find((item:Organization)=>item.name===value);
+  if(generation!==centerRequest.current)return;
+  const selected=fresh.find((item:Organization)=>item.id===selectedId&&item.name===value)??(fresh.filter((item:Organization)=>item.name===value).length===1?fresh.find((item:Organization)=>item.name===value):undefined);
   if(selected){setSelectedId(selected.id);setOrganizationDraft(selected.name);await loadCenters(selected.id,true)}
-  else if(!value){setSelectedId('');setOrganizationDraft('');setCenters([]);onCostCentersChange?.([])}
+  else if(!value){setSelectedId('');setOrganizationDraft('');setCenters([]);callbacks.current.onCostCentersChange?.([])}
  };
  const createOrganization=async()=>{
  const name=newOrganization.trim();
   const createAsHolding=organizations.length===0;
   if(!name){setMessage(ar?'أدخل اسم المنشأة أولًا.':'Enter the organization name first.');return}
   if(organizations.some(item=>item.name.trim().toLocaleLowerCase()===name.toLocaleLowerCase())){setMessage(ar?'اسم المنشأة موجود بالفعل. اختره من القائمة أو استخدم اسمًا مختلفًا.':'That organization already exists. Choose it from the list or use a different name.');return}
+  const generation=centerRequest.current;
   setSaving(true);setMessage('');
   try{
    const response=await fetch('/api/organizations',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,parent_organization_id:createAsHolding?null:(holdingOrganization?.id??null),organization_kind:createAsHolding?'HOLDING':'SUBSIDIARY',sort_order:createAsHolding?10:Math.max(...organizations.map(item=>Number(item.sort_order??100)),10)+10})});
    const body=await response.json();
    if(!response.ok)throw new Error(body.error||'CREATE_FAILED');
-   const updated=sortOrganizations([body,...organizations]);setOrganizations(updated);onOrganizationsChange?.(updated);setSelectedId(body.id);setOrganizationDraft(body.name);setNewOrganization('');onChange(body.name);setCenters([]);onCostCentersChange?.([]);
+   if(generation!==centerRequest.current)return;
+   const updated=sortOrganizations([body,...organizations]);setOrganizations(updated);callbacks.current.onOrganizationsChange?.(updated);setNewOrganization('');
+   localSelection.current=true;try{rememberOrganization(body.id,false)}finally{localSelection.current=false}
+   restoreSelection(updated);
    setMessage(ar?'تمت إضافة المنشأة. يمكنك الآن إضافة مراكز التكلفة.':'Organization added. You can now add cost centers.');
-  }catch(error){setMessage(ar?'تعذر إضافة المنشأة. قد يكون الاسم مستخدمًا.':(error instanceof Error?error.message:'Could not add organization.'))}
-  finally{setSaving(false)}
+  }catch(error){if(generation===centerRequest.current)setMessage(ar?'تعذر إضافة المنشأة. قد يكون الاسم مستخدمًا.':(error instanceof Error?error.message:'Could not add organization.'))}
+  finally{if(generation===centerRequest.current)setSaving(false)}
  };
  const renameOrganization=async()=>{
   if(!selectedOrganization)return;
   const name=organizationDraft.trim();
   if(!name){setMessage(ar?'اسم المنشأة مطلوب.':'Organization name is required.');return}
   if(organizations.some(item=>item.id!==selectedOrganization.id&&item.name.trim().toLocaleLowerCase()===name.toLocaleLowerCase())){setMessage(ar?'اسم المنشأة موجود بالفعل.':'That organization name already exists.');return}
+  const generation=centerRequest.current;
   setSaving(true);setMessage('');
   try{
    const response=await fetch('/api/organizations',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({id:selectedOrganization.id,name})});
    const body=await response.json();
    if(!response.ok)throw new Error(body.error||'UPDATE_FAILED');
-   const updated=organizations.map(item=>item.id===selectedOrganization.id?{...item,name:body.name}:item);setOrganizations(updated);onOrganizationsChange?.(updated);onChange(body.name);setMessage(ar?'تم تعديل اسم المنشأة.':'Organization name updated.');
-  }catch(error){setMessage(ar?'تعذر تعديل اسم المنشأة.':(error instanceof Error?error.message:'Could not update organization.'))}
-  finally{setSaving(false)}
+   if(generation!==centerRequest.current)return;
+   const updated=organizations.map(item=>item.id===selectedOrganization.id?{...item,name:body.name}:item);setOrganizations(updated);callbacks.current.onOrganizationsChange?.(updated);callbacks.current.onChange(body.name,{organizationId:selectedOrganization.id});setMessage(ar?'تم تعديل اسم المنشأة.':'Organization name updated.');
+  }catch(error){if(generation===centerRequest.current)setMessage(ar?'تعذر تعديل اسم المنشأة.':(error instanceof Error?error.message:'Could not update organization.'))}
+  finally{if(generation===centerRequest.current)setSaving(false)}
  };
  const addCostCenter=async()=>{
   if(!selectedOrganization){setMessage(ar?'اختر منشأة قبل إضافة مركز تكلفة.':'Select an organization before adding a cost center.');return}
   const code=newCode.trim().toUpperCase(),name=newCenter.trim(),centerType=newCenterType;
   if(!code||!name||!centerType){setMessage(ar?'أدخل الرمز والاسم ونوع مركز التكلفة.':'Enter the code, name and cost-center type.');return}
+  const generation=centerRequest.current;
   setSaving(true);setMessage('');
   try{
    const response=await fetch('/api/organizations/cost-centers',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({organization_id:selectedOrganization.id,code,name,center_type:centerType})});
    const body=await response.json();
    if(!response.ok)throw new Error(body.error||'CREATE_FAILED');
-   const next=[...centers,body];setCenters(next);setCenterDrafts(current=>({...current,[body.id]:body.name}));setCenterTypeDrafts(current=>({...current,[body.id]:body.center_type}));onCostCentersChange?.(next);setNewCode('');setNewCenter('');setNewCenterType('');setMessage(ar?'تمت إضافة مركز التكلفة وحفظه.':'Cost center added and saved.');
-  }catch(error){setMessage(ar?'تعذر إضافة مركز التكلفة. قد يكون الرمز مستخدمًا.':(error instanceof Error?error.message:'Could not add cost center.'))}
-  finally{setSaving(false)}
+   if(generation!==centerRequest.current||selectedIdRef.current!==selectedOrganization.id)return;
+   const next=[...centers,body];setCenters(next);setCenterDrafts(current=>({...current,[body.id]:body.name}));setCenterTypeDrafts(current=>({...current,[body.id]:body.center_type}));callbacks.current.onCostCentersChange?.(next);setNewCode('');setNewCenter('');setNewCenterType('');setMessage(ar?'تمت إضافة مركز التكلفة وحفظه.':'Cost center added and saved.');
+  }catch(error){if(generation===centerRequest.current)setMessage(ar?'تعذر إضافة مركز التكلفة. قد يكون الرمز مستخدمًا.':(error instanceof Error?error.message:'Could not add cost center.'))}
+  finally{if(generation===centerRequest.current)setSaving(false)}
  };
  const renameCostCenter=async(center:CostCenter,name?:string)=>{
   const nextName=(name??centerDrafts[center.id]??center.name).trim();
   const nextType=centerTypeDrafts[center.id]??center.center_type;
   if(!nextName||!nextType)return;
+  const generation=centerRequest.current;
   setSaving(true);setMessage('');
   try{
    const response=await fetch('/api/organizations/cost-centers',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({id:center.id,name:nextName,center_type:nextType})});
    const body=await response.json();
    if(!response.ok)throw new Error(body.error||'UPDATE_FAILED');
-   const next=centers.map(item=>item.id===center.id?body:item);setCenters(next);setCenterDrafts(current=>({...current,[center.id]:body.name}));setCenterTypeDrafts(current=>({...current,[center.id]:body.center_type}));onCostCentersChange?.(next);setMessage(ar?'تم تعديل اسم مركز التكلفة وحفظه.':'Cost-center name updated and saved.');
-  }catch(error){setMessage(ar?'تعذر تعديل اسم مركز التكلفة.':(error instanceof Error?error.message:'Could not update cost center.'))}
-  finally{setSaving(false)}
+   if(generation!==centerRequest.current||selectedIdRef.current!==center.organization_id)return;
+   const next=centers.map(item=>item.id===center.id?body:item);setCenters(next);setCenterDrafts(current=>({...current,[center.id]:body.name}));setCenterTypeDrafts(current=>({...current,[center.id]:body.center_type}));callbacks.current.onCostCentersChange?.(next);setMessage(ar?'تم تعديل اسم مركز التكلفة وحفظه.':'Cost-center name updated and saved.');
+  }catch(error){if(generation===centerRequest.current)setMessage(ar?'تعذر تعديل اسم مركز التكلفة.':(error instanceof Error?error.message:'Could not update cost center.'))}
+  finally{if(generation===centerRequest.current)setSaving(false)}
  };
 
  const legacyOption=value&&!organizations.some(item=>item.name===value);
@@ -152,6 +192,7 @@ export default function BudgetOrganizationManager({ar,value,onChange,onCostCente
  {wrapPicker(  <div className="budget-organization-control">
    <WorkspaceOrganizationPicker ar={ar} organizations={organizations} value={selectedId} onChange={chooseOrganization} disabled={disabled} restore={false}/>
    {legacyOption&&<small>{value}</small>}
+   {!open&&message&&<small role="alert">{message}</small>}
    <button type="button" className="budget-organization-add" onClick={openManager} aria-label={ar?'إضافة أو إدارة المنشآت':'Add or manage organizations'} title={ar?'إضافة أو إدارة المنشآت':'Add or manage organizations'}>＋</button>
   </div>)}
   {open&&<div className="budget-org-modal-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)setOpen(false)}}>
