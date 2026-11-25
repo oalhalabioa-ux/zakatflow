@@ -67,6 +67,7 @@ export const budgetPlanSchema=z.object({
  scenario:z.enum(['BASE','DOWNSIDE','UPSIDE']).default('BASE'),
  status:z.enum(['DRAFT','IN_REVIEW','APPROVED','ARCHIVED']).default('DRAFT'),
  organization_name:z.string().max(160).default(''),
+ organization_id:z.string().uuid().nullable().optional(),
  cost_center:z.string().max(120).default('ALL'),
  opening_cash:z.coerce.number().finite().default(0),
  minimum_cash_target:z.coerce.number().nonnegative().default(0),

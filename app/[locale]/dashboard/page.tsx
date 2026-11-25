@@ -1,4 +1,4 @@
-import {requireUser} from '@/services/auth';
+import {requireDashboardScope} from '@/services/dashboard-access';
 import {CurrencyScope,Money} from '@/components/DisplayCurrency';
 import Link from 'next/link';
 import type {ReactNode} from 'react';
@@ -16,6 +16,7 @@ import '../../yaqeen-dashboard-polish.css';
 import '../../yaqeen-dashboard-layouts.css';
 import YaqeenDashboard from '@/components/YaqeenDashboard';
 import {yaqeenDashboardModel} from '@/lib/yaqeen-dashboard-model';
+import {workspaceNavigationHref} from '@/lib/workspace-navigation-href';
 
 const fmt=(v:unknown)=>new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(v)||0);
 const count=(v:number|null|undefined)=>v==null?'—':new Intl.NumberFormat('en-US').format(v);
@@ -30,17 +31,14 @@ function Metric({label,value}:{label:string;value:ReactNode}) {return <div><dt>{
 export default async function Dashboard({params,searchParams}:{params:Promise<{locale:string}>;searchParams:Promise<{organization?:string;plan?:string;month?:string;scope?:string;budget_scope?:string;year?:string;scenario?:string;level?:string;asset_basis?:string}>}) {
  const [{locale},q]=await Promise.all([params,searchParams]),ar=locale==='ar';
  const safely=async<T,>(fn:()=>Promise<T>):Promise<T|null>=>{try{return await fn();}catch(e){unstable_rethrow(e);if(e instanceof Error&&e.message==='UNAUTHORIZED')redirect('/'+locale+'/login');return null;}};
- const {supabase:onboardingDb}=await requireUser();
- const {data:needsOnboarding,error:onboardingError}=await onboardingDb.rpc('organization_onboarding_required');
- if(onboardingError)throw onboardingError;
- if(needsOnboarding)redirect('/'+locale+'/onboarding');
  const personal=q.scope!=='ORGANIZATION';
+ await requireDashboardScope(personal?'PERSONAL':'ORGANIZATION',locale);
  const [assets,financial]=await Promise.all([personal?safely(getDashboard):null,!personal?safely(()=>getPlatformFinancialOverview(q)):null]);
  const modules=financial?.modules??null;
  const assetsKnown=!!assets&&assets.dataHealth?.assets!==false;
  const liabilityKnown=!!assets&&(['assessments','cycles','allocations','payments'] as const).every(key=>assets.dataHealth?.[key]!==false);
  const money=(v:unknown,known=liabilityKnown)=>known?<Money value={Number(v)} currency="SAR"/>:'—';
- const url=(path:string)=>`/${locale}/${path}`;
+ const url=(path:string)=>workspaceNavigationHref(`/${locale}/${path}`,{scope:personal?'PERSONAL':'ORGANIZATION',organization:financial?.organization?.id??q.organization,group:!!financial?.group});
  const links=(items:Array<[string,string]>)=>items.map(([path,title])=>({href:url(path),title}));
  const orgCurrency=financial?.organization?.base_currency??'SAR';
  const orgMoney=(v:unknown,known:boolean)=>known?<Money value={Number(v)} currency={orgCurrency}/>:'—';

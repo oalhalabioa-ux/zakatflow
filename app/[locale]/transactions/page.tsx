@@ -1,6 +1,8 @@
 "use client";
 import {useWorkspaceScope} from '@/hooks/useWorkspaceScope';
 import {organizationScopeIds} from '@/lib/workspace-organization';
+import {currentWorkspaceScope,rememberedWorkspaceScope} from '@/lib/topbar-navigation';
+import {transactionAssetInWorkspace,transactionCashAccounts,transactionWorkspaceKey} from '@/lib/transaction-workspace-scope';
 import TopbarOrganizationControls from '@/components/TopbarOrganizationControls';
 import WorkspaceOrganizationPicker from '@/components/WorkspaceOrganizationPicker';
 import YaqeenFilterSelect from "@/components/YaqeenFilterSelect";
@@ -12,7 +14,7 @@ import {vatReportPrintHtml} from "@/lib/vat-report-print";
 import {reportCsv} from "@/lib/vat-financial-reports";
 import {useParams} from "next/navigation";
 import {Money,useDisplayMoney} from "@/components/DisplayCurrency";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 type SortKey = "date" | "asset" | "type" | "value" | "currency";
 type SortDirection = "asc" | "desc";
 const TRANSACTION_TYPES = [
@@ -60,7 +62,7 @@ export default function Transactions() {
   const [dateTo, setDateTo] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [form, setForm] = useState<any>({
+  const emptyForm=()=>({
     asset_account_id: "",
     transaction_type: "ADD",
     transaction_date: new Date().toISOString().slice(0, 10),
@@ -76,13 +78,30 @@ export default function Transactions() {
     proceeds_account_id: "",
     disposal_zero_value: false,
   });
+  const [form, setForm] = useState<any>(emptyForm);
   const [catalog,setCatalog]=useState<any>({});
   const [requestId,setRequestId]=useState(()=>crypto.randomUUID());
-  const selectedAsset=assets.find(a=>a.id===form.asset_account_id);
+  const organizationIds=useMemo(()=>organizationScopeIds(catalog.organizations??[],org,group),[catalog.organizations,org,group]);
+  const visibleAssets=assets.filter(asset=>transactionAssetInWorkspace(asset,scope,organizationIds));
+  const selectedAsset=visibleAssets.find(a=>a.id===form.asset_account_id);
+  const cashAccounts=transactionCashAccounts(assets,selectedAsset,scope,organizationIds);
+  const workspaceKey=transactionWorkspaceKey(scope,org,group),workspaceRef=useRef({key:workspaceKey,generation:0}),previousWorkspace=useRef<string|null>(null);
+  if(workspaceRef.current.key!==workspaceKey)workspaceRef.current={key:workspaceKey,generation:workspaceRef.current.generation+1};
   const ownerBase=selectedAsset?.ownership_scope==="ORGANIZATION"?catalog.organizations?.find((o:any)=>o.id===selectedAsset.organization_id)?.base_currency:catalog.base_currency;
   const [entryOpen, setEntryOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  useEffect(()=>{
+    // Let URL hydration and the initial company picker settle before recording
+    // the first workspace; opening a deep link is not a deliberate scope switch.
+    if(currentWorkspaceScope('transactions',window.location.search,rememberedWorkspaceScope())!==scope||(scope==='ORGANIZATION'&&!org))return;
+    if(previousWorkspace.current===null){previousWorkspace.current=workspaceKey;return;}
+    if(previousWorkspace.current===workspaceKey)return;
+    previousWorkspace.current=workspaceKey;
+    setForm(emptyForm());setEntryOpen(false);setSelectedOperation(null);setSourceTransactionId('');setMsg('');setSaving(false);setRequestId(crypto.randomUUID());
+    const url=new URL(window.location.href);if(url.searchParams.has('transaction_id')){url.searchParams.delete('transaction_id');window.history.replaceState(window.history.state,'',url);}
+  },[workspaceKey,scope,org]);
+
   const load = async (deleted=showDeleted) => {
     setLoading(true);
     setLoadError("");
@@ -134,7 +153,9 @@ export default function Transactions() {
     }catch(error:any){setMsg(error.message);}finally{setDeletingId(null);}
   }
   async function save() {
-    if (saving || !form.asset_account_id) return;
+    if (saving || !selectedAsset) return;
+    if(form.transaction_type==="SALE"&&!cashAccounts.some(account=>account.id===form.proceeds_account_id))return;
+    const submittedGeneration=workspaceRef.current.generation;
     setSaving(true);
     try {
     setMsg("جار الحفظ…");
@@ -149,13 +170,14 @@ export default function Transactions() {
         base_value: Number(form.base_value),
       }),
     });
+    if(workspaceRef.current.generation!==submittedGeneration){if(r.ok)await load();return;}
     setMsg(
       r.ok
         ? selectedAsset?.ownership_scope==="ORGANIZATION"?"تم حفظ مسودة الشراء. أكمل الاعتماد والترحيل من التفاصيل والإجراءات.":"تم حفظ المعاملة وتحديث رصيد الأصل."
         : (await r.json()).error || "خطأ",
     );
     if (r.ok) {setRequestId(crypto.randomUUID());setEntryOpen(false);setForm((x:any)=>({...x,asset_account_id:"",quantity:1,unit_price:"",gross_value:"",base_value:"",proceeds_account_id:"",funding_account_id:"",counterparty_id:"",vat_amount:"",notes:""}));await load();}
-    } catch { setMsg("تعذر حفظ المعاملة. حاول مرة أخرى."); } finally { setSaving(false); }
+    } catch { if(workspaceRef.current.generation===submittedGeneration)setMsg("تعذر حفظ المعاملة. حاول مرة أخرى."); } finally { if(workspaceRef.current.generation===submittedGeneration)setSaving(false); }
   }
   const filteredRows = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("ar");
@@ -277,17 +299,17 @@ export default function Transactions() {
           <Field label="الأصل">
             <select
               value={form.asset_account_id}
-              onChange={(e) => { const selected = assets.find((a) => a.id === e.target.value); setForm({ ...form, asset_account_id: e.target.value, proceeds_account_id:"",funding_account_id:"",counterparty_id:"",currency: selected?.currency || form.currency,base_currency:selected?.ownership_scope==="ORGANIZATION"?catalog.organizations?.find((o:any)=>o.id===selected.organization_id)?.base_currency:catalog.base_currency }); }}
+              onChange={(e) => { const selected = visibleAssets.find((a) => a.id === e.target.value); setForm({ ...form, asset_account_id: e.target.value, proceeds_account_id:"",funding_account_id:"",counterparty_id:"",currency: selected?.currency || form.currency,base_currency:selected?.ownership_scope==="ORGANIZATION"?catalog.organizations?.find((o:any)=>o.id===selected.organization_id)?.base_currency:catalog.base_currency }); }}
             >
               <option value="">اختر الأصل</option>
-              {assets.filter(a=>scope==='PERSONAL'?!a.organization_id:organizationScopeIds(catalog.organizations??[],org,group).has(a.organization_id)).map((a) => (
+              {visibleAssets.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name} — {assetTypeLabel(a)} — {assetOwnerLabel(a)}
                 </option>
               ))}
             </select>
           </Field>
-          {form.asset_account_id && (() => { const selected=assets.find((a)=>a.id===form.asset_account_id); return selected ? <div className="notice"><strong>تصنيف الأصل:</strong> {selected.asset_class_code || "Legacy"} / {assetTypeLabel(selected)} · <strong>الملكية:</strong> {assetOwnerLabel(selected)}{form.transaction_type==="PURCHASE" && selected.ownership_scope==="ORGANIZATION" ? " · شراء أصل مؤسسي — المعالجة المالية حسب تصنيف الأصل، وليس مصروفًا تشغيليًا (OPEX) تلقائيًا" : ""}</div> : null; })()}
+          {form.asset_account_id && (() => { const selected=selectedAsset; return selected ? <div className="notice"><strong>تصنيف الأصل:</strong> {selected.asset_class_code || "Legacy"} / {assetTypeLabel(selected)} · <strong>الملكية:</strong> {assetOwnerLabel(selected)}{form.transaction_type==="PURCHASE" && selected.ownership_scope==="ORGANIZATION" ? " · شراء أصل مؤسسي — المعالجة المالية حسب تصنيف الأصل، وليس مصروفًا تشغيليًا (OPEX) تلقائيًا" : ""}</div> : null; })()}
           <Field label="النوع">
             <select
               value={form.transaction_type}
@@ -306,7 +328,7 @@ export default function Transactions() {
             <Field label="إيداع متحصلات البيع في">
               <select value={form.proceeds_account_id} onChange={(e) => setForm({ ...form, proceeds_account_id: e.target.value })}>
                 <option value="">اختر الصندوق أو البنك</option>
-                {assets.filter((a) => a.asset_type === "CASH" || a.asset_type === "BANK").map((a) => <option key={a.id} value={a.id}>{a.name} — {assetTypeLabel(a)} — {assetOwnerLabel(a)}</option>)}
+                {cashAccounts.map((a) => <option key={a.id} value={a.id}>{a.name} — {assetTypeLabel(a)} — {assetOwnerLabel(a)}</option>)}
               </select>
             </Field>
           )}
@@ -355,7 +377,7 @@ export default function Transactions() {
           <Field label="إجمالي القيمة">
             <input type="number" step="any" value={form.gross_value} readOnly />
           </Field>
-          {form.transaction_type==="PURCHASE"&&<><h3 className="transaction-form-section-title">الفاتورة والتمويل</h3><Field label="ضريبة الفاتورة (بعملة المعاملة)"><input type="number" min="0" step="any" value={form.vat_amount||0} onChange={e=>setForm({...form,vat_amount:e.target.value})}/></Field>{selectedAsset?.ownership_scope==="ORGANIZATION"?<><Field label="المورد"><select value={form.counterparty_id||""} onChange={e=>setForm({...form,counterparty_id:e.target.value})}><option value="">اختر المورد</option>{(catalog.counterparties||[]).filter((p:any)=>p.organization_id===selectedAsset.organization_id&&["SUPPLIER","BOTH"].includes(p.party_type)).map((p:any)=><option key={p.id} value={p.id}>{p.name}</option>)}</select></Field><Field label="رقم الفاتورة"><input value={form.reference||""} onChange={e=>setForm({...form,reference:e.target.value})}/></Field><Field label="تاريخ استحقاق الدفع"><input type="date" min={form.transaction_date} value={form.due_date||""} onChange={e=>setForm({...form,due_date:e.target.value})}/></Field><Field label="نسبة استرداد الضريبة %"><input type="number" min="0" max="100" value={form.recoverable_percent??100} onChange={e=>setForm({...form,recoverable_percent:e.target.value})}/></Field></>:<Field label="حساب تمويل الشراء"><select value={form.funding_account_id||""} onChange={e=>setForm({...form,funding_account_id:e.target.value})}><option value="">اختر حساب التمويل</option>{assets.filter(a=>a.ownership_scope==="PERSONAL"&&["CASH","BANK"].includes(a.asset_type)&&a.currency===form.currency).map(a=><option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}</select></Field>}</>}
+          {form.transaction_type==="PURCHASE"&&<><h3 className="transaction-form-section-title">الفاتورة والتمويل</h3><Field label="ضريبة الفاتورة (بعملة المعاملة)"><input type="number" min="0" step="any" value={form.vat_amount||0} onChange={e=>setForm({...form,vat_amount:e.target.value})}/></Field>{selectedAsset?.ownership_scope==="ORGANIZATION"?<><Field label="المورد"><select value={form.counterparty_id||""} onChange={e=>setForm({...form,counterparty_id:e.target.value})}><option value="">اختر المورد</option>{(catalog.counterparties||[]).filter((p:any)=>p.organization_id===selectedAsset.organization_id&&["SUPPLIER","BOTH"].includes(p.party_type)).map((p:any)=><option key={p.id} value={p.id}>{p.name}</option>)}</select></Field><Field label="رقم الفاتورة"><input value={form.reference||""} onChange={e=>setForm({...form,reference:e.target.value})}/></Field><Field label="تاريخ استحقاق الدفع"><input type="date" min={form.transaction_date} value={form.due_date||""} onChange={e=>setForm({...form,due_date:e.target.value})}/></Field><Field label="نسبة استرداد الضريبة %"><input type="number" min="0" max="100" value={form.recoverable_percent??100} onChange={e=>setForm({...form,recoverable_percent:e.target.value})}/></Field></>:<Field label="حساب تمويل الشراء"><select value={form.funding_account_id||""} onChange={e=>setForm({...form,funding_account_id:e.target.value})}><option value="">اختر حساب التمويل</option>{cashAccounts.map(a=><option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}</select></Field>}</>}
           {selectedAsset?.ownership_scope==="ORGANIZATION"&&form.transaction_type!=="PURCHASE"&&<div className="notice">الإهلاك والبيع والاستبعاد المؤسسي متاحة من عمليات الأصل في <a href="assets">صفحة الأصول</a> مع الاعتماد المالي.</div>}
           <h3 className="transaction-form-section-title">العملة وسعر الصرف</h3>
           <Field label="عملة المعاملة">
@@ -382,7 +404,7 @@ export default function Transactions() {
           </Field>
           <label className="transaction-form-notes">ملاحظات المعاملة<textarea value={form.notes} rows={2} onChange={e=>setForm({...form,notes:e.target.value})} placeholder="مرجع أو تفاصيل إضافية (اختياري)"/></label>
         </div>
-        <ActionButton icon="save" label={saving?t("جار الحفظ","Saving"):t("حفظ المعاملة","Save transaction")} showLabel onClick={save} disabled={saving||!form.asset_account_id||(selectedAsset?.ownership_scope==="ORGANIZATION"&&form.transaction_type!=="PURCHASE")||(form.transaction_type==="SALE"&&!form.proceeds_account_id)}/>
+        <ActionButton icon="save" label={saving?t("جار الحفظ","Saving"):t("حفظ المعاملة","Save transaction")} showLabel onClick={save} disabled={saving||!selectedAsset||(selectedAsset?.ownership_scope==="ORGANIZATION"&&form.transaction_type!=="PURCHASE")||(form.transaction_type==="SALE"&&!form.proceeds_account_id)}/>
         {msg && <p role="status" className="muted">{msg}</p>}
       </div>}
       <div className="card section transaction-ledger-card">
@@ -442,7 +464,7 @@ export default function Transactions() {
           )}</div>
         </div>
         <div className="operation-report-actions transaction-report-toolbar"><details><summary className="btn secondary action-button" title={t('تخصيص الأعمدة','Choose columns')} aria-label={t('تخصيص الأعمدة','Choose columns')}><ActionIconGlyph name="details"/><span>{t("الأعمدة","Columns")}</span></summary><div className="form-grid transaction-column-menu">{operationColumns.map(([key,label,en])=><label key={key}><input type="checkbox" checked={reportColumns.includes(key)} disabled={['date','asset','voucherType','voucherNumber'].includes(key)} onChange={e=>setReportColumns(cols=>e.target.checked?operationColumns.map(c=>c[0]).filter(k=>cols.includes(k)||k===key):cols.filter(k=>k!==key))}/>{ar?label:en}</label>)}</div></details><span className="transaction-legacy-exports"><ActionButton icon="print" showLabel label={t('طباعة التقرير PDF','Print report PDF')} onClick={()=>exportReport('PDF')}/><ActionButton icon="download" showLabel label={t('تصدير التقرير CSV','Export report CSV')} onClick={()=>exportReport('CSV')}/></span><details className="transaction-export-menu" onKeyDown={e=>{if(e.key==='Escape'){e.currentTarget.open=false;e.currentTarget.querySelector('summary')?.focus()}}}><summary className="btn secondary action-button"><ActionIconGlyph name="download"/><span>{t('تصدير التقرير','Export report')}</span><svg className="transaction-export-chevron" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="m5 7 5 5 5-5"/></svg></summary><div className="transaction-export-options"><button type="button" onClick={e=>{e.currentTarget.closest('details')?.removeAttribute('open');exportReport('PDF')}}><ActionIconGlyph name="print"/>{t('طباعة / حفظ PDF','Print / save PDF')}</button><button type="button" onClick={e=>{e.currentTarget.closest('details')?.removeAttribute('open');exportReport('CSV')}}><ActionIconGlyph name="download"/>{t('تصدير CSV','Export CSV')}</button></div></details><small>{t('المبالغ بعملة عرض الأساس؛ التصدير بالعملات المسجلة. الفلاتر تنعكس على المؤشرات، والمسودات لا تدخل صافي الأثر المرحل.','Filters apply to indicators and exports. Drafts are excluded from posted net movement.')}</small></div>
-        {selectedOperation&&<DetailsDialog label={t("تفاصيل العملية والإجراءات","Operation details and actions")} onClose={()=>setSelectedOperation(null)}><AssetOperationDetails key={selectedOperation.row.id} record={selectedOperation.row} initialEdit={selectedOperation.edit==='sale'} initialNotes={selectedOperation.edit==='notes'} ar={ar} onClose={()=>setSelectedOperation(null)} onChanged={refreshOperations}/></DetailsDialog>}
+        {selectedOperation&&transactionAssetInWorkspace({organization_id:selectedOperation.row.organization_id??selectedOperation.row.asset_accounts?.organization_id,ownership_scope:selectedOperation.row.asset_accounts?.ownership_scope??selectedOperation.row.metadata?.asset_ownership_scope},scope,organizationIds)&&<DetailsDialog label={t("تفاصيل العملية والإجراءات","Operation details and actions")} onClose={()=>setSelectedOperation(null)}><AssetOperationDetails key={selectedOperation.row.id} record={selectedOperation.row} initialEdit={selectedOperation.edit==='sale'} initialNotes={selectedOperation.edit==='notes'} ar={ar} onClose={()=>setSelectedOperation(null)} onChanged={refreshOperations}/></DetailsDialog>}
         <div className="transaction-table-wrap"><table className="table"><thead><tr>{reportColumns.map(key=>{const column=operationColumns.find(c=>c[0]===key)!;return ['date','asset','type','currency'].includes(key)?<SortableHeader key={key} label={column[ar?1:2]} column={key as SortKey} sort={sort} onSort={changeSort} mark={sortMark(key as SortKey)}/>:<th key={key}>{column[ar?1:2]}</th>})}<th>{t('الإجراءات','Actions')}</th></tr></thead><tbody>{sortedRows.map(row=><tr key={row.id}>{reportColumns.map(key=>{const v=operationColumnValue(row,key,ar),cash=['net','tax','total','unitPrice','baseTotal','applied','outstanding','bookEffect','gain'].includes(key),baseMoney=['baseTotal','applied','outstanding','bookEffect','gain'].includes(key);return <td key={key}>{key==='status'?<span className="pill">{v}</span>:typeof v==='number'&&cash?<Money value={key==='net'?operationReportAmounts(row).baseNet:key==='tax'?operationReportAmounts(row).baseTax:key==='total'?operationReportAmounts(row).baseTotal:key==='unitPrice'?v*operationReportAmounts(row).fx:v} currency={row.base_currency} organizationId={row.organization_id}/>:key==='asset'?<><strong>{v}</strong><small className="operation-status-note">{row.reference??row.metadata?.invoice_reference??row.counterparty_name??''}</small></>:key==='type'?<>{v}<small className="operation-status-note">{row.source_label}</small></>:typeof v==='number'?numberFormatter.format(v):v}</td>})}<td><ActionButton icon="details" label={t('التفاصيل والإجراءات','Details and actions')} onClick={()=>{if(row.metadata?.investment_id)window.location.href=`/${ar?'ar':'en'}/investments?investment_id=${row.metadata.investment_id}`;else setSelectedOperation({row,edit:null});}}/>
           {(row.can_correct_personal_sale||row.can_edit_notes)&&<ActionButton icon="edit" label={row.can_correct_personal_sale?t('مراجعة تصحيح البيع','Review sale correction'):t('تعديل الملاحظات','Edit notes')} onClick={()=>setSelectedOperation({row,edit:row.can_correct_personal_sale?'sale':'notes'})}/>}</td></tr>)}{!loading&&!sortedRows.length&&<tr><td colSpan={reportColumns.length+1} className="muted">{hasFilters?'لا توجد معاملات مطابقة للفلاتر الحالية.':'لا توجد معاملات بعد.'}</td></tr>}</tbody></table></div>
       </div>

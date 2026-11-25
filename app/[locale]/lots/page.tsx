@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from 'react';
 import Link from '@/components/WorkspaceLink';
 import {useWorkspaceScope} from '@/hooks/useWorkspaceScope';
-import {organizationScopeIds} from '@/lib/workspace-organization';
+import {lotWorkspaceQuery} from '@/lib/lot-workspace-scope';
 import TopbarOrganizationControls from '@/components/TopbarOrganizationControls';
 import WorkspaceOrganizationPicker from '@/components/WorkspaceOrganizationPicker';
 
@@ -16,16 +16,19 @@ export default function Lots({
   const ar = locale === 'ar';
 
   const [scope]=useWorkspaceScope(),[org,setOrg]=useState(''),[group,setGroup]=useState(false),[organizations,setOrganizations]=useState<any[]>([]);
-  const [rows, setRows] = useState<any[]>([]);
-
-  useEffect(() => {
-    fetch('/api/lots')
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setRows);
-  }, []);
+  const query=lotWorkspaceQuery(scope,org,group);
+  const [snapshot,setSnapshot]=useState<{query:string;rows:any[]}|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
+  const rows=snapshot?.query===query?snapshot.rows:[];
+  useEffect(()=>{
+    const controller=new AbortController();setError('');setLoading(Boolean(query));
+    if(query)fetch('/api/lots?'+query,{cache:'no-store',signal:controller.signal}).then(async response=>{
+      const data=await response.json();if(!response.ok)throw Error(data.error??'LOT_LOAD_FAILED');
+      if(!controller.signal.aborted)setSnapshot({query,rows:data});
+    }).catch(()=>{if(!controller.signal.aborted)setError(ar?'تعذر تحميل دفعات النطاق المحدد. راجع المؤسسة والصلاحيات ثم أعد المحاولة.':'Unable to load lots for this workspace. Check the company and permissions, then retry.')}).finally(()=>{if(!controller.signal.aborted)setLoading(false)});
+    return()=>controller.abort();
+  },[query,ar]);
 
   useEffect(()=>{const c=new AbortController();fetch('/api/assets/catalog',{signal:c.signal}).then(r=>r.ok?r.json():null).then(d=>{if(d&&!c.signal.aborted)setOrganizations(d.organizations)}).catch(()=>{});return()=>c.abort()},[]);
-  const ids=organizationScopeIds(organizations,org,group),visible=rows.filter(row=>scope==='PERSONAL'?!row.asset_accounts?.organization_id:ids.has(row.asset_accounts?.organization_id));
   return (
     <main className="container">{scope==='ORGANIZATION'&&<TopbarOrganizationControls><WorkspaceOrganizationPicker ar={ar} organizations={organizations} value={org} onChange={setOrg} group={group} onGroupChange={setGroup}/></TopbarOrganizationControls>}
       <div className="page-head">
@@ -39,6 +42,9 @@ export default function Lots({
         </div>
       </div>
 
+      {error&&<p role="alert">{error}</p>}
+      {loading&&<p role="status">{ar?'جارٍ تحميل دفعات النطاق…':'Loading workspace lots…'}</p>}
+      {scope==='ORGANIZATION'&&!org&&<p>{ar?'اختر مؤسسة مصرحًا بها من البنر لعرض دفعاتها.':'Choose an authorized organization from the banner to view its lots.'}</p>}
       <div className="card section">
         <table className="table">
           <thead>
@@ -53,7 +59,7 @@ export default function Lots({
           </thead>
 
           <tbody>
-            {visible.map((r) => (
+            {rows.map((r) => (
               <tr key={r.id}>
                 <td>{r.asset_accounts?.name || r.asset_account_id}</td>
                 <td>{r.remaining_quantity}</td>
@@ -73,7 +79,7 @@ export default function Lots({
               </tr>
             ))}
 
-            {rows.length === 0 && (
+            {!loading&&!error&&query&&rows.length === 0 && (
               <tr>
                 <td colSpan={6} className="muted">
                   {ar ? 'لا توجد دفعات بعد.' : 'No lots yet.'}

@@ -1,0 +1,87 @@
+name: Personal and organization scope acceptance
+on:
+  pull_request:
+    paths:
+      - 'app/[[]locale]/dashboard/**'
+      - 'app/[[]locale]/transactions/**'
+      - 'app/[[]locale]/lots/**'
+      - 'app/[[]locale]/enterprise/**'
+      - 'app/[[]locale]/workflow/**'
+      - 'app/[[]locale]/reports/**'
+      - 'app/[[]locale]/invoice-register/**'
+      - 'app/api/investments/**'
+      - 'app/api/reports/**'
+      - 'app/api/assessments/manual/**'
+      - 'app/api/budget-plans/**'
+      - 'components/CorporateShell.tsx'
+      - 'components/WorkspaceLink.tsx'
+      - 'components/WorkspaceOrganizationPicker.tsx'
+      - 'components/TopbarNavigation.tsx'
+      - 'components/FinancialReportingNavigation.tsx'
+      - 'components/FinancialRegisterWorkspace.tsx'
+      - 'components/InvestmentWorkspace.tsx'
+      - 'components/YaqeenFinancialSignals.tsx'
+      - 'components/Budget*'
+      - 'components/settings/**'
+      - 'lib/*scope*'
+      - 'lib/workspace-organization*'
+      - 'lib/*navigation*'
+      - 'hooks/useWorkspaceScope.ts'
+      - 'lib/yaqeen-dashboard-model*'
+      - 'services/dashboard-access*'
+      - 'services/investments*'
+      - 'services/operational-reports*'
+      - 'services/budget-planning*'
+      - 'supabase/migrations/**'
+      - 'tests/workspace-scope/**'
+      - '.github/workflows/workspace-scope-qa.yml'
+  workflow_dispatch:
+concurrency:
+  group: workspace-scope-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  scope-acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - name: Verify canonical migration manifest
+        run: node tests/migration-history/verify-files.mjs
+      - name: Prepare disposable local Supabase
+        run: |
+          export SCOPE_QA_WORKDIR="$RUNNER_TEMP/workspace-scope-qa"
+          echo "SCOPE_QA_WORKDIR=$SCOPE_QA_WORKDIR" >> "$GITHUB_ENV"
+          mkdir -p "$SCOPE_QA_WORKDIR"
+          npx --yes supabase@2.122.0 init --workdir "$SCOPE_QA_WORKDIR"
+          python - <<'PY'
+          import os,pathlib,re,shutil
+          root=pathlib.Path(os.environ['SCOPE_QA_WORKDIR'])/'supabase'
+          path=root/'config.toml'
+          path.write_text(re.sub(r'^project_id = .*$', 'project_id = "workspace-scope-qa"',path.read_text(),flags=re.M))
+          shutil.copytree('supabase/migrations',root/'migrations',dirs_exist_ok=True)
+          PY
+      - name: Apply complete canonical history to empty local database
+        run: npx --yes supabase@2.122.0 start --workdir "$SCOPE_QA_WORKDIR" --exclude studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta > "$RUNNER_TEMP/workspace-scope-start.log" 2>&1 || { tail -60 "$RUNNER_TEMP/workspace-scope-start.log"; exit 1; }
+      - name: Install isolated Chromium runner
+        run: |
+          npm install --prefix "$RUNNER_TEMP/workspace-browser" --no-save --package-lock=false playwright@1.64.1
+          node "$RUNNER_TEMP/workspace-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Verify real auth, scoped APIs, exports and navigation
+        run: SCOPE_BROWSER_MODULE="$RUNNER_TEMP/workspace-browser/node_modules/playwright/index.mjs" node tests/workspace-scope/acceptance.mjs
+      - name: Publish synthetic acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-scope-acceptance
+          path: tests/workspace-scope/artifacts/
+      - name: Destroy disposable local database
+        if: always()
+        run: test -z "$SCOPE_QA_WORKDIR" || npx --yes supabase@2.122.0 stop --workdir "$SCOPE_QA_WORKDIR" --no-backup

@@ -7,7 +7,7 @@ export type BudgetLine={
 export type BudgetPlan={
  id?:string;name:string;fiscal_year:number;currency:string;
  scenario:'BASE'|'DOWNSIDE'|'UPSIDE';status:'DRAFT'|'IN_REVIEW'|'APPROVED'|'ARCHIVED';
- organization_name:string;cost_center:string;opening_cash:number;minimum_cash_target:number;
+ organization_name:string;organization_id?:string|null;resolved_organization_id?:string;cost_center:string;opening_cash:number;minimum_cash_target:number;
  assumptions:Record<string,unknown>;notes:string;lines:BudgetLine[];
 };
 

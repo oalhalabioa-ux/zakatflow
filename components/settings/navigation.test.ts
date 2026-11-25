@@ -17,8 +17,10 @@ it("keeps account and user management independent of organization settings", () 
   expect(isSettingsPage("account")).toBe(false);
   expect(isSettingsPage("users")).toBe(false);
   expect(currentWorkspaceScope("settings/system", "", "PERSONAL")).toBe(
-    "ORGANIZATION",
+    "PERSONAL",
   );
+  expect(currentWorkspaceScope("settings/system", "", "ORGANIZATION")).toBe("ORGANIZATION");
+  expect(currentWorkspaceScope("settings/system", "scope=PERSONAL", "ORGANIZATION")).toBe("PERSONAL");
 });
 it("makes subscription settings discoverable independently of My account", () => {
   expect(searchNavigation("اشتراك").some((s) => s[0] === "billing")).toBe(true);

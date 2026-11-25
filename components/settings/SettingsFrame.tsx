@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { rememberedOrganization } from "@/lib/workspace-organization";
+import { useWorkspaceScope } from "@/hooks/useWorkspaceScope";
 import { settingSections, isSettingsSectionActive } from "./navigation";
 import "./settings.css";
 import "./settings-refinement.css";
@@ -18,11 +19,14 @@ export default function SettingsFrame({
   const ar = locale === "ar",
     path = usePathname(),
     [organization, setOrganization] = useState("");
+  const relativePath=path.split('/').slice(2).join('/');
+  const [scope]=useWorkspaceScope(relativePath==='settings/personal-setup'?'PERSONAL':'ORGANIZATION');
+  const personal=relativePath==='settings/personal-setup'||relativePath==='settings/system'&&scope==='PERSONAL';
   const [fromSetup,setFromSetup]=useState(false);
   useEffect(() => {
     const read = () => {
       const query=new URLSearchParams(location.search);
-      setOrganization(query.get("organization") ?? rememberedOrganization() ?? "");
+      setOrganization(query.get("organization") ?? query.get("organization_id") ?? rememberedOrganization() ?? "");
       setFromSetup(query.get("fromSetup")==='1');
     };
     read();
@@ -34,12 +38,14 @@ export default function SettingsFrame({
     };
   }, [path]);
   const tabParams=new URLSearchParams();
-  if(organization)tabParams.set('organization',organization);
-  if(fromSetup)tabParams.set('fromSetup','1');
-  const relativePath=path.split('/').slice(2).join('/');
-  const active=settingSections.find(s=>s.group==='primary'&&isSettingsSectionActive(relativePath,s.path));
-  const journey=active?.path==='settings/financial/setup';
-  const heading=journey?(ar?'رحلة إعداد المؤسسة':'Set up your organization'):(active?(ar?active.ar:active.en):(ar?'الإعدادات':'Settings'));
+  tabParams.set('scope',personal?'PERSONAL':'ORGANIZATION');
+  if(!personal&&organization)tabParams.set('organization',organization);
+  if(!personal&&fromSetup)tabParams.set('fromSetup','1');
+  const sections=settingSections.filter(s=>s.group==='primary'&&(!personal||['settings/financial/setup','settings/system'].includes(s.path)))
+    .map(s=>personal&&s.path==='settings/financial/setup'?{...s,path:'settings/personal-setup',ar:'الإعداد الشخصي',en:'Personal setup'}:s);
+  const active=sections.find(s=>isSettingsSectionActive(relativePath,s.path));
+  const journey=active?.path==='settings/financial/setup'||active?.path==='settings/personal-setup';
+  const heading=journey?(personal?(ar?'رحلة الإعداد الشخصي':'Set up your personal workspace'):(ar?'رحلة إعداد المؤسسة':'Set up your organization')):(active?(ar?active.ar:active.en):(ar?'الإعدادات':'Settings'));
 
       const descriptions:Record<string,[string,string]>={
     'settings':['إدارة هوية المؤسسة وهيكلها التنظيمي وبياناتها الأساسية.','Manage your organization identity, structure and contact details.'],
@@ -48,7 +54,12 @@ export default function SettingsFrame({
     'settings/team':['وصول آمن ومنظم للفريق عبر أدوار تشغيلية وصلاحيات واضحة.','Manage secure team access through clear roles and permissions.'],
     'settings/system':['تفضيلات عامة للمنصة، مستقلة عن الملف القانوني للمؤسسة.','Platform preferences, separate from the organization legal profile.'],
   };
-  const description=journey?(ar?'دليلك لإكمال إعداد المؤسسة والوصول إلى الجاهزية للعمل على يقين.':'Complete organization setup and prepare to work in Yaqeen.'):(descriptions[active?.path??'settings']??descriptions.settings)[ar?0:1];
+  const description=journey?(personal?(ar?'تفضيلاتك ومصادرك المالية وتقاريرك الشخصية، دون الحاجة إلى إنشاء مؤسسة.':'Your preferences, financial sources and personal reports, without creating an organization.'):(ar?'دليلك لإكمال إعداد المؤسسة والوصول إلى الجاهزية للعمل على يقين.':'Complete organization setup and prepare to work in Yaqeen.')):(descriptions[active?.path??'settings']??descriptions.settings)[ar?0:1];
+  const tabHref=(section:string)=>{
+    const query=new URLSearchParams(tabParams);
+    if(section==='settings/system'){query.delete('organization');query.delete('fromSetup');}
+    return `/${locale}/${section}?${query}`;
+  };
 
   return (
     <main className="settings-workspace" dir={ar ? "rtl" : "ltr"}>
@@ -61,13 +72,13 @@ export default function SettingsFrame({
         className="settings-tabs"
         aria-label={ar ? "أقسام الإعدادات" : "Settings sections"}
       >
-        {settingSections.filter(s=>s.group==='primary').map((s) => (
+        {sections.map((s) => (
           <Link
             key={s.path}
-            href={`/${locale}/${s.path}${tabParams.size?'?'+tabParams:''}`}
+            href={tabHref(s.path)}
             aria-current={isSettingsSectionActive(path.split("/").slice(2).join("/"),s.path) ? "page" : undefined}
           >
-            <SettingsIcon name={s.icon==='settings'?'system':s.icon}/><span>{ar ? s.ar : s.en}</span>
+            <SettingsIcon name={s.icon==='settings'?'system':s.icon==='payments'?'billing':s.icon}/><span>{ar ? s.ar : s.en}</span>
           </Link>
         ))}
       </nav>

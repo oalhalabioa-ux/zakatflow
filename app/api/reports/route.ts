@@ -1,15 +1,24 @@
-import {listAssets} from '@/services/assets';
-import {organizationScopeIds} from '@/lib/workspace-organization';
-import {NextResponse} from 'next/server';import {requireUser} from '@/services/auth';
-function csv(rows:any[]){if(!rows.length)return '';const keys=Object.keys(rows[0]);const esc=(v:any)=>`"${String(v??'').replaceAll('"','""')}"`;return [keys.map(esc).join(','),...rows.map(r=>keys.map(k=>esc(r[k])).join(','))].join('\n');}
-export async function GET(req:Request){try{const {supabase,user}=await requireUser();const type=new URL(req.url).searchParams.get('type')||'assessments';let rows:any[]=[];
-if(type==='assets'){
- const q=new URL(req.url).searchParams,scope=q.get('scope')||'PERSONAL',org=q.get('organization_id'),entity=q.get('entity_id');
- if(!['PERSONAL','ORGANIZATION'].includes(scope)||scope==='ORGANIZATION'&&!org)throw Error('ASSET_REPORT_SCOPE_REQUIRED');
- let ids=new Set(org?[org]:[]);if(scope==='ORGANIZATION'&&q.get('group')==='1'){const r=await supabase.from('organizations').select('id,name,parent_organization_id,organization_kind');if(r.error)throw r.error;ids=organizationScopeIds(r.data??[],org!,true);}
- const assets=(await listAssets()).filter((r:any)=>(scope==='PERSONAL'?!r.organization_id:ids.has(r.organization_id))&&(!entity||r.entity_id===entity));
- rows=assets.map((r:any)=>({asset_type:r.asset_type,name:r.name,organization_id:r.organization_id||'',entity_id:r.entity_id||'',source:r.metadata?.register_source||'ASSETS',purchase_date:r.metadata?.purchase_date||'',currency:r.current_value_currency||r.currency,purchase_cost:r.current_cost_value,current_value:r.current_market_value,profit_margin:Number(r.current_market_value||0)-Number(r.current_cost_value||0),zakat_due:r.zakat_calculation?.zakat_amount??'',zakat_paid:r.zakat_calculation?.paid_amount??'',zakatable:r.is_zakatable?'YES':'NO',status:r.lifecycle_status}));
+import {NextResponse} from 'next/server';
+import {z} from 'zod';
+import {requireUser} from '../../../services/auth';
+import {readOperationalReport} from '../../../services/operational-reports';
+import {operationalReportTypes,readOperationalReportScope} from '../../../lib/operational-report-scope';
+import {reportCsv} from '../../../lib/vat-financial-reports';
+const headers={'Cache-Control':'no-store'};
+export async function GET(req:Request){
+ try{
+  const q=new URL(req.url).searchParams;
+  if(q.getAll('type').length>1)throw Error('REPORT_TYPE_INVALID');
+  const type=z.enum(operationalReportTypes).parse(q.get('type')??'assessments');
+  const scope=readOperationalReportScope(q),rows=await readOperationalReport(type,scope);
+  const keys=[...new Set(rows.flatMap(row=>Object.keys(row)))];
+  const csv=reportCsv(keys.length?[keys,...rows.map(row=>keys.map(key=>typeof row[key]==='number'?row[key]:String(row[key]??'')))]:[]);
+  return new NextResponse(csv,{headers:{...headers,'Content-Type':'text/csv; charset=utf-8','Content-Disposition':`attachment; filename="yaqeen-${type}-${scope.scope.toLowerCase()}.csv"`}});
+ }catch(error){
+  const raw=error instanceof Error?error.message:String((error as {message?:string})?.message??'');
+  const code=error instanceof z.ZodError?'REPORT_INPUT_INVALID':/^[A-Z][A-Z_]+$/.test(raw)?raw:'REPORT_LOAD_FAILED';
+  return NextResponse.json({error:code},{status:code==='UNAUTHORIZED'?401:/ACCESS|PERMISSION|DENIED/.test(code)?403:code==='REPORT_LOAD_FAILED'?500:400,headers});
+ }
 }
-else if(type==='transactions'){const {data,error}=await supabase.from('transactions').select('id,transaction_type,transaction_date,quantity,currency,gross_value,base_currency,base_value,reference,notes,asset_account_id').eq('user_id',user.id).order('transaction_date',{ascending:false});if(error)throw error;rows=data??[];}else if(type==='lots'){const {data,error}=await supabase.from('lots').select('id,asset_account_id,source_transaction_id,acquisition_date,hawl_start_date,hawl_due_date,original_quantity,remaining_quantity,original_value_base,remaining_value_base,status').eq('user_id',user.id).order('hawl_due_date');if(error)throw error;rows=data??[];}else if(type==='payments'){const {data,error}=await supabase.from('zakat_payments').select('id,assessment_id,payment_date,amount,currency,base_amount,beneficiary,reference,notes').eq('user_id',user.id).order('payment_date',{ascending:false});if(error)throw error;rows=data??[];}else{const {data,error}=await supabase.from('zakat_assessments').select('id,assessment_date,valuation_date,total_zakatable_value,zakat_rate,zakat_due,currency,status,method_version').eq('user_id',user.id).order('assessment_date',{ascending:false});if(error)throw error;rows=data??[];}return new NextResponse('\uFEFF'+csv(rows),{headers:{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':`attachment; filename="zakatflow-${type}.csv"`}})}catch(e:any){return NextResponse.json({error:e.message},{status:e.message==='UNAUTHORIZED'?401:400})}}
 export async function POST(req:Request){try{const {supabase,user}=await requireUser();const b=await req.json();const {data,error}=await supabase.from('report_jobs').insert({owner_id:user.id,report_type:b.report_type??'ZAKAT',format:b.format??'PDF',reference_id:b.assessment_id??null,status:'QUEUED'}).select().single();if(error)throw error;return NextResponse.json(data,{status:201})}catch(e:any){return NextResponse.json({error:e.message},{status:400})}}
 

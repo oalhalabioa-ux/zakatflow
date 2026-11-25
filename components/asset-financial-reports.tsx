@@ -1,4 +1,5 @@
 'use client';
+import type {ReportScopeSelection} from '../lib/operational-report-scope';
 import {sourceVoucher} from '../lib/source-voucher';
 import {organizationScopeIds} from '../lib/workspace-organization';
 import WorkspaceOrganizationPicker from './WorkspaceOrganizationPicker';
@@ -19,12 +20,13 @@ import {vatReportPrintHtml} from '@/lib/vat-report-print';
 import {reportCsv} from '@/lib/vat-financial-reports';
 type Tab='register'|'movements'|'valuation'|'depreciation'|'zakat';
 type Column={key:string;label:string;money?:boolean};
-export default function AssetFinancialReports({locale}:{locale:string}){
+export default function AssetFinancialReports({locale,onScopeSelection}:{locale:string;onScopeSelection?:(selection:ReportScopeSelection)=>void}){
  const ar=locale==='ar',t=(a:string,e:string)=>ar?a:e;
  const [scope]=useWorkspaceScope();
  useEffect(()=>{setEntity('');setSelected(null)},[scope]);
  const [assets,setAssets]=useState<any[]>([]),[operations,setOperations]=useState<any[]>([]),[catalog,setCatalog]=useState<any>({organizations:[],entities:[],classes:[]}),[loading,setLoading]=useState(true),[error,setError]=useState(''),[org,setOrg]=useState(''),[group,setGroup]=useState(false),[entity,setEntity]=useState(''),[query,setQuery]=useState(''),[category,setCategory]=useState(''),[status,setStatus]=useState(''),[tab,setTab]=useState<Tab>('register'),[from,setFrom]=useState(''),[to,setTo]=useState(''),[selected,setSelected]=useState<any>(null),[hidden,setHidden]=useState<string[]>([]),[sort,setSort]=useState({key:'name',descending:false}),[stamp,setStamp]=useState('');
  useEffect(()=>{const controller=new AbortController();async function load(){try{const data=await Promise.all(['/api/assets','/api/transactions','/api/assets/catalog'].map(async url=>{const r=await fetch(url,{signal:controller.signal,cache:'no-store'});if(!r.ok)throw new Error(t('تعذر تحميل بيانات التقارير','Unable to load report data'));return r.json();}));if(controller.signal.aborted)return;setAssets(data[0]);setOperations(data[1]);setCatalog(data[2]);setOrg(data[2].organizations[0]?.id??'');setStamp(new Date().toLocaleString(ar?'ar-SA':'en-GB',{timeZone:'Asia/Riyadh'}));}catch(e){if(!controller.signal.aborted)setError(e instanceof Error?e.message:'REPORT_LOAD_FAILED');}finally{if(!controller.signal.aborted)setLoading(false);}}void load();return()=>controller.abort();},[ar]);
+ useEffect(()=>{onScopeSelection?.({scope,organization:scope==='ORGANIZATION'?org:'',group:scope==='ORGANIZATION'&&group,entity:scope==='ORGANIZATION'?entity:''})},[scope,org,group,entity,onScopeSelection]);
  const filtered=useMemo(()=>filterReportAssets(assets,{scope,organizationId:org,organizationIds:[...organizationScopeIds(catalog.organizations,org,group)],entityId:entity,query,category,status}),[assets,scope,org,group,catalog.organizations,entity,query,category,status]);
  const movements=useMemo(()=>filterReportMovements(operations,filtered,from,to),[operations,filtered,from,to]);
  const valuationDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());

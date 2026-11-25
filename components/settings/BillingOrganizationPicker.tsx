@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
+import TopbarOrganizationControls from "../TopbarOrganizationControls";
+import WorkspaceOrganizationPicker from "../WorkspaceOrganizationPicker";
 import {
   rememberOrganization,
   rememberedOrganization,
-  preferredOrganization,
+  requestedOrganization,
   type WorkspaceOrganization,
 } from "@/lib/workspace-organization";
 export default function BillingOrganizationPicker({
@@ -14,7 +16,7 @@ export default function BillingOrganizationPicker({
   const ar = locale === "ar",
     [items, setItems] = useState<WorkspaceOrganization[]>([]),
     [id, setId] = useState(""),
-    [error, setError] = useState(false);
+    [error, setError] = useState<'LOAD'|'UNAVAILABLE'|null>(null);
   useEffect(() => {
     let live = true;
     fetch("/api/organizations", { cache: "no-store" })
@@ -23,16 +25,16 @@ export default function BillingOrganizationPicker({
         const rows = (await r.json()) as WorkspaceOrganization[];
         if (live) {
           setItems(rows);
-          const explicit = new URLSearchParams(location.search).get("organization");
-          if(explicit&&!rows.some(o=>o.id===explicit)){setError(true);return;}
+          const q=new URLSearchParams(location.search),explicit=q.get("organization")??q.get('organization_id');
           const requested = explicit ?? rememberedOrganization();
-          const selected = preferredOrganization(rows, requested)?.id ?? "";
+          const selected = requestedOrganization(rows, explicit, rememberedOrganization())?.id ?? "";
           setId(selected);
+          setError(explicit!==null&&!selected?'UNAVAILABLE':null);
           if (selected && selected !== requested) rememberOrganization(selected, false);
         }
       })
       .catch(() => {
-        if (live) setError(true);
+        if (live){setId('');setError('LOAD');}
       });
     return () => {
       live = false;
@@ -40,10 +42,9 @@ export default function BillingOrganizationPicker({
   }, []);
   useEffect(() => {
     const read = () => {
-      const next =
-        new URLSearchParams(location.search).get("organization") ??
-        rememberedOrganization();
-      if (items.some((o) => o.id === next)) setId(next!);
+      const q=new URLSearchParams(location.search),explicit=q.get('organization')??q.get('organization_id');
+      const next=requestedOrganization(items,explicit,rememberedOrganization());
+      setId(next?.id??'');setError(explicit!==null&&!next?'UNAVAILABLE':null);
     };
     window.addEventListener("zf-organization-selection", read);
     window.addEventListener("popstate", read);
@@ -56,28 +57,19 @@ export default function BillingOrganizationPicker({
     <>
       {error && (
         <p role="alert">
-          {ar ? "تعذر تحميل قائمة المؤسسات." : "Unable to load organizations."}
+          {error==='UNAVAILABLE'?(ar?'المؤسسة المحددة غير متاحة. اختر مؤسسة مصرحًا بها من البنر.':'The requested organization is unavailable. Choose an authorized organization from the banner.'):(ar ? "تعذر تحميل قائمة المؤسسات." : "Unable to load organizations.")}
         </p>
       )}
-      <div className="settings-picker-row">
-        <label className="settings-org-picker">
-          {ar ? "المؤسسة" : "Organization"}
-          <select
-            aria-label={ar ? "المؤسسة المختارة" : "Selected organization"}
-            value={id}
-            onChange={(e) => {
-              setId(e.target.value);
-              rememberOrganization(e.target.value, false);
-            }}
-          >
-            {items.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      <TopbarOrganizationControls>
+        <WorkspaceOrganizationPicker
+          ar={ar}
+          organizations={items}
+          value={id}
+          restore={false}
+          onChange={next=>{setId(next);setError(null);}}
+          label={ar ? "المؤسسة المختارة" : "Selected organization"}
+        />
+      </TopbarOrganizationControls>
     </>
   );
 }

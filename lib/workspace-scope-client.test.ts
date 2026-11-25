@@ -11,4 +11,10 @@ it('changes every client-owned scope through history and the filter event',()=>{
 });
 it('does not add duplicate history when the scope is unchanged',()=>{const b=browser('assets','?scope=PERSONAL');updateClientWorkspaceScope('PERSONAL');expect(b.history.pushState).not.toHaveBeenCalled();expect(b.dispatchEvent).toHaveBeenCalledOnce();});
 it('supports source synchronization without adding a back-stack entry',()=>{const b=browser('assets');updateClientWorkspaceScope('ORGANIZATION',true);expect(b.history.replaceState).toHaveBeenCalledOnce();expect(b.history.pushState).not.toHaveBeenCalled();});
+it('clears company selectors before announcing a personal transition',()=>{
+ const b=browser('assets','?scope=ORGANIZATION&organization=company-a&level=GROUP&branch_id=branch-a&tab=statement');
+ expect(updateClientWorkspaceScope('PERSONAL')).toBe(true);
+ expect(b.history.pushState).toHaveBeenCalledWith(null,'','/ar/assets?scope=PERSONAL&tab=statement');
+ expect(b.history.pushState.mock.invocationCallOrder[0]).toBeLessThan(b.dispatchEvent.mock.invocationCallOrder[0]);
+});
 it('leaves server-owned dashboard reporting and other modules on their original navigation path',()=>{for(const path of ['dashboard','employee-advances','vat']){const b=browser(path);expect(updateClientWorkspaceScope('PERSONAL')).toBe(false);expect(b.history.pushState).not.toHaveBeenCalled();expect(b.dispatchEvent).not.toHaveBeenCalled();}});
