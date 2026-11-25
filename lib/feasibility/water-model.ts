@@ -1,5 +1,6 @@
 import {z} from 'zod';
 import {internalRateOfReturn, type FeasibilityStudy} from './engine';
+import {licenceReviewReason} from './licence-review';
 import {quantityBudgetSchema,evaluateQuantityBudget} from './quantity-costs';
 import {evaluateWaterPackMix,waterPackMixSchema} from './water-pack-mix';
 import {waterFinancingPolicySchema,waterDebtSchedule,waterFinancingReadiness,waterEquityReturns} from './water-financing';
@@ -333,7 +334,7 @@ export function waterVariableCostBreakdown(model:WaterModel,dimensions:Pick<Wate
 
 export function studyReportReadiness(study:FeasibilityStudy){
  return {
-  openCritical:study.legal.filter(item=>item.critical&&item.status!=='VERIFIED'),
+  openCritical:study.legal.filter(item=>item.critical&&licenceReviewReason(item)!==null),
   openTasks:study.tasks.filter(item=>item.status!=='DONE'),
   highRisks:study.risks.filter(item=>item.status!=='MITIGATED'&&item.impact*item.likelihood>=15)
  };

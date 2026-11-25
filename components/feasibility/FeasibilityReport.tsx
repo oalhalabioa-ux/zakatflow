@@ -13,6 +13,7 @@ import WaterModelPanel from './WaterModelPanel';
 import PartnershipPanel from './PartnershipPanel';
 import CostingReport from './CostingReport';
 import {evaluateMonthlyLiquidity,liquidityMonthLabel,monthlyLiquidityAmounts} from '@/lib/feasibility/monthly-liquidity';
+import {licenceReviewLabel,licenceReviewReason} from '@/lib/feasibility/licence-review';
 
 const exportSections = ['summary','finance','funding','ownership','governance','decisions','notes'] as const;
 type ExportSection = typeof exportSections[number];
@@ -61,7 +62,7 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
  }
  const {openCritical,openTasks,highRisks}=studyReportReadiness(study);
  const profile=studyProfileValues(study);
- const verified=study.legal.filter(item=>item.status==='VERIFIED').length;
+ const verified=study.legal.filter(item=>item.status==='VERIFIED'&&(!item.critical||licenceReviewReason(item)===null)).length;
  const fmt=(value:number|null)=>value===null?'—':new Intl.NumberFormat(locale,{maximumFractionDigits:2}).format(value);
  const money=(value:number|null)=>value===null?'—':[fmt(value),study.currency].filter(Boolean).join(' ');
  const percent=(value:number|null)=>value===null?'—':fmt(value)+'%';
@@ -362,7 +363,7 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
    <p>{l('الفحص القانوني المكتمل','Legal checks verified')} · {verified}/{study.legal.length}</p>
    {openCritical.length>0&&<>
     <h4>{l('بنود قانونية حاسمة مفتوحة','Open critical legal checks')}</h4>
-    <ul>{openCritical.map(item=><li key={item.id}>{[item.title,item.owner,item.due,item.notes].filter(Boolean).join(' · ')}</li>)}</ul>
+    <ul>{openCritical.map(item=><li key={item.id}>{[item.title,licenceReviewLabel(item,locale),item.owner,item.due,item.notes.trim()].filter(Boolean).join(' · ')}</li>)}</ul>
    </>}
    <h4>{l('المهام المتبقية','Outstanding tasks')} · {openTasks.length}/{study.tasks.length}</h4>
    {openTasks.length>0&&<ul>{openTasks.map(item=><li key={item.id}>{[item.title,item.owner,item.due].filter(Boolean).join(' · ')}</li>)}</ul>}

@@ -6,13 +6,15 @@ import {RoyalIcon} from './RoyalIcon';
 type Document={id:string;name:string;size:number;createdAt:string;requirementId:string|null};
 type Requirement={id:string;title:string};
 
-export default function EvidenceDocuments({locale,project,organization,kind,saved,canWrite,requirements}:{
+export default function EvidenceDocuments({locale,project,organization,kind,saved,canWrite,requirements,initialRequirement=''}:{
  locale:string;project:string;organization?:string;kind:'licensing'|'valuation';saved:boolean;canWrite:boolean;requirements:Requirement[];
+ initialRequirement?:string;
 }){
  const ar=locale==='ar';
  const l=(arText:string,enText:string)=>ar?arText:enText;
  const [documents,setDocuments]=useState<Document[]>([]);
- const [requirement,setRequirement]=useState('');
+ const [requirement,setRequirement]=useState(initialRequirement);
+ const licensing=kind==='licensing';
  const [version,setVersion]=useState(0);
  const [busy,setBusy]=useState(false);
  const [loadState,setLoadState]=useState<'loading'|'ready'|'unavailable'|'failed'>('loading');
@@ -99,21 +101,22 @@ export default function EvidenceDocuments({locale,project,organization,kind,save
     </button>
    </div>:<>
    {!error&&!documents.length&&<p>{l('لا توجد ملفات مرفقة.','No files attached.')}</p>}
-   {documents.length>0&&(kind==='valuation'?<div className="fs-table-wrap fs-royal-valuation-documents">
-    <table className="fs-table" aria-label={l('مستندات التقييم المرفقة','Attached valuation documents')}>
-     <thead><tr><th scope="col">{l('المستند','Document')}</th><th scope="col">{l('تاريخ الإرفاق','Date added')}</th>
+   {documents.length>0&&<div className={'fs-table-wrap '+(licensing?'fs-royal-licence-table':'fs-royal-valuation-documents')}
+    role="region" aria-label={licensing?l('مرفقات التراخيص','Licence attachments'):l('مستندات التقييم المرفقة','Attached valuation documents')} tabIndex={0}>
+    <table className="fs-table" aria-label={licensing?undefined:l('مستندات التقييم المرفقة','Attached valuation documents')}>
+     <thead><tr><th scope="col">{l('المستند','Document')}</th>
+      {licensing&&<th scope="col">{l('المتطلب المرتبط','Linked requirement')}</th>}<th scope="col">{l('تاريخ الإرفاق','Date added')}</th>
       <th scope="col">{l('الحجم','Size')}</th>{canWrite&&<th scope="col">{l('الإجراء','Action')}</th>}</tr></thead>
      <tbody>{documents.map(item=><tr key={item.id}>
-      <th scope="row">{documentLink(item)}</th><td><bdi>{documentDate(item)}</bdi></td><td>{documentSize(item)}</td>
+      <th scope="row">{documentLink(item)}</th>
+      {licensing&&<td>{item.requirementId
+       ?requirements.find(row=>row.id===item.requirementId)?.title??l('لم يعد المتطلب موجودًا في السجل','Requirement no longer in the register')
+       :l('مرفق عام للدراسة','General study attachment')}</td>}
+      <td><bdi>{documentDate(item)}</bdi></td><td>{documentSize(item)}</td>
       {canWrite&&<td>{removeDocument(item)}</td>}
      </tr>)}</tbody>
     </table>
-   </div>:<ul className="fs-royal-checks">{documents.map(item=><li key={item.id}>
-    <div>{documentLink(item)}<small>{documentSize(item)}{' · '}{documentDate(item)}</small>
-     {item.requirementId&&<small>{requirements.find(row=>row.id===item.requirementId)?.title ??
-      l('لم يعد المتطلب موجودًا في السجل','Requirement no longer in the register')}</small>}</div>
-    {canWrite&&removeDocument(item)}
-   </li>)}</ul>)}
+   </div>}
    {canWrite&&kind==='licensing'&&requirements.length>0&&<label className="fs-field">
     <span>{l('ربط المرفق بمتطلب','Link attachment to requirement')}</span>
     <select value={requirement} disabled={busy} onChange={event=>setRequirement(event.currentTarget.value)}>

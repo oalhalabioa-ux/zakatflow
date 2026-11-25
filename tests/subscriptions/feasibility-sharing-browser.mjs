@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createServerClient } from '@supabase/ssr';
+import { verifyFeasibilityLicensingBrowser } from './feasibility-licensing-browser.mjs';
 
 export async function verifyFeasibilitySharingBrowser({ browser, appUrl, url, anonKey, owner, recipient, sourceOrg, recipientOrg }) {
   assert.equal(url, 'http://127.0.0.1:54321');
@@ -130,6 +131,7 @@ export async function verifyFeasibilitySharingBrowser({ browser, appUrl, url, an
     await receiver.reload();
     await receiver.getByText('The study is unavailable or access ended.', { exact: true }).waitFor();
     await setMode('read');
+    await verifyFeasibilityLicensingBrowser({ source, receiver, appUrl, sourceOrg, project });
   } finally {
     await Promise.all(contexts.map(context => context.close()));
   }

@@ -3,6 +3,7 @@ import {advancedIssueNames} from './advanced-readiness-labels';
 import {evaluateRawLand} from './raw-land';
 import {evaluateWater,effectiveWaterInputs,waterFinancialReadiness,waterPeakFundingGap} from './water-model';
 import {defaultLegalItems,evaluateStudy,type FeasibilityStudy} from './engine';
+import {licenceReviewReason} from './licence-review';
 
 export type HandoffCheck={key:string;ar:string;en:string;passed:boolean};
 
@@ -14,7 +15,7 @@ export function handoffReadiness(study:FeasibilityStudy){
  const advanced=!land&&!water&&study.advanced?evaluateAdvanced(study):null;
  const critical=defaultLegalItems.slice(0,3);
  const criticalRequirements=study.legal.filter(item=>item.critical);
- const evidenceVerified=criticalRequirements.every(item=>item.status==='VERIFIED'&&item.notes.trim());
+ const evidenceVerified=criticalRequirements.every(item=>licenceReviewReason(item)===null);
  const legalVerified=water||land
   ?criticalRequirements.length>0&&evidenceVerified
   :evidenceVerified&&critical.every(title=>study.legal.some(item=>item.title===title&&item.status==='VERIFIED'));

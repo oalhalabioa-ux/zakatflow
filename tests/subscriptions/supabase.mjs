@@ -880,6 +880,7 @@ try {
       'supabase/migrations/20261121174500_feasibility_delegated_permissions.sql',
     ];
     sql('begin;\n' + (await Promise.all(sharingMigrations.map(load))).map(strip).join('\n') + "\nnotify pgrst,'reload schema';\ncommit;");
+    sql('update private.feasibility_evidence_feature_switch set enabled = true where singleton;');
     console.log('PASS installed notification and feasibility fixtures');
     const sharingAppUrl = 'http://localhost:3002';
     const sharingServer = spawn('node', ['node_modules/next/dist/bin/next', 'start', '-H', '127.0.0.1', '-p', '3002'], {
@@ -894,6 +895,7 @@ try {
         NEXT_PUBLIC_FEASIBILITY_CLOUD_QA: 'true',
         FEASIBILITY_ORG_QA: 'true',
         FEASIBILITY_ORG_SHARING: 'true',
+        FEASIBILITY_EVIDENCE_QA: 'true',
       },
     });
     try {
