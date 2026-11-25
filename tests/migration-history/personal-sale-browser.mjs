@@ -41,7 +41,7 @@ async function seed(client,owner,withHawl=false){
   const accounts = value(await client.from('asset_accounts').insert([
     {user_id:owner.id,asset_type:'GOLD',name:'QA original gold',currency:'SAR',unit:'g',is_zakatable:withHawl,metadata:{karat:24},ownership_scope:'PERSONAL'},
     {user_id:owner.id,asset_type:'GOLD',name:'QA correct gold',currency:'SAR',unit:'g',is_zakatable:withHawl,metadata:{karat:24},ownership_scope:'PERSONAL'},
-    {user_id:owner.id,asset_type:'BANK',name:'QA bank',currency:'SAR',is_zakatable:withHawl,ownership_scope:'PERSONAL'},
+    {user_id:owner.id,asset_type:'BANK',name:'QA bank',currency:'SAR',unit:'SAR',is_zakatable:withHawl,metadata:{},ownership_scope:'PERSONAL'},
   ]).select('id,name'));
   const byName = Object.fromEntries(accounts.map(a=>[a.name,a.id]));
   const oldAsset=byName['QA original gold'], newAsset=byName['QA correct gold'], bank=byName['QA bank'];
