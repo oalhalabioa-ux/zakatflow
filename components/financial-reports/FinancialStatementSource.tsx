@@ -6,7 +6,7 @@ import {useCostCenterIncome,CostCenterPicker,CostCenterReport} from './CostCente
 import TopbarOrganizationControls from '../TopbarOrganizationControls';
 import WorkspaceOrganizationPicker from '../WorkspaceOrganizationPicker';
 import {rememberedOrganization} from '../../lib/workspace-organization';
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import Decimal from 'decimal.js';
 import {priorStatementPeriod,validStatementComparison} from '../../lib/financial-statement-comparison';
 import {matchesStatementRequest} from '../../lib/financial-statement-request';
@@ -47,10 +47,10 @@ async function readStatementResponse(response:Response){
  const body=await response.json().catch(()=>({error:''}));
  throw Error(response.status===401?'UNAUTHORIZED':response.status===403?'DENIED':['REPORTING_APPROVED_POLICY_REQUIRED','REPORTING_BRANCH_OPENING_REQUIRED','REPORTING_BRANCH_OPENING_STALE','REPORTING_BRANCH_SOURCE_UNRESOLVED','REPORTING_CLOSED_DIMENSIONS_UNAVAILABLE'].includes(body.error)?body.error:'UNAVAILABLE');
 }
-export default function FinancialStatementSource({initialView='income',initialEnglish=false,live=false,preferredOrg=''}:{preferredOrg?:string;initialView?:StatementHubView;initialEnglish?:boolean;live?:boolean}){
+export default function FinancialStatementSource({initialView='income',initialEnglish=false,initialGroup=false,live=false,preferredOrg=''}:{preferredOrg?:string;initialView?:StatementHubView;initialEnglish?:boolean;initialGroup?:boolean;live?:boolean}){
  const[en,setEn]=useState(initialEnglish),[view,setView]=useState<StatementHubView>(initialView),[context,setContext]=useState<Context>([]),[organization,setOrganization]=useState(''),[from,setFrom]=useState(''),[to,setTo]=useState(''),[snapshot,setSnapshot]=useState<StatementSourceSnapshot|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[refresh,setRefresh]=useState(0),[exportOpen,setExportOpen]=useState(false),[exporting,setExporting]=useState(false);
  const[branch,setBranch]=useState('ALL'),[branches,setBranches]=useState<{id:string;name:string;active:boolean}[]>([]),[branchesLoading,setBranchesLoading]=useState(false);
- const[reportScope,setReportScope]=useState<ReportingScope>('COMPANY_WITH_BRANCHES');
+ const[reportScope,setReportScope]=useState<ReportingScope>(initialGroup?'GROUP_WITH_SUBSIDIARIES':'COMPANY_WITH_BRANCHES');
  const[scopeDiagnostics,setScopeDiagnostics]=useState<ScopeReadiness|null>(null),[scopeChecking,setScopeChecking]=useState(false);
  // Branch/HQ reports use reconciled source attribution; subsidiary consolidation
  // requires separate control, currency and elimination evidence.
@@ -99,7 +99,9 @@ export default function FinancialStatementSource({initialView='income',initialEn
  // Scope is checked during render too, so an organization/period change cannot
  // expose stale numbers or enable export before its effect clears the old result.
  const ready=scopeReady&&matchesStatementRequest(snapshot,{organization,from,to,currency:expectedCurrency,origin:expectedOrigin,branch:requestedBranch})?snapshot:null;
- const activeKey=useRef('');activeKey.current=[organization,from,to,view,en,refresh,reportScope,branch,center.value].join('|');
+ const exportKey=[organization,from,to,view,en,refresh,reportScope,branch,center.value].join('|');
+ const activeKey=useRef('');
+ useLayoutEffect(()=>{activeKey.current=exportKey;return()=>{activeKey.current=''}},[exportKey]);
  const previous=ready?validStatementComparison(ready,comparison):null;
  const selected=context.find(o=>o.organizationId===organization&&o.fiscalStart<=from&&o.fiscalEnd>=to)??context.find(o=>o.organizationId===organization);
  const currentDraft=scopeReady&&branch==='ALL'&&draftPreview&&draftPreview.organizationId===organization&&draftPreview.fiscalStart===selected?.fiscalStart?draftPreview:null;
@@ -117,7 +119,17 @@ export default function FinancialStatementSource({initialView='income',initialEn
    .finally(()=>{if(!abort.signal.aborted)setDraftLoading(false)});
   return()=>abort.abort();
  },[organization,draftFiscalStart,refresh,live,scopeReady,branch]);
- function changeOrganization(key:string){setBranch('ALL');setSnapshot(null);setPreferDraft(false);const[id,fiscal]=key.split('|');const o=context.find(o=>o.organizationId===id&&o.fiscalStart===fiscal);setOrganization(id);setFrom(o?.fiscalStart??'');setTo(o?(live&&o.fiscalEnd>new Date().toISOString().slice(0,10)?new Date().toISOString().slice(0,10):o.fiscalEnd):'')}
+ function selectPeriod(period:Context[number]|undefined){
+  setSnapshot(null);setComparison(null);setPreferDraft(false);setExportOpen(false);
+  const today=new Date().toISOString().slice(0,10);
+  setFrom(period?.fiscalStart??'');
+  setTo(period?(live&&period.fiscalEnd>today?today:period.fiscalEnd):'');
+ }
+ function changeOrganization(key:string){
+  const [id,fiscal]=key.split('|');
+  setBranch('ALL');setOrganization(id);
+  selectPeriod(context.find(row=>row.organizationId===id&&row.fiscalStart===fiscal));
+ }
  function save(blob:Blob,name:string){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
  async function download(kind:'csv'|'xlsx'|'pdf'){
   if(!ready||!scopeReady||centerSelected)return;const key=activeKey.current;setExporting(true);setExportOpen(false);
@@ -141,7 +153,7 @@ export default function FinancialStatementSource({initialView='income',initialEn
  const organizations=[...new Map(context.map(o=>[o.organizationId,{id:o.organizationId,name:o.name,parent_organization_id:o.parentOrganizationId}])).values()];
  const periods=context.filter(o=>o.organizationId===organization);
  const topbar=<div className="fs-preview-topbar"><label><Icon name="building" size={19}/><select aria-label={t('المؤسسة','Organization')} value={organization&&selected?organization+'|'+selected.fiscalStart:''} disabled={!context.length} onChange={e=>changeOrganization(e.target.value)}>{!organization&&context.length>0&&<option value="">{t('اختر مؤسسة متاحة','Select an available organization')}</option>}{context.length?context.map(o=><option key={o.organizationId+'|'+o.fiscalStart} value={o.organizationId+'|'+o.fiscalStart}>{o.name}{live&&o.fiscalStart?' · '+o.fiscalStart.slice(0,4):''}</option>):<option value="">{t('المؤسسة','Organization')}</option>}</select></label><span className="fs-topbar-note">{live?t('السجلات والقوائم المعتمدة','Live registers & approved statements'):t('اختبار محاسبي محلي معزول','Isolated local accounting test')}</span><button onClick={()=>setEn(v=>!v)} aria-label={t('Switch to English','التبديل إلى العربية')}><Icon name="globe" size={20}/>{en?'English':'العربية'}</button></div>;
- const periodFilters=<div className="fs-filter-strip"><div className="fs-filters is-open">{live&&periods.length>1&&<label>{t('السنة المالية','Fiscal year')}<select value={selected?.fiscalStart??''} onChange={e=>changeOrganization(organization+'|'+e.target.value)}>{periods.map(o=><option key={o.fiscalStart} value={o.fiscalStart}>{o.fiscalStart}</option>)}</select></label>}<label>{t('من تاريخ','From date')}<input aria-label={t('من تاريخ','From date')} type="date" min={selected?.fiscalStart} max={selected?.fiscalEnd} value={from} onChange={e=>{setSnapshot(null);setFrom(e.target.value)}}/></label><label>{t('إلى تاريخ','To date')}<input aria-label={t('إلى تاريخ','To date')} type="date" min={selected?.fiscalStart} max={selected?.fiscalEnd} value={to} onChange={e=>{setSnapshot(null);setTo(e.target.value)}}/></label><label>{t('العملة','Currency')}<select disabled value={selected?.currency??'SAR'}><option>{selected?.currency??'SAR'}</option></select></label><label>{t('المقارنة','Comparison')}<select disabled><option>{previous?previous.statements.from+' — '+previous.statements.to:t('لا توجد فترة معتمدة للمقارنة','No approved comparison period')}</option></select></label></div></div>;
+ const periodFilters=<div className="fs-filter-strip"><div className="fs-filters is-open">{live&&periods.length>1&&<label>{t('السنة المالية','Fiscal year')}<select value={selected?.fiscalStart??''} onChange={e=>selectPeriod(periods.find(period=>period.fiscalStart===e.target.value))}>{periods.map(o=><option key={o.fiscalStart} value={o.fiscalStart}>{o.fiscalStart}</option>)}</select></label>}<label>{t('من تاريخ','From date')}<input aria-label={t('من تاريخ','From date')} type="date" min={selected?.fiscalStart} max={selected?.fiscalEnd} value={from} onChange={e=>{setSnapshot(null);setFrom(e.target.value)}}/></label><label>{t('إلى تاريخ','To date')}<input aria-label={t('إلى تاريخ','To date')} type="date" min={selected?.fiscalStart} max={selected?.fiscalEnd} value={to} onChange={e=>{setSnapshot(null);setTo(e.target.value)}}/></label><label>{t('العملة','Currency')}<select disabled value={selected?.currency??'SAR'}><option>{selected?.currency??'SAR'}</option></select></label><label>{t('المقارنة','Comparison')}<select disabled><option>{previous?previous.statements.from+' — '+previous.statements.to:t('لا توجد فترة معتمدة للمقارنة','No approved comparison period')}</option></select></label></div></div>;
  const content=<div className="fs-surface" data-screen={view}>{live&&<TopbarOrganizationControls><WorkspaceOrganizationPicker ar={!en} label={t('المؤسسة','Organization')} organizations={organizations} value={organization} group={reportScope==='GROUP_WITH_SUBSIDIARIES'} onGroupChange={withSubsidiaries=>{center.setValue('ALL');setBranch('ALL');setReportScope(withSubsidiaries?'GROUP_WITH_SUBSIDIARIES':'COMPANY_WITH_BRANCHES');setExportOpen(false);setPreferDraft(false)}} restore={false} onChange={id=>{const period=context.find(o=>o.organizationId===id);if(period)changeOrganization(id+'|'+period.fiscalStart)}}/>   <label><span>{t('الفرع','Branch')}</span><select aria-label={t('الفرع','Branch')} disabled={!organization||branchesLoading||!scopeReady} value={branch} onChange={e=>{setSnapshot(null);setComparison(null);setPreferDraft(false);setExportOpen(false);center.setValue('ALL');setBranch(e.target.value)}}><option value="ALL">{t('جميع الفروع','All branches')}</option><option value="HQ">{t('المركز الرئيسي','Headquarters')}</option>{branches.map(b=><option key={b.id} value={b.id}>{b.name}{!b.active?t(' (موقوف — بيانات سابقة)',' (inactive — historical)'):''}</option>)}</select></label>
    <CostCenterPicker state={center} en={en}/>
 </TopbarOrganizationControls>}

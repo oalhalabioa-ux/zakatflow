@@ -72,8 +72,10 @@ export function personalFinancialReports(data:RegisterData,from:string,to:string
  const accountById=new Map(data.accounts.map(a=>[a.id,a]));
  const activity=data.cashMovements.filter(m=>!m.isOpening&&m.date>=from&&m.date<=to&&accountById.get(m.accountId)?.currency===m.currency);
  const groups=new Map<string,typeof activity>();
- const reversalTargets=new Set(data.cashMovements.map(m=>m.reversalOfTransactionId).filter((id):id is string=>Boolean(id)));
- for(const m of activity.filter(m=>m.internalTransferId)){
+ const recordedAsOf=data.cashMovements.filter(m=>m.date<=to);
+ const reversalTargets=new Set(recordedAsOf.map(m=>m.reversalOfTransactionId).filter((id):id is string=>Boolean(id)));
+ const selectedTransferIds=new Set(activity.map(m=>m.internalTransferId).filter(Boolean));
+ for(const m of recordedAsOf.filter(m=>m.internalTransferId&&selectedTransferIds.has(m.internalTransferId))){
   const key=m.internalTransferId!;groups.set(key,[...(groups.get(key)??[]),m]);
  }
  const verifiedIds=new Set<string>();let hasUnverifiedTransfers=false;
@@ -82,7 +84,7 @@ export function personalFinancialReports(data:RegisterData,from:string,to:string
   const eligible=legs.length===2&&Boolean(out&&incoming)&&out!.source==='ASSETS'&&incoming!.source==='ASSETS'&&
    out!.accountId!==incoming!.accountId&&out!.id!==incoming!.id&&out!.currency===incoming!.currency&&out!.date===incoming!.date&&
    new D(out!.amount).lt(0)&&new D(incoming!.amount).gt(0)&&new D(out!.amount).plus(incoming!.amount).isZero()&&
-   !legs.some(m=>reversalTargets.has(m.id)||!Number.isFinite(m.amount)||m.isOpening);
+   !legs.some(m=>reversalTargets.has(m.id)||!Number.isFinite(m.amount)||m.isOpening||m.date<from||accountById.get(m.accountId)?.currency!==m.currency);
   if(eligible){verifiedIds.add(out!.id);verifiedIds.add(incoming!.id);}else{hasUnverifiedTransfers=true;}
   // A shared ID by itself cannot validate a transfer if the original legs
   // have been reversed, missing, cross-currency or otherwise inconsistent.

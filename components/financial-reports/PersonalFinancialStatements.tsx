@@ -1,5 +1,5 @@
 'use client';
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {riyadhToday} from '../../lib/financial-register';
 import type {PersonalReport} from '../../lib/personal-financial-reports';
 import {personalFinancialExportRows,type PersonalExportView} from '../../lib/personal-financial-export';
@@ -19,10 +19,12 @@ const format=(value:string|null)=>value===null?'—':value.replace(/\B(?=(\d{3})
 
 export default function PersonalFinancialStatements({english=false}:{english?:boolean}){
  const[tab,setTab]=useState<Tab>('overview'),[from,setFrom]=useState(()=>riyadhToday().slice(0,4)+'-01-01'),
-  [to,setTo]=useState(()=>riyadhToday()),[report,setReport]=useState<PersonalReport|null>(null),
+  [to,setTo]=useState(()=>riyadhToday()),[snapshot,setReport]=useState<PersonalReport|null>(null),
   [busy,setBusy]=useState(true),[error,setError]=useState(''),[exporting,setExporting]=useState(false),[exportError,setExportError]=useState('');
  const t=(ar:string,en:string)=>english?en:ar;
- const selection=useRef('');selection.current=[from,to,tab,english].join('|');
+ const report=snapshot?.from===from&&snapshot.to===to?snapshot:null;
+ const exportKey=[from,to,tab,english].join('|'),selection=useRef('');
+ useLayoutEffect(()=>{selection.current=exportKey;return()=>{selection.current=''}},[exportKey]);
  useEffect(()=>{
   const abort=new AbortController();setReport(null);setBusy(true);setError('');
   fetch('/api/financial-reporting/personal?'+new URLSearchParams({from,to}),{cache:'no-store',signal:abort.signal})
@@ -40,6 +42,8 @@ export default function PersonalFinancialStatements({english=false}:{english?:bo
    // Re-read with the authenticated user at export time. Never trust a cached
    // personal register after the user loses access or changes report scope.
    const response=await fetch('/api/financial-reporting/personal?'+new URLSearchParams({from,to}),{cache:'no-store'});
+   if(selection.current!==key)return;
+   if(response.status===401){setReport(null);setError('UNAUTHORIZED');return;}
    if(!response.ok)throw Error('PERSONAL_EXPORT_UNAVAILABLE');
    const fresh=await response.json() as PersonalReport;
    if(fresh.scope!=='PERSONAL'||fresh.from!==from||fresh.to!==to||selection.current!==key)return;

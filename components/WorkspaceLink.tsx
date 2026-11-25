@@ -10,11 +10,11 @@ import {rememberedOrganization,rememberedCompanyGroup} from '../lib/workspace-or
 export default function WorkspaceLink({href,...props}:ComponentProps<typeof Link>){
  const pathname=usePathname();
  const [scope]=useWorkspaceScope(),[company,setCompany]=useState({id:'',group:false,scope:undefined as 'PERSONAL'|'ORGANIZATION'|undefined});
- useEffect(()=>{const read=()=>setCompany({id:new URLSearchParams(window.location.search).get('organization')??rememberedOrganization()??'',group:rememberedCompanyGroup(),scope:rememberedWorkspaceScope()});read();window.addEventListener('zf-organization-selection',read);window.addEventListener('zf-workspace-scope',read);return()=>{window.removeEventListener('zf-organization-selection',read);window.removeEventListener('zf-workspace-scope',read)}},[pathname]);
+ useEffect(()=>{const read=()=>{const q=new URLSearchParams(window.location.search),saved=rememberedOrganization(),id=q.get('organization')??saved??'';setCompany({id,group:q.has('level')?q.get('level')==='GROUP':id===saved&&rememberedCompanyGroup(),scope:rememberedWorkspaceScope()})};read();window.addEventListener('zf-organization-selection',read);window.addEventListener('zf-workspace-scope',read);return()=>{window.removeEventListener('zf-organization-selection',read);window.removeEventListener('zf-workspace-scope',read)}},[pathname]);
  let target=href;
  if(typeof href==='string'&&/^\/(ar|en)\//.test(href)){
   const [base,query='']=href.split('?'),page=base.split('/').slice(2).join('/'),q=new URLSearchParams(query);
-  if(isFinancialReportingPage(page)){q.set('scope','ORGANIZATION');if(company.id&&!q.has('organization'))q.set('organization',company.id);target=base+'?'+q;}
+  if(isFinancialReportingPage(page)){q.set('scope','ORGANIZATION');if(company.id&&!q.has('organization'))q.set('organization',company.id);if(page==='financial-reports'&&!q.has('level'))q.set('level',company.group&&q.get('organization')===company.id?'GROUP':'COMPANY');target=base+'?'+q;}
   else if(isSettingsPage(page)){if(company.id&&!q.has('organization'))q.set('organization',company.id);target=base+(q.size?'?'+q:'');}
   else if(isWorkspaceScopePage(page)){if(!q.has('scope'))q.set('scope',company.scope??scope);if(company.id&&!q.has('organization'))q.set('organization',company.id);if(!q.has('level'))q.set('level',company.group?'GROUP':'COMPANY');target=base+'?'+q;}
  }

@@ -440,12 +440,49 @@ try{
   assert.ok(data.accounts.some(x=>x.name==='Owner QA personal cash'));
   assert.ok(data.accounts.every(x=>x.organizationId===null&&x.name!=='Other QA personal cash'));
  });
- await check('Financial reports open in Business from either dashboard scope',async()=>{
+ await check('Personal reports export the signed-in register in CSV, XLSX and print',async()=>{
+  await page.goto(app+'/en/financial-reports?scope=PERSONAL');
+  const report=page.locator('.fs-personal-reports');
+  await report.getByText('Owner QA personal cash',{exact:true}).waitFor();
+  assert.equal(await report.getByText('Other QA personal cash',{exact:true}).count(),0);
+  const csvDownload=page.waitForEvent('download');
+  await report.getByRole('button',{name:'CSV',exact:true}).click();
+  const csv=await readFile(await (await csvDownload).path(),'utf8');
+  assert.match(csv,/CURRENT_PERSONAL_REGISTER_ESTIMATE/);
+  assert.match(csv,/Owner QA personal cash/);
+  assert.doesNotMatch(csv,/Other QA personal cash/);
+  const xlsxDownload=page.waitForEvent('download');
+  await report.getByRole('button',{name:'Excel',exact:true}).click();
+  const {Workbook}=await import('exceljs');
+  const workbook=new Workbook();await workbook.xlsx.readFile(await (await xlsxDownload).path());
+  const values=[];workbook.worksheets[0].eachRow(row=>values.push(...row.values));
+  assert.ok(values.includes('Owner QA personal cash'));
+  assert.ok(!values.includes('Other QA personal cash'));
+  await page.evaluate(()=>{window.print=()=>{document.body.dataset.work03Printed='true'}});
+  await report.getByRole('button',{name:'Print / PDF',exact:true}).click();
+  await page.waitForFunction(()=>document.body.dataset.work03Printed==='true');
+  const pdf=await page.pdf({format:'A4'});
+  assert.equal(pdf.subarray(0,5).toString(),'%PDF-');
+  await report.getByRole('tab',{name:/Income & expenses/}).click();
+  assert.equal(await report.getByRole('button',{name:'CSV',exact:true}).isDisabled(),true);
+  await page.getByRole('button',{name:'Business',exact:true}).click();
+  await page.locator('[data-statement-ready="overview"]').waitFor();
+ });
+ await check('The banner alone changes personal and institutional report scope',async()=>{
   await page.setViewportSize({width:1672,height:941});
   for(const scope of ['PERSONAL','ORGANIZATION']){
    await page.goto(app+'/en/dashboard?scope='+scope+'&organization='+org);
    const menu=page.getByRole('button',{name:/Financial reports & statements/i});
    if(await menu.getAttribute('aria-expanded')!=='true')await menu.click();
+   if(scope==='PERSONAL'){
+    assert.equal(await page.getByRole('link',{name:'Business reports & statements',exact:true}).count(),0);
+    assert.equal(await page.locator('#corp-financial-reporting-nav').getByRole('link',{name:'Financial position',exact:true}).count(),0);
+    await page.getByRole('link',{name:'Personal financial statements',exact:true}).click();
+    await page.getByRole('heading',{name:'My personal financial reports'}).waitFor();
+    await page.getByRole('button',{name:'Business',exact:true}).click();
+    await page.locator('[data-statement-ready="overview"]').waitFor();
+    if(await menu.getAttribute('aria-expanded')!=='true')await menu.click();
+   }
    await page.getByRole('link',{name:'Financial position',exact:true}).click();
    await page.locator('[data-statement-ready="position"]').waitFor();
    assert.equal(await page.getByRole('button',{name:'Business',exact:true}).getAttribute('aria-pressed'),'true');
@@ -573,6 +610,14 @@ try{
   const report=await reportResponse.json();
   assert.equal(reportResponse.status(),200,JSON.stringify(report));
   assert.deepEqual(new Set(report.statements.sourceJournalIds),new Set(recorded));
+ const trialBalance=Object.fromEntries(report.accounts.filter(row=>row.balance!=='0.0000').map(row=>[row.id,row.balance]));
+ assert.deepEqual(trialBalance,{'1000':'100.0000','1200':'200.0000','2200':'-300.0000'});
+ assert.equal(report.canonicalJournalLineage.length,2);
+ for(const journal of report.canonicalJournalLineage){
+  const postedLines=JSON.parse(sql(`select json_agg(json_build_array(id,base_amount::numeric(24,4)::text) order by id)
+    from public.financial_event_lines where event_id='${journal.id}'`));
+  assert.deepEqual(journal.sourceLines.map(line=>[line.id.split(':')[0],line.baseAmount]).sort(),postedLines);
+ }
   assert.equal(report.statements.cash.investing,'-200.0000');
   assert.equal(report.statements.cash.financing,'300.0000');
   assert.equal(report.statements.cash.closing,'100.0000');
@@ -934,6 +979,16 @@ try{
   await page.setViewportSize({width:1490,height:1050});await page.goto(app+'/en/financial-reports?organization='+org+'&screen=income');
   const groupResponse=page.waitForResponse(r=>new URL(r.url()).searchParams.get('action')==='group-review');await page.locator('#corp-organization-controls').getByRole('button',{name:'Company and subsidiaries',exact:true}).click();assert.equal((await groupResponse).status(),200);
   const groupTable=page.locator('[data-group-source-review="true"] table');await groupTable.waitFor();assert.equal(await groupTable.locator('tbody tr').count(),2);assert.equal(await page.locator('[data-statement-ready]').count(),0);await page.getByRole('button',{name:'Refresh company sources',exact:true}).click();await groupTable.waitFor();
+  await page.reload();await groupTable.waitFor();
+  const groupControl=page.locator('#corp-organization-controls').getByRole('button',{name:'Company and subsidiaries',exact:true});
+  assert.equal(await groupControl.getAttribute('aria-pressed'),'true');
+  const reportsMenu=page.getByRole('button',{name:'Financial reports & statements',exact:true});
+  if(await reportsMenu.getAttribute('aria-expanded')!=='true')await reportsMenu.click();
+  await page.locator('#corp-financial-reporting-nav').getByRole('link',{name:'Financial position',exact:true}).click();
+  await page.waitForURL(u=>u.searchParams.get('screen')==='position'&&u.searchParams.get('level')==='GROUP');
+  await groupTable.waitFor();assert.equal(await page.locator('[data-statement-ready]').count(),0);
+  await page.locator('#corp-organization-controls').getByRole('button',{name:'Company',exact:true}).click();
+  await page.locator('[data-statement-ready="position"]').waitFor();
   await page.screenshot({path:out+'/group-source-review-banner-en.png',fullPage:true});
   await writeFile(out+'/center-actual-line-income.json',JSON.stringify(data,null,2));await writeFile(out+'/group-company-source-review.json',JSON.stringify(review,null,2));
  });
