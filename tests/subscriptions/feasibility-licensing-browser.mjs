@@ -29,7 +29,7 @@ export async function verifyFeasibilityLicensingBrowser({ source, receiver, appU
   const editor = row('New requirement');
   await editor.locator('summary').click();
   await editor.getByLabel('Group', { exact: true }).fill('Water resources');
-  await editor.getByLabel('Status', { exact: true }).selectOption('VERIFIED');
+  await editor.getByLabel('Status').selectOption('VERIFIED');
   await editor.getByLabel('Critical requirement', { exact: true }).check();
   await editor.getByLabel('Requirement', { exact: true }).fill(requirement);
   await saveStudy();
@@ -38,7 +38,7 @@ export async function verifyFeasibilityLicensingBrowser({ source, receiver, appU
   await missingReference.waitFor();
   await button(names.en.legal).click();
   await button('Evidence for requirement · ' + requirement).click();
-  const linkTo = source.getByLabel('Link attachment to requirement', { exact: true });
+  const linkTo = source.getByLabel('Link attachment to requirement');
   await linkTo.waitFor();
   assert.equal(await linkTo.locator('option:checked').textContent(), requirement);
   const requirementId = await linkTo.inputValue();
