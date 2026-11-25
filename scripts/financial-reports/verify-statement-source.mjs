@@ -8,11 +8,20 @@ export async function verifyStatementAcceptance({a,b,viewer,sql,app,cookie,conte
  const incomeCellMetrics=new Map();
  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
  async function verifyCellSpacing(view,lang,size){
-  if(view!=='income'&&view!=='position')return;
   const metrics=await page.locator('.fs-source-statement-table .fs-row-detail td[data-amount]').first().evaluate(el=>{const c=getComputedStyle(el);return{paddingTop:c.paddingTop,paddingBottom:c.paddingBottom,paddingLeft:c.paddingLeft,paddingRight:c.paddingRight,fontSize:c.fontSize,lineHeight:c.lineHeight}});
   const key=lang+':'+size;
   if(view==='income')incomeCellMetrics.set(key,metrics);
-  else{assert.deepEqual(metrics,incomeCellMetrics.get(key),'Position cells must match income spacing and type scale on '+key);assert.ok(Number.parseFloat(metrics.paddingTop)>=6,'Position rows must not use the old compressed spacing')}
+  else assert.deepEqual(metrics,incomeCellMetrics.get(key),view+' cells must match income spacing and type scale on '+key);
+  if(view==='cash-flow'){
+   const table=page.locator('.fs-source-statement-table');
+   const [parent,child]=await Promise.all([
+    table.locator('[data-statement-row="cash-1"] .fs-statement-row-label > span').boundingBox(),
+    table.locator('[data-parent-row="cash-1"] .fs-statement-row-label > span').first().boundingBox(),
+   ]);
+   assert.ok(parent&&child);
+   const indent=lang==='ar'?parent.x+parent.width-child.x-child.width:child.x-parent.x;
+   assert.ok(indent>=8,'Cash activity details must be visibly indented in '+lang+' '+size);
+  }
  }
  async function disclosure(view,lang,size){
   const table=page.locator('.fs-source-statement-table'),buttons=table.locator('.fs-statement-group-toggle'),first=buttons.first();assert.ok(await buttons.count()>0,'A populated statement must expose parent arrows');

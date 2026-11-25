@@ -27,6 +27,26 @@
  .fs-connected-statements .fs-source-statement-table.fs-position-table .fs-table th:nth-child(3),.fs-connected-statements .fs-source-statement-table.fs-position-table .fs-table td:nth-child(3){display:table-cell}
 }
 
+/* Give the connected cash statement the same table density and panel width as income. */
+@media(min-width:701px){
+ .fs-connected-statements .fs-source-cash-layout{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
+}
+@media(min-width:1101px){
+ .fs-connected-statements .fs-source-cash-layout{grid-template-columns:minmax(0,2.7fr) minmax(0,1fr)}
+}
+.fs-root .fs-source-cash-layout>.fs-card{padding:10px}
+.fs-root .fs-surface .fs-source-cash-layout .fs-source-statement-table .fs-table{font-size:14px;line-height:1.4}
+.fs-root .fs-surface .fs-source-cash-layout .fs-source-statement-table :is(th,td){padding:6px 10px;line-height:1.4}
+.fs-root .fs-source-cash-layout .fs-table tbody tr.fs-row-parent{background:#edf2f7;font-weight:700}
+.fs-root .fs-source-cash-layout .fs-table tbody tr.fs-row-parent>th{background:inherit!important}
+.fs-root .fs-source-cash-layout .fs-table tbody tr[data-depth="0"]>th>.fs-statement-row-label{padding-inline-start:26px}
+.fs-root .fs-source-cash-layout .fs-table tbody tr[data-depth="1"]>th>.fs-statement-row-label{padding-inline-start:62px}
+@media(max-width:700px){
+ .fs-root .fs-surface .fs-source-cash-layout .fs-source-statement-table .fs-table{font-size:12px}
+ .fs-root .fs-surface .fs-source-cash-layout .fs-source-statement-table :is(th,td){padding:7px 9px}
+ .fs-root .fs-source-cash-layout .fs-table tbody tr[data-depth="1"]>th>.fs-statement-row-label{padding-inline-start:55px}
+}
+
 .fs-source-hub>.fr-middle{order:4;margin-top:0}
 .fs-source-hub>.fr-shortcuts{order:5;margin-top:0}
 .fs-source-hub>section.fs-card{order:6}
