@@ -97,6 +97,12 @@
     border-color: var(--brand-border);
   }
 
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-page .fs-handoff-link {
+    background: var(--brand-primary);
+    border-color: var(--brand-primary);
+    color: var(--brand-surface);
+  }
+
   .corp-shell:is(.theme-modern, .theme-elegant) .corp-feasibility-slot .fs-royal-icon {
     color: var(--brand-primary);
   }

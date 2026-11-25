@@ -197,6 +197,27 @@ async function verifyJuneZakatPayment(browser) {
   assert.equal(await bankBalance(),2427.5);
   const movements = value(await client.from('transactions').select('id').eq('asset_account_id',bank).eq('transaction_type','ZAKAT_PAYMENT'));
   assert.equal(movements.length,1);
+  const sale = value(await client.from('transactions').select('id')
+   .eq('asset_account_id',gold).eq('transaction_type','SALE').single());
+  for(const [theme,ink] of [['modern','#27345a'],['elegant','#1a3b32']]){
+   const themed=await context(browser,owner,{width:390,height:844},theme);
+   try{
+    const detail=await themed.newPage();
+    for(const [locale,width] of [['ar',390],['en',1440]]){
+     await detail.setViewportSize({width,height:960});
+     const ar=locale==='ar';
+     const workspace=detail.locator(`.corp-shell.theme-${theme} .corp-content`);
+     await detail.goto(`${app}/${locale}/assessments/${assessment.id}`);
+     await workspace.getByRole('heading',{name:ar?'تفاصيل احتساب الزكاة':'Zakat Assessment',exact:true}).waitFor();
+     await detail.goto(`${app}/${locale}/lots/${remainingGold}`);
+     await workspace.getByRole('heading',{name:ar?'تفاصيل الدفعة':'Lot Detail',exact:true}).waitFor();
+     await detail.goto(`${app}/${locale}/transactions/${sale.id}`);
+     await workspace.locator('.operation-detail-card[aria-busy=false] [role=tab]').first().waitFor();
+     assert.equal(await workspace.evaluate(node=>getComputedStyle(node).getPropertyValue('--brand-text').trim()),ink);
+    }
+   }finally{await themed.close();}
+  }
+  console.log('PASS Modern and Elegant recorded assessment, lot and transaction details');
   console.log('PASS June Zakat browser save, finalize and reload:', voucher, payment.payment_date, 'one SAR 22.50 payment, bank SAR 2450 → 2427.50');
  } finally {
   await ctx.close();

@@ -754,6 +754,21 @@ try{
   const posted=JSON.parse(sql(`select to_jsonb(x) from(select s.organization_id org,s.financial_event_id event,a.name bank from public.liquidity_settlements s join public.liquidity_accounts a on a.id=s.account_id join public.organization_members m on m.organization_id=s.organization_id and m.user_id='${a.id}' and m.status='ACTIVE' and m.role='OWNER' where s.status='POSTED' and s.financial_event_id is not null order by s.id limit 1)x`));assert.ok(posted);
   await page.setViewportSize({width:1672,height:941});await page.goto(app+'/en/liquidity?tab=position&organization='+posted.org);await page.getByRole('button',{name:'Account details and statement: '+posted.bank,exact:true}).click();const details=page.getByRole('dialog',{name:'Bank account details and statement',exact:true}),link=details.locator('a[href*="/cash-vouchers/'+posted.event+'"]');await link.waitFor({state:'attached'});await link.locator('..').locator('summary').click();await link.click();await page.locator('[data-cash-voucher="'+posted.event+'"]').waitFor();await page.getByRole('heading',{name:'Original cash movement voucher',exact:true}).waitFor();
  });
+ await check('Modern and Elegant themes reach the original posted voucher',async()=>{
+  const voucher=new URL(page.url());
+  assert.match(voucher.pathname,/\/cash-vouchers\/[^/]+$/);
+  for(const theme of ['modern','elegant']){
+   await page.evaluate(value=>localStorage.setItem('zf-theme',value),theme);
+   for(const [locale,width] of [['ar',390],['en',1440]]){
+    await page.setViewportSize({width,height:960});
+    voucher.pathname=voucher.pathname.replace(/^\/(ar|en)\//,`/${locale}/`);
+    const response=await page.goto(voucher.toString());
+    assert.ok(response?.ok());
+    await page.locator(`.corp-shell.theme-${theme} .corp-content [data-cash-voucher]`).waitFor();
+   }
+  }
+  await page.evaluate(()=>localStorage.removeItem('zf-theme'));
+ });
  await check('All native settings sections retain real organization scope across desktop/mobile AR/EN',async()=>{
   // Earlier revocation assertions intentionally disabled this synthetic member.
   // Restore only that disposable fixture before testing authorized settings.
