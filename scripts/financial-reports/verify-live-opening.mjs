@@ -5,6 +5,7 @@ import {readFile,mkdir,writeFile,open} from 'node:fs/promises';
 import {createClient} from '@supabase/supabase-js';
 import {createServerClient} from '@supabase/ssr';
 import assert from 'node:assert/strict';
+import {verifyNativeBranchLedger,verifyNativeFinancingLedger} from './verify-native-period-ledger.mjs';
 const dir=process.env.OPENING_QA_WORKDIR;
 assert.ok(dir&&process.env.RUNNER_TEMP&&dir.startsWith(process.env.RUNNER_TEMP+'/'),'DISPOSABLE_RUNNER_REQUIRED');
 const status=JSON.parse(execFileSync('npx',['--yes','supabase@2.122.0','status','--workdir',dir,'--output','json'],{encoding:'utf8',stdio:['ignore','pipe','pipe']}));
@@ -399,6 +400,8 @@ try{
   const hq=page.waitForResponse(r=>new URL(r.url()).searchParams.get('branch')==='HQ');await picker.selectOption('HQ');const head=await hq;assert.equal(head.status(),200);assert.equal((await head.json()).statements.cash.opening,'200.0000');
   await page.locator('[data-statement-ready="position"]').waitFor();await page.screenshot({path:out+'/branch-report-banner-en.png',fullPage:true});
   await picker.selectOption('ALL');await page.locator('[data-statement-ready="position"]').waitFor();
+  await verifyNativeBranchLedger({page,app,out,organization:org,branch,actor:a,sql});
+  console.log('PASS approved branch, headquarters and company period ledger with fresh authorization');
  });
  await check('Cost center banner and fresh CSV use the selected source, never company balances',async()=>{
   const center=randomUUID();sql(`insert into public.organization_cost_centers(id,organization_id,code,name,center_type) values('${center}','${org}','REPORT_QA','QA income center','OPERATING')`);
@@ -471,6 +474,38 @@ try{
   assert.equal(new URL(page.url()).searchParams.get('scope'),'PERSONAL');
   assert.ok(data.accounts.some(x=>x.name==='Owner QA personal cash'));
   assert.ok(data.accounts.every(x=>x.organizationId===null&&x.name!=='Other QA personal cash'));
+ });
+ await check('Personal reports export the signed-in register in CSV, XLSX and print',async()=>{
+  await page.goto(app+'/en/financial-reports?scope=PERSONAL');
+  const report=page.locator('.fs-personal-reports');
+  await report.getByText('Owner QA personal cash',{exact:true}).waitFor();
+  assert.equal(await report.getByText('Other QA personal cash',{exact:true}).count(),0);
+  const csvDownload=page.waitForEvent('download');
+  await report.getByRole('button',{name:'CSV',exact:true}).click();
+  const csv=await readFile(await (await csvDownload).path(),'utf8');
+  assert.match(csv,/CURRENT_PERSONAL_REGISTER_ESTIMATE/);
+  assert.match(csv,/Owner QA personal cash/);
+  assert.doesNotMatch(csv,/Other QA personal cash/);
+  const xlsxDownload=page.waitForEvent('download');
+  await report.getByRole('button',{name:'Excel',exact:true}).click();
+  const {default:ExcelJS}=await import('exceljs');
+  const workbook=new ExcelJS.Workbook();await workbook.xlsx.readFile(await (await xlsxDownload).path());
+  const values=[];workbook.worksheets[0].eachRow(row=>values.push(...row.values));
+  assert.ok(values.includes('Owner QA personal cash'));
+  assert.ok(!values.includes('Other QA personal cash'));
+  await page.evaluate(()=>{window.print=()=>{document.body.dataset.work03Printed='true'}});
+  await report.getByRole('button',{name:'Print / PDF',exact:true}).click();
+  await page.waitForFunction(()=>document.body.dataset.work03Printed==='true');
+  await page.emulateMedia({media:'print'});
+  const printContext=report.locator('.fs-personal-print-context');
+  assert.equal(await printContext.isVisible(),true);
+  assert.match(await printContext.innerText(),/Financial position as of \d{4}-\d{2}-\d{2} · Cash movement period \d{4}-\d{2}-\d{2} – \d{4}-\d{2}-\d{2}/);
+  assert.equal(await page.locator('.corp-sidebar').isVisible(),false);
+  const pdf=await page.pdf({format:'A4'});
+  assert.equal(pdf.subarray(0,5).toString(),'%PDF-');
+  await page.emulateMedia({media:'screen'});
+  await report.getByRole('tab',{name:/Income & expenses/}).click();
+  assert.equal(await report.getByRole('button',{name:'CSV',exact:true}).isDisabled(),true);
  });
  await check('Report navigation preserves personal scope and requires a deliberate Business switch for corporate statements',async()=>{
   await page.setViewportSize({width:1672,height:941});
@@ -627,12 +662,22 @@ try{
   const report=await reportResponse.json();
   assert.equal(reportResponse.status(),200,JSON.stringify(report));
   assert.deepEqual(new Set(report.statements.sourceJournalIds),new Set(recorded));
+ const trialBalance=Object.fromEntries(report.accounts.filter(row=>row.balance!=='0.0000').map(row=>[row.id,row.balance]));
+ assert.deepEqual(trialBalance,{'1000':'100.0000','1200':'200.0000','2200':'-300.0000'});
+ assert.equal(report.canonicalJournalLineage.length,2);
+ for(const journal of report.canonicalJournalLineage){
+  const postedLines=JSON.parse(sql(`select json_agg(json_build_array(id,base_amount::numeric(24,4)::text) order by id)
+    from public.financial_event_lines where event_id='${journal.id}'`));
+  assert.deepEqual(journal.sourceLines.map(line=>[line.id.split(':')[0],line.baseAmount]).sort(),postedLines);
+ }
   assert.equal(report.statements.cash.investing,'-200.0000');
   assert.equal(report.statements.cash.financing,'300.0000');
   assert.equal(report.statements.cash.closing,'100.0000');
   assert.equal(report.statements.position.assets,'300.0000');
   assert.equal(report.statements.position.liabilities,'300.0000');
   assert.equal(report.statements.income.netProfit,'0.0000');
+  await verifyNativeFinancingLedger({page,app,out,organization:loanOrg,posted:recorded,statements:report.statements});
+  console.log('PASS funded debt journals reconcile to native period ledger without duplication');
   assert.ok((await b.client.rpc('financial_statement_live_snapshot',{p_org:loanOrg,p_from:'2026-01-01',p_to:'2026-12-31'})).error);
  });
  await check('Revocation clears both refreshed and exporting workspaces',async()=>{
@@ -708,6 +753,19 @@ try{
    insert into public.organizations(id,owner_user_id,name) values('${setupOrg}','${a.id}','ZZ fiscal setup correction');
    insert into public.organization_members(organization_id,user_id,role,status) values('${setupOrg}','${a.id}','OWNER','ACTIVE') on conflict(organization_id,user_id) do update set role='OWNER',status='ACTIVE';
    select public.save_financial_chart_account('${setupOrg}','330001','3300','أرباح مرحلة','Retained earnings','CREDIT',true,true,0,'Setup account');`);
+  for(const screen of ['trial-balance','general-ledger','cash-flow']){
+   await page.goto(app+'/en/financial-reports?'+new URLSearchParams({scope:'ORGANIZATION',organization:setupOrg,screen}));
+   const prerequisite=page.locator('[data-statement-prerequisite="SETUP"]');
+   await prerequisite.waitFor();
+   assert.equal(await page.getByRole('button',{name:'Export report',exact:true}).isDisabled(),true);
+   assert.equal(await page.locator('[data-statement-ready]').count(),0);
+   const setupLink=prerequisite.getByRole('link',{name:'Set up this organization’s fiscal year'});
+   const targets=new URL(await setupLink.getAttribute('href'),app);
+   assert.equal(targets.pathname,'/en/settings/financial/fiscal-years');
+   assert.equal(targets.searchParams.get('organization'),setupOrg);
+   assert.equal(targets.searchParams.get('scope'),'ORGANIZATION');
+   assert.equal(targets.searchParams.get('level'),'COMPANY');
+  }
   const initial=await a.client.rpc('save_financial_fiscal_calendar',{p_org:setupOrg,p_month:1,p_day:1,p_retained:'3300',p_expected_version:0,p_reason:'Original setup'});assert.ifError(initial.error);
   const policy=await a.client.rpc('save_financial_reporting_policy',{p_org:setupOrg,p_fiscal_start:'2026-01-01',p_expected_version:0,p_rules:[],p_reason:'Legacy setup policy'});assert.ifError(policy.error);
   const approval=await a.client.rpc('approve_financial_reporting_policy',{p_id:policy.data.id,p_expected_version:policy.data.version});assert.ifError(approval.error);
@@ -995,6 +1053,16 @@ try{
   await page.setViewportSize({width:1490,height:1050});await page.goto(app+'/en/financial-reports?organization='+org+'&screen=income');
   const groupResponse=page.waitForResponse(r=>new URL(r.url()).searchParams.get('action')==='group-review');await page.locator('#corp-organization-controls').getByRole('button',{name:'Company and subsidiaries',exact:true}).click();assert.equal((await groupResponse).status(),200);
   const groupTable=page.locator('[data-group-source-review="true"] table');await groupTable.waitFor();assert.equal(await groupTable.locator('tbody tr').count(),2);assert.equal(await page.locator('[data-statement-ready]').count(),0);await page.getByRole('button',{name:'Refresh company sources',exact:true}).click();await groupTable.waitFor();
+  await page.reload();await groupTable.waitFor();
+  const groupControl=page.locator('#corp-organization-controls').getByRole('button',{name:'Company and subsidiaries',exact:true});
+  assert.equal(await groupControl.getAttribute('aria-pressed'),'true');
+  const reportsMenu=page.locator('button[aria-controls="corp-financial-reporting-nav"]');
+  if(await reportsMenu.getAttribute('aria-expanded')!=='true')await reportsMenu.click();
+  await page.locator('#corp-financial-reporting-nav').getByRole('link',{name:'Financial position',exact:true}).click();
+  await page.waitForURL(u=>u.searchParams.get('screen')==='position'&&u.searchParams.get('level')==='GROUP');
+  await groupTable.waitFor();assert.equal(await page.locator('[data-statement-ready]').count(),0);
+  await page.locator('#corp-organization-controls').getByRole('button',{name:'Company',exact:true}).click();
+  await page.locator('[data-statement-ready="position"]').waitFor();
   await page.screenshot({path:out+'/group-source-review-banner-en.png',fullPage:true});
   await writeFile(out+'/center-actual-line-income.json',JSON.stringify(data,null,2));await writeFile(out+'/group-company-source-review.json',JSON.stringify(review,null,2));
  });
