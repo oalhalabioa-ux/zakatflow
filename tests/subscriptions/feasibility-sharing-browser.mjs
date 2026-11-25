@@ -90,7 +90,7 @@ export async function verifyFeasibilitySharingBrowser({ browser, appUrl, url, an
     for(const [theme,accent] of [['modern','#4355c7'],['elegant','#0d755f']]){
       for(const [view,url] of [[source,reviewUrl],[receiver,sharedUrl]]){
         await view.evaluate(value=>localStorage.setItem('zf-theme',value),theme);
-        for(const [locale,width] of [['ar',390],['en',1440]]){
+        for(const locale of ['ar','en'])for(const width of [390,1440]){
           const localized=new URL(url);
           localized.pathname=localized.pathname.replace(/^\/en\//,`/${locale}/`);
           await view.setViewportSize({width,height:960});

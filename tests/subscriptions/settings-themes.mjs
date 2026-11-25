@@ -69,14 +69,65 @@ function listWorkspaceRoutes(root) {
     .sort();
 }
 
+const reviewRoutes = new Set([
+  'assessments','assets','assets/dashboard','budget-planning','governance','lots',
+  'notifications','payments','reports','settings/team','transactions','users','workflow',
+]);
+
+async function verifyVisualFixes({page,workspace,route,theme,locale,width,root}) {
+  if(reviewRoutes.has(route)) {
+    const supportingText=workspace.locator('p.muted:visible');
+    const colors=await supportingText.evaluateAll(readColors);
+    for(const c of colors)assert.ok(contrast(c)>=4.5,`${route} supporting text: ${JSON.stringify(c)}`);
+  }
+  if(route==='organizations') {
+    await workspace.locator('.orgs-entities-table tbody tr').first().waitFor();
+    const scroll=await workspace.locator('.orgs-entities-table-wrap').evaluate(el=>({
+      pageWidth:document.documentElement.scrollWidth,viewport:innerWidth,
+      overflow:getComputedStyle(el).overflowX,wrapperWidth:el.clientWidth,tableWidth:el.scrollWidth,
+    }));
+    assert.ok(scroll.pageWidth<=scroll.viewport,`organization page scroll: ${JSON.stringify(scroll)}`);
+    if(width===390)assert.ok(['auto','scroll'].includes(scroll.overflow)&&scroll.tableWidth>scroll.wrapperWidth);
+  }
+  if(route==='workflow') {
+    const ar=locale==='ar';
+    const flow=workspace.locator('.review-workflow');
+    await flow.getByRole('heading',{level:1,name:ar?'دورة المراجعة والاعتماد':'Review and approval workflow',exact:true}).waitFor();
+    const step=flow.locator('[aria-current=step]');
+    assert.equal(await step.innerText(),ar?'المراجعة المحاسبية':'Accounting review');
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'workflow page scroll');
+    assert.ok(contrast((await step.evaluateAll(readColors))[0])>=4.5,'active workflow step contrast');
+    await flow.getByRole('button',{name:ar?'انتقال إلى المراجعة الشرعية':'Move to Sharia review',exact:true}).click();
+    assert.equal(await step.innerText(),ar?'المراجعة الشرعية':'Sharia review');
+  }
+  if(['organizations','workflow','reports','notifications'].includes(route)) {
+    await page.screenshot({path:new URL(`tests/subscriptions/screenshots/after-${theme}-${route}-${locale}-${width}.png`,root).pathname});
+  }
+}
+
+async function verifyOwnerConsole({page,theme,appUrl,root}) {
+  for(const locale of ['ar','en'])for(const width of [390,1440]) {
+    await page.setViewportSize({width,height:width===390?844:960});
+    await page.goto(`${appUrl}/${locale}/admin`);
+    const shell=page.locator('.owner-shell');
+    await shell.locator('h1').waitFor();
+    const label=locale==='ar'?(theme==='modern'?'العصري':'الأنيق'):(theme==='modern'?'Modern':'Elegant');
+    await shell.locator('.owner-theme-picker').getByRole('button',{name:label,exact:true}).click();
+    await page.locator(`html[data-owner-theme=${theme}]`).waitFor();
+    const heading=await shell.locator('.owner-top h1').evaluateAll(readColors);
+    assert.ok(contrast(heading[0])>=4.5,`owner dashboard heading: ${theme} ${locale} ${width}`);
+    await page.screenshot({path:new URL(`tests/subscriptions/screenshots/owner-${theme}-${locale}-${width}.png`,root).pathname});
+  }
+}
+
 async function verifyWorkspaceRoutes({page,theme,appUrl,root,org,modulePalette}) {
   const routes=listWorkspaceRoutes(root);
   for(const route of separateRouteFixtures.keys())assert.ok(routes.includes(route), `removed route fixture: ${route}`);
   const liveRoutes=routes.filter(route=>!separateRouteFixtures.has(route));
   const verifiedRoutes=[];
   const failures=[];
-  for(const [locale,width] of [['ar',390],['en',1440]]) {
-    await page.setViewportSize({width,height:960});
+  for(const locale of ['ar','en'])for(const width of [390,1440]) {
+    await page.setViewportSize({width,height:width===390?844:960});
     for(const route of liveRoutes) {
       const query=new URLSearchParams(route==='assets/dashboard'||route.startsWith('settings')
         ? {scope:'ORGANIZATION',organization:org} : {scope:'PERSONAL'});
@@ -91,6 +142,7 @@ async function verifyWorkspaceRoutes({page,theme,appUrl,root,org,modulePalette})
         await module.waitFor({timeout:5000});
         const value=await module.evaluate((element,property)=>getComputedStyle(element).getPropertyValue(property).trim(),token);
         assert.equal(value,modulePalette[paletteKey??'muted'],token);
+        await verifyVisualFixes({page,workspace,route,theme,locale,width,root});
         verifiedRoutes.push({locale,width,route,actual});
       } catch(error) {
         failures.push({locale,width,route,error:error.message.split('\n')[0]});
@@ -159,6 +211,12 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
       for(const item of primaryColors)assert.ok(contrast(item)>=4.5,
         `${theme} ${section} primary navigation contrast ${JSON.stringify(item)}`);
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${theme} ${locale} ${width} ${section} overflow`);
+      if((theme==='modern'||theme==='elegant')&&section==='billing') {
+        const planHeading=page.locator('.yb-plan-card h2');
+        await planHeading.waitFor();
+        assert.ok(contrast((await planHeading.evaluateAll(readColors))[0])>=4.5,`${theme} trial title contrast`);
+        await page.screenshot({path:new URL(`tests/subscriptions/screenshots/after-${theme}-trial-${locale}-${width}.png`,root).pathname});
+      }
       if(theme!=='yaqeen-business') {
         const targets='.settings-card,.console-card,.subscription-summary,.settings-heading p,.settings-facts dt,.subscription-panel button:not(:disabled),.subscription-summary-actions a';
         const colors=await page.locator(targets).evaluateAll(readColors);
@@ -184,7 +242,13 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
       if(section==='settings/regulatory') {
         await page.getByRole('button',{name:locale==='ar'?'التسجيل الضريبي':'Tax registration',exact:true}).click();
         const dialog=page.locator('.financial-setup-regulatory-editor');await dialog.waitFor();
-        if(theme!=='yaqeen-business') {
+        if((theme==='modern'||theme==='elegant')&&section==='billing') {
+        const planHeading=page.locator('.yb-plan-card h2');
+        await planHeading.waitFor();
+        assert.ok(contrast((await planHeading.evaluateAll(readColors))[0])>=4.5,`${theme} trial title contrast`);
+        await page.screenshot({path:new URL(`tests/subscriptions/screenshots/after-${theme}-trial-${locale}-${width}.png`,root).pathname});
+      }
+      if(theme!=='yaqeen-business') {
           const colors=await dialog.locator('.console-tabs button,input,select,textarea').evaluateAll(readColors);
           for(const c of colors)assert.ok(contrast(c)>=4.5,`${theme} dialog contrast ${JSON.stringify(c)}`);
         }
@@ -195,6 +259,7 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
     }
   }
   await verifyModulePalette({page,theme,appUrl,root,org});
+  if(theme==='modern'||theme==='elegant')await verifyOwnerConsole({page,theme,appUrl,root});
   await page.goto(`${appUrl}/en/settings?organization=${org}`);
   await page.getByLabel('Organization name',{exact:true}).waitFor();
 }

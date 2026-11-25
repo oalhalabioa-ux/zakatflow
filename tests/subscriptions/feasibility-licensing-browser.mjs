@@ -14,6 +14,15 @@ export async function verifyFeasibilityLicensingBrowser({ source, receiver, appU
   const row = name => source.locator('.fs-register-row').filter({ has: source.locator('summary').getByText(name, { exact: true }) });
   const report = source.locator('[data-report-section="governance"]');
   const missingReference = report.getByText(requirement + ' · Evidence reference required', { exact: false });
+  const companyProjects = appUrl + '/api/feasibility/organization-projects?organization=' + sourceOrg;
+  const companyEvidence = appUrl + '/api/feasibility/evidence?' +
+    new URLSearchParams({ project, organization: sourceOrg, kind: 'licensing' });
+
+  async function readJson(page, url) {
+    const response = await page.request.get(url, { timeout: 10000 });
+    assert.equal(response.status(), 200);
+    return response.json();
+  }
 
   async function saveStudy() {
     const pending = source.waitForResponse(response => new URL(response.url()).pathname === '/api/feasibility/organization-projects' &&
@@ -30,6 +39,7 @@ export async function verifyFeasibilityLicensingBrowser({ source, receiver, appU
   const editor = row('New requirement');
   await editor.locator('summary').click();
   await editor.getByLabel('Group', { exact: true }).fill('Water resources');
+  await editor.getByLabel('Owner', { exact: true }).fill('QA permitting team');
   await editor.getByLabel('Status').selectOption('VERIFIED');
   await editor.getByLabel('Critical requirement', { exact: true }).check();
   await editor.getByLabel('Requirement', { exact: true }).fill(requirement);
@@ -50,10 +60,10 @@ export async function verifyFeasibilityLicensingBrowser({ source, receiver, appU
   const upload = await uploaded;
   assert.equal(upload.status(), 201);
   await source.getByRole('row').filter({ hasText: filename }).getByText(requirement, { exact: true }).waitFor();
-  const list = await source.request.get(appUrl + '/api/feasibility/evidence?' +
-    new URLSearchParams({ project, organization: sourceOrg, kind: 'licensing' }), { timeout: 10000 });
-  assert.equal(list.status(), 200);
-  assert.equal((await list.json()).find(item => item.name === filename)?.requirementId, requirementId);
+  const attachmentList = await readJson(source, companyEvidence);
+  assert.equal(attachmentList.filter(item => item.name === filename).length, 1);
+  assert.equal(attachmentList.find(item => item.name === filename)?.requirementId, requirementId);
+  assert.equal((await receiver.request.get(companyEvidence, { timeout: 10000 })).status(), 404);
 
   await button('Report and export').click();
   await missingReference.waitFor();
@@ -73,12 +83,14 @@ export async function verifyFeasibilityLicensingBrowser({ source, receiver, appU
   await source.getByText('Edit requirements', { exact: true }).click();
   const savedEditor = row(requirement);
   await savedEditor.locator('summary').click();
+  assert.equal(await savedEditor.getByLabel('Owner', { exact: true }).inputValue(), 'QA permitting team');
   await savedEditor.getByLabel('Evidence reference', { exact: true }).fill('QA-WATER-2026-01');
   await saveStudy();
   await button('Report and export').click();
   await report.waitFor();
   assert.equal(await missingReference.count(), 0);
   console.log('PASS licence attachment, persistence, organization isolation and independent evidence reference in the report');
+  const storedPortfolio = await readJson(source, companyProjects);
 
   for (const locale of ['en', 'ar']) {
     const labels = names[locale];
@@ -111,5 +123,47 @@ export async function verifyFeasibilityLicensingBrowser({ source, receiver, appU
       }
     }
   }
+  assert.deepEqual(await readJson(source, companyProjects), storedPortfolio);
+  assert.deepEqual(await readJson(source, companyEvidence), attachmentList);
+  console.log('PASS reading, reloading and changing language preserves stored studies and attachments without duplication');
+
+  await source.goto(appUrl + '/en/feasibility?scope=PERSONAL');
+  const personalTitle = 'Synthetic personal licence acceptance';
+  await button('New study').click();
+  await source.getByRole('textbox', { name: 'New project name', exact: true }).fill(personalTitle);
+  await button('Add project +').click();
+  await source.getByRole('heading', { name: personalTitle, exact: true }).waitFor();
+  await button(names.en.legal).click();
+  await button('Add requirement').click();
+  const personalEditor = row('New requirement');
+  await personalEditor.locator('summary').click();
+  await personalEditor.getByLabel('Owner', { exact: true }).fill('QA personal reviewer');
+  await personalEditor.getByLabel('Status').selectOption('UNDER_REVIEW');
+  await personalEditor.getByLabel('Requirement', { exact: true }).fill(requirement);
+  const savedPersonal = source.waitForResponse(response => new URL(response.url()).pathname === '/api/feasibility/projects' &&
+    response.request().method() === 'POST');
+  await button('Save to cloud').click();
+  const personalResponse = await savedPersonal;
+  assert.equal(personalResponse.status(), 201);
+  await source.getByText(/Draft saved to the cloud/i).waitFor();
+  const personalDb = (await readJson(source, appUrl + '/api/feasibility/projects'))
+    .find(entry => entry.title === personalTitle);
+  assert.ok(personalDb);
+  assert.equal(personalDb.study.legal.find(item => item.title === requirement)?.owner, 'QA personal reviewer');
+  await button('Evidence for requirement · ' + requirement).click();
+  await source.getByLabel('Attach file', { exact: true }).setInputFiles({ name: filename, mimeType: 'image/png', buffer: png });
+  const personalFile = source.getByRole('link', { name: filename, exact: true });
+  await personalFile.waitFor({ state: 'visible' });
+  const personalDownload = new URL(await personalFile.getAttribute('href'), appUrl).href;
+  const binary = await source.request.get(personalDownload, { timeout: 10000 });
+  assert.equal(binary.status(), 200);
+  assert.deepEqual(await binary.body(), png);
+  assert.equal((await receiver.request.get(personalDownload, { timeout: 10000 })).status(), 404);
+  await source.reload();
+  await button(names.en.legal).click();
+  await button(names.en.evidence).click();
+  await personalFile.waitFor({ state: 'visible' });
+  assert.deepEqual(await readJson(source, companyEvidence), attachmentList);
+  console.log('PASS personal licensing edits, upload, reload, exact download and isolation from organizations');
   console.log('PASS Royal licensing screens 10 and 22 in Arabic and English at 1440px and 390px');
 }
