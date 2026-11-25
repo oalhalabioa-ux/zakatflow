@@ -6,10 +6,12 @@
 
   .corp-shell.theme-elegant .corp-content {
     --brand-muted: #536e64;
+    --elegant-muted: var(--brand-muted);
     --action-surface: var(--brand-surface);
   }
 
   .corp-shell:is(.theme-modern, .theme-elegant) .corp-content {
+    --corp-muted: var(--brand-muted);
     --module-accent-tint: color-mix(in srgb, var(--brand-primary) 10%, var(--brand-surface));
   }
 
@@ -71,6 +73,51 @@
 
   .corp-shell:is(.theme-modern, .theme-elegant) .organizations-page {
     --org-muted: var(--brand-muted);
+  }
+
+  .corp-shell.theme-elegant .corp-content .yb-plan-card :is(h2, strong) {
+    color: inherit !important;
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .review-workflow .step {
+    background: var(--brand-surface);
+    border-color: var(--brand-border);
+    color: var(--brand-muted);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .review-workflow .step.active {
+    background: var(--brand-primary);
+    border-color: var(--brand-primary);
+    color: var(--brand-surface);
+  }
+
+  @media (max-width: 760px) {
+    .corp-shell:is(.theme-modern, .theme-elegant) .organizations-page .orgs-workspace {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .corp-shell:is(.theme-modern, .theme-elegant) .organizations-page .orgs-entities-table-wrap {
+      position: relative;
+      max-inline-size: 100%;
+      overflow-x: auto;
+    }
+
+    .corp-shell:is(.theme-modern, .theme-elegant) .organizations-page .orgs-profile > div {
+      min-inline-size: 0;
+    }
+
+    .corp-shell:is(.theme-modern, .theme-elegant) .organizations-page :is(.orgs-profile h2, .orgs-meta-grid strong) {
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+
+    .corp-shell:is(.theme-modern, .theme-elegant) .review-workflow .stepper {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .corp-shell:is(.theme-modern, .theme-elegant) .review-workflow .step {
+      overflow-wrap: anywhere;
+    }
   }
 
   .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .vat-tabs button.active {

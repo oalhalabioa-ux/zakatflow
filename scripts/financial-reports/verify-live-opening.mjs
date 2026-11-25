@@ -759,7 +759,7 @@ try{
   assert.match(voucher.pathname,/\/cash-vouchers\/[^/]+$/);
   for(const theme of ['modern','elegant']){
    await page.evaluate(value=>localStorage.setItem('zf-theme',value),theme);
-   for(const [locale,width] of [['ar',390],['en',1440]]){
+   for(const locale of ['ar','en'])for(const width of [390,1440]){
     await page.setViewportSize({width,height:960});
     voucher.pathname=voucher.pathname.replace(/^\/(ar|en)\//,`/${locale}/`);
     const response=await page.goto(voucher.toString());
@@ -958,7 +958,7 @@ try{
    ['elegant','#0d755f','rgb(13, 117, 95)','rgb(26, 59, 50)'],
   ]){
    await page.evaluate(value=>localStorage.setItem('zf-theme',value),theme);
-   for(const [locale,width] of [['ar',390],['en',1440]]){
+   for(const locale of ['ar','en'])for(const width of [390,1440]){
     await page.setViewportSize({width,height:960});
     for(const [route,selector,property] of paths){
      const response=await page.goto(`${app}/${locale}/${route}?scope=ORGANIZATION&organization=${org}&fiscalStart=2026-01-01`);
