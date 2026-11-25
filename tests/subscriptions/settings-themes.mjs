@@ -25,6 +25,56 @@ export const readColors = elements => elements.map(el=>{
   return {fg:style.color,bg:getComputedStyle(surface).backgroundColor};
 });
 
+async function verifyModulePalette({page,theme,appUrl,root}) {
+  const modulePalettes={modern:{accent:'#4355c7',muted:'#586589'},elegant:{accent:'#0d755f',muted:'#536e64'}};
+  const modulePalette=modulePalettes[theme];
+  const sizes=modulePalette?[390,1440]:[1440];
+  const locales=modulePalette?['ar','en']:['en'];
+  for(const locale of locales)for(const width of sizes) {
+    await page.setViewportSize({width,height:960});
+    await page.goto(`${appUrl}/${locale}/financial-reports?scope=PERSONAL`);
+    const workspace=page.locator(`.corp-shell.theme-${theme} .corp-content`);
+    const reportTab=workspace.locator('.fs-personal-tabs [aria-selected=true]');
+    await reportTab.waitFor();
+    const [reportColor]=await reportTab.evaluateAll(readColors);
+    assert.deepEqual(reportColor,modulePalette
+      ? {fg:'rgb(255, 255, 255)',bg:palettes[theme].selected}
+      : {fg:'rgb(16, 36, 58)',bg:'rgb(198, 163, 93)'},`${theme} personal report tab palette`);
+    if(!modulePalette)continue;
+    assert.ok(contrast(reportColor)>=4.5);
+    const actionSurface=await workspace.evaluate(element=>getComputedStyle(element).getPropertyValue('--action-surface').trim());
+    assert.equal(actionSurface,'#fff',`${theme} operation dialog surface`);
+    await page.screenshot({path:new URL(`tests/subscriptions/screenshots/${theme}-reports-${locale}-${width}.png`,root).pathname});
+
+    await page.goto(`${appUrl}/${locale}/feasibility?scope=PERSONAL`);
+    const study=workspace.locator('.fs-page');
+    await study.waitFor();
+    const accent=await study.evaluate(element=>getComputedStyle(element).getPropertyValue('--fs-gold').trim());
+    assert.equal(accent,modulePalette.accent,`${theme} ${locale} ${width} feasibility icon palette`);
+    await page.screenshot({path:new URL(`tests/subscriptions/screenshots/${theme}-feasibility-${locale}-${width}.png`,root).pathname});
+  }
+
+  if(!modulePalette)return;
+  const modules=[
+    ['assets','.assets-page','--brand-muted'],
+    ['transactions','.transactions-page','--tx-muted'],
+    ['liquidity','.liquidity-page','--liq-muted'],
+    ['vat','.vat-page','--vat-muted'],
+    ['budget-planning','.budget-plan','--brand-muted'],
+    ['organizations','.organizations-page','--org-muted'],
+  ];
+  for(const [locale,width] of [['ar',390],['en',1440]]) {
+    await page.setViewportSize({width,height:960});
+    for(const [route,selector,token] of modules) {
+      await page.goto(`${appUrl}/${locale}/${route}?scope=PERSONAL`);
+      const module=page.locator(`.corp-shell.theme-${theme} .corp-content ${selector}`);
+      await module.waitFor();
+      const muted=await module.evaluate((element,property)=>getComputedStyle(element).getPropertyValue(property).trim(),token);
+      assert.equal(muted,modulePalette.muted,`${theme} ${locale} ${width} ${route} muted text palette`);
+    }
+  }
+}
+
 export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
   const expected=palettes[theme];
   for(const locale of ['ar','en'])for(const width of [390,1440]) {
@@ -84,6 +134,7 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
       if(section==='settings/regulatory')await page.keyboard.press('Escape');
     }
   }
+  await verifyModulePalette({page,theme,appUrl,root});
   await page.goto(`${appUrl}/en/settings?organization=${org}`);
   await page.getByLabel('Organization name',{exact:true}).waitFor();
 }
