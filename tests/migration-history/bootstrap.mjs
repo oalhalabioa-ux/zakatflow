@@ -94,6 +94,7 @@ try{
    'personal-gold-receipt-hawl-schema-delta',
    'personal-gold-receipt-remaining-schema-delta',
    'gold-receipt-assessment-components-schema-delta',
+   'preserve-later-personal-gold-sale-schema-delta',
   ];
   const deltas=await Promise.all(deltaNames.map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
   for(const delta of deltas){
@@ -151,6 +152,10 @@ try{
  await check('personal sale correction balances, rollback and idempotent retries',async()=>{
   const qa=sql(await load('tests/sql/personal-sale-correction.sql'));
   assert.match(qa,/PASS personal sale correction/);
+ });
+ await check('historical asset correction preserves the later voucher, FIFO cost and receipt Hawl',async()=>{
+  const test=await load('tests/sql/personal-sale-preserve-later.sql');
+  assert.match(sql('begin;\n'+test+'\nrollback;'),/PASS original sale date, later sale\/receipt/);
  });
  await check('historical sale price correction preserves both FIFO allocations and protected cash and Zakat',async()=>{
   const qa=sql(await load('tests/sql/personal-sale-price-preflight.sql'));

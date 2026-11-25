@@ -13,7 +13,10 @@ type Asset = {
   ownership_scope: string;
   currency: string;
   status: string;
-  metadata?: {investment_id?: string};
+  unit?: string | null;
+  current_quantity?: number | string;
+  lots?: {acquisition_date: string}[];
+  metadata?: {investment_id?: string; karat?: string | number};
 };
 
 type Sale = {
@@ -47,7 +50,10 @@ function initialUnitPrice(sale: Sale) {
 
 export default function PersonalSaleCorrectionForm({sale, ar, busy, eligibility, onSave, onCancel}: Props) {
   const t = (arabic: string, english: string) => ar ? arabic : english;
-  const [amountOnly,setAmountOnly]=useState(!eligibility.amount_block || !!eligibility.structural_block);
+  const [mode,setMode]=useState<'price'|'asset'|'structure'>(() =>
+    !eligibility.amount_block || eligibility.structural_block === 'GROUPED_SALE_REVERSAL_UNAVAILABLE' ? 'price' : 'asset');
+  const amountOnly=mode==='price';
+  const assetOnly=mode==='asset';
   const [checked,setChecked]=useState<{key:string;result:SalePreflight}|null>(null);
   const [accounts, setAccounts] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +73,8 @@ export default function PersonalSaleCorrectionForm({sale, ar, busy, eligibility,
 
   useEffect(() => {
     if(amountOnly)return;
+    setLoading(true);
+    setLoadError(false);
     const controller = new AbortController();
     fetch('/api/assets', {signal: controller.signal, cache: 'no-store'})
       .then(async response => {
@@ -109,7 +117,13 @@ export default function PersonalSaleCorrectionForm({sale, ar, busy, eligibility,
   const preflight=amountOnly||unchangedStructure?eligibility:checked?.key===structuralKey?checked.result:null;
   const block=amountOnly?preflight?.amount_block:preflight?.structural_block;
   const reviewBlock=block??(amountOnly?preflight?.structural_block:null);
-  const assets = accounts.filter(asset => !asset.metadata?.investment_id);
+  const assets = accounts.filter(asset =>
+    !asset.metadata?.investment_id && !['BANK','CASH','RECEIVABLE'].includes(asset.asset_type));
+  const original = assets.find(asset => asset.id === sale.asset_account_id);
+  const assetChoices = assetOnly ? assets.filter(asset =>
+    asset.currency === sale.currency && (!original ||
+      (asset.asset_type === original.asset_type && asset.unit === original.unit &&
+        String(asset.metadata?.karat ?? '') === String(original.metadata?.karat ?? '')))) : assets;
   const selected = assets.find(asset => asset.id === form.asset_account_id);
   const currency = amountOnly ? sale.currency : selected?.currency;
   const sameCurrency = currency === sale.base_currency;
@@ -147,7 +161,10 @@ export default function PersonalSaleCorrectionForm({sale, ar, busy, eligibility,
 
   const priceChanged=Number(form.unit_price)!==Number(initialUnitPrice(sale));
   const structuralChanged=!unchangedStructure||Number(form.quantity)!==Number(sale.quantity);
-  const canSave = !busy && !!preflight && !block && total.gt(0) && baseTotal.gt(0) &&
+  const preservesLaterAllocations=preflight?.preserves_later_allocations === true;
+  const hasOtherChanges=transaction_date!==sale.transaction_date || proceeds_account_id!==sale.metadata.proceeds_account_id ||
+    !preserveGross || !preserveBase;
+  const canSave = !busy && !(preservesLaterAllocations && hasOtherChanges) && !!preflight && !block && total.gt(0) && baseTotal.gt(0) &&
     form.reason.trim().length>=5 && (amountOnly?priceChanged:!!selected&&!!deposit&&structuralChanged);
   return (
     <form className="section" onSubmit={event => {
@@ -166,8 +183,17 @@ export default function PersonalSaleCorrectionForm({sale, ar, busy, eligibility,
     }}>
       <h4>{t('تصحيح سند البيع الشخصي', 'Correct personal sale voucher')}</h4>
       <label>{t('نوع التصحيح','Correction type')}
-        <select value={amountOnly?'price':'structure'} onChange={event=>setAmountOnly(event.target.value==='price')} disabled={busy}>
+        <select value={mode} onChange={event=>{
+          const next=event.target.value as typeof mode;
+          if(next==='asset')setForm(current=>({
+            ...current, asset_account_id:sale.asset_account_id, proceeds_account_id:sale.metadata.proceeds_account_id,
+            transaction_date:sale.transaction_date, quantity:String(sale.quantity), unit_price:initialUnitPrice(sale),
+            fx_rate:originalRate.toDecimalPlaces(12).toString(), notes:sale.notes??'',
+          }));
+          setMode(next);
+        }} disabled={busy}>
           <option value="price">{t('السعر والمبلغ','Price and amount')}</option>
+          <option value="asset" disabled={eligibility.structural_block==='GROUPED_SALE_REVERSAL_UNAVAILABLE'}>{t('تغيير الأصل فقط','Change sold asset only')}</option>
           <option value="structure" disabled={eligibility.structural_block==='GROUPED_SALE_REVERSAL_UNAVAILABLE'}>{t('الأصل أو الكمية أو التاريخ أو حساب القبض','Asset, quantity, date or proceeds account')}</option>
         </select>
       </label>
@@ -175,6 +201,9 @@ export default function PersonalSaleCorrectionForm({sale, ar, busy, eligibility,
         'Updates the same voucher and its linked receipt while preserving quantity, lot allocation and exchange rate.'):
         t('سيعكس يقين حركة البيع والقبض السابقة ويحفظ البيع المصحح في سند مرتبط.',
           'Yaqeen will reverse the original sale and receipt and save the corrected sale as a linked voucher.')}</p>
+      {preservesLaterAllocations&&!amountOnly&&(hasOtherChanges
+        ? <p role="alert">{t('اختر «تغيير الأصل فقط» للمحافظة على الحركات اللاحقة.', 'Choose “Change sold asset only” to preserve later movements.')}</p>
+        : <p role="status">{t('تم التحقق. يبقى تخصيص الدفعات وتكلفة السندات اللاحقة وأثرها على الحول كما هي.', 'Verified. Later vouchers retain their lot allocations, cost and Hawl treatment.')}</p>)}
       {block&&<p role="alert">{personalSaleCorrectionMessage(block,ar)}</p>}
       {!amountOnly&&!preflight&&!loading&&<p role="status">{t('جار التحقق من الحركات المرتبطة…','Checking dependent movements…')}</p>}
       {reviewBlock&&!!preflight?.movements.length&&<section aria-label={t('الحركات المرتبطة','Dependent movements')}>
@@ -193,9 +222,19 @@ export default function PersonalSaleCorrectionForm({sale, ar, busy, eligibility,
           <label>{t('الأصل المباع', 'Sold asset')}
             <select autoFocus required value={selected?.id ?? ''} onChange={event => selectAsset(event.target.value)}>
               <option value="">{t('اختر أصلًا', 'Select an asset')}</option>
-              {assets.map(asset => <option key={asset.id} value={asset.id}>{asset.name} · {asset.currency}</option>)}
+              {assetChoices.map(asset => {
+                const acquisition=asset.lots?.map(lot=>lot.acquisition_date).sort()[0];
+                const balance=asset.current_quantity;
+                return <option key={asset.id} value={asset.id}>
+                  {asset.name} · {asset.currency}
+                  {acquisition && ` · ${acquisition}`}
+                  {balance!=null && ` · ${t('متبقٍ','Remaining')} ${Number(balance).toLocaleString(ar?'ar-SA':'en')} ${asset.unit??''}`}
+                  {asset.id===sale.asset_account_id && ` · ${t('الأصل المسجل','Recorded asset')}`}
+                </option>;
+              })}
             </select>
           </label>
+          {!assetOnly&&<>
           <label>{t('حساب إيداع المتحصلات', 'Proceeds account')}
             <select required value={deposit?.id ?? ''} onChange={event => setForm({...form, proceeds_account_id:event.target.value})}>
               <option value="">{t('اختر بنكًا أو صندوقًا', 'Select a bank or cash account')}</option>
@@ -209,13 +248,15 @@ export default function PersonalSaleCorrectionForm({sale, ar, busy, eligibility,
             <input type="number" min="0.00000001" step="0.00000001" required value={form.quantity} onChange={event => setForm({...form, quantity:event.target.value})}/>
           </label>
           </>}
-          <label>{t('سعر الوحدة', 'Unit price')}{currency && ` (${currency})`}
+          </>}
+          {assetOnly&&<p>{t('تاريخ البيع','Sale date')} · <bdi>{sale.transaction_date}</bdi></p>}
+          {!assetOnly&&<label>{t('سعر الوحدة', 'Unit price')}{currency && ` (${currency})`}
             <input type="number" min="0.00000001" step="0.00000001" required value={form.unit_price} onChange={event => setForm({...form, unit_price:event.target.value})}/>
-          </label>
-          {!amountOnly && currency && !sameCurrency && <label>{t('سعر الصرف إلى', 'Exchange rate to')} {sale.base_currency}
+          </label>}
+          {mode==='structure' && currency && !sameCurrency && <label>{t('سعر الصرف إلى', 'Exchange rate to')} {sale.base_currency}
             <input type="number" min="0.000000000001" step="any" required value={form.fx_rate} onChange={event => setForm({...form, fx_rate:event.target.value})}/>
           </label>}
-          {!amountOnly&&<label>{t('الملاحظات', 'Notes')}
+          {mode==='structure'&&<label>{t('الملاحظات', 'Notes')}
             <textarea maxLength={2000} value={form.notes} onChange={event => setForm({...form, notes:event.target.value})}/>
           </label>}
           <label>{t('سبب التصحيح', 'Correction reason')}
