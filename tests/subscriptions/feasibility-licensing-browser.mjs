@@ -23,6 +23,7 @@ export async function verifyFeasibilityLicensingBrowser({ source, receiver, appU
     assert.equal(response.status(), 200);
   }
 
+  console.log('CHECK licensing register and cloud save');
   await source.goto(portfolio('en'));
   await button(names.en.legal).click();
   await button('Add requirement').click();
@@ -36,6 +37,7 @@ export async function verifyFeasibilityLicensingBrowser({ source, receiver, appU
 
   await button('Report and export').click();
   await missingReference.waitFor();
+  console.log('CHECK licensing attachment selection and upload');
   await button(names.en.legal).click();
   await button('Evidence for requirement · ' + requirement).click();
   const linkTo = source.getByLabel('Link attachment to requirement');
@@ -46,22 +48,26 @@ export async function verifyFeasibilityLicensingBrowser({ source, receiver, appU
     response.request().method() === 'POST');
   await source.getByLabel('Attach file', { exact: true }).setInputFiles({ name: filename, mimeType: 'image/png', buffer: png });
   const upload = await uploaded;
-  assert.equal(upload.status(), 201, await upload.text());
-  assert.equal((await upload.json()).requirementId, requirementId);
+  assert.equal(upload.status(), 201);
   await source.getByRole('row').filter({ hasText: filename }).getByText(requirement, { exact: true }).waitFor();
+  const list = await source.request.get(appUrl + '/api/feasibility/evidence?' +
+    new URLSearchParams({ project, organization: sourceOrg, kind: 'licensing' }), { timeout: 10000 });
+  assert.equal(list.status(), 200);
+  assert.equal((await list.json()).find(item => item.name === filename)?.requirementId, requirementId);
 
   await button('Report and export').click();
   await missingReference.waitFor();
+  console.log('CHECK licensing attachment persistence and authorized download');
   await source.reload();
   await button(names.en.legal).click();
   await button(names.en.evidence).click();
   const href = await source.getByRole('link', { name: filename, exact: true }).getAttribute('href');
   assert.ok(href);
   const download = new URL(href, appUrl).href;
-  const document = await source.request.get(download);
+  const document = await source.request.get(download, { timeout: 10000 });
   assert.equal(document.status(), 200);
   assert.deepEqual(await document.body(), png);
-  assert.equal((await receiver.request.get(download)).status(), 404);
+  assert.equal((await receiver.request.get(download, { timeout: 10000 })).status(), 404);
 
   await button('Back to section').click();
   await source.getByText('Edit requirements', { exact: true }).click();
@@ -88,7 +94,7 @@ export async function verifyFeasibilityLicensingBrowser({ source, receiver, appU
       async function capture(screen, name, label) {
         const register = source.getByRole('region', { name: label, exact: true });
         await register.getByRole('rowheader', { name: requirement, exact: true }).waitFor();
-        await source.evaluate(() => document.fonts.ready.then(() => window.scrollTo(0, 0)));
+        await source.evaluate(() => window.scrollTo(0, 0));
         const layout = await register.evaluate(element => ({
           direction: getComputedStyle(element).direction,
           viewport: document.documentElement.clientWidth,
