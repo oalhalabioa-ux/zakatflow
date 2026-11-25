@@ -13,6 +13,7 @@ import WaterFinancialPolicy from './WaterFinancialPolicy';
 import WaterFinancingPolicy from './WaterFinancingPolicy';
 import {effectiveWaterInputs} from '@/lib/feasibility/water-model';
 import {downloadFeasibilityCsv} from '@/lib/feasibility/report-export';
+import ForecastExports from './ForecastExports';
 
 type Labels=readonly [string,string];
 type NumericKey<T>={[K in keyof T]-?:T[K] extends number?K:never}[keyof T];
@@ -218,15 +219,18 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
   <p className="fs-hint">{l('تغطية خدمة الدين = التدفق التشغيلي قبل التخارج مع الوفر الضريبي المحدد للفائدة ÷ خدمة الدين، بما فيها سداد النهاية إن اختير. لا تدخل حصيلة بيع الأصول أو تصفية رأس المال العامل في البسط.','Debt coverage = operating cash before exit plus selected interest tax savings / debt service, including selected terminal settlement. Asset sales and working-capital liquidation are excluded from the numerator.')}</p>
   {!water.financingPolicy&&<p className="fs-hint">{l('يُحتسب القرض وفق المنهج المحفوظ بأقساط أصل متساوية ودون فوائد قبل أول سنة سداد. تُضاف حصيلة التخارج والتصفية فقط عند إدخالهما صراحة.','The saved reference loan uses equal principal instalments with no interest before the first repayment year. Terminal proceeds/recovery require explicit inputs.')}</p>}
  </>;
- const exportForecast=()=>downloadFeasibilityCsv('bottled-water-projections.csv',[
+ const forecastExportRows=[
   [...projectionLabels.map(([,ar,en])=>l(ar,en)),l('العملة','Currency')],
   [0,...projectionLabels.slice(1).map(([key])=>key==='freeCashFlow'?m.flows[0]:key==='debtBalance'?m.totalLoan:null),currency],
   ...m.annual.map(y=>[...projectionLabels.map(([key])=>y[key]),currency])
-  ],projectionLabels.map(([key])=>{
+  ];
+ const forecastExportFormats=projectionLabels.map(([key])=>{
    if(key==='year')return 'integer';
    if(key==='dscr')return undefined;
    return forecastQuantityColumns.has(key)?'quantity':'money';
-  }));
+  });
+ const exportForecast=allowExport&&<ForecastExports locale={locale} filename="bottled-water-projections"
+  rows={forecastExportRows} formats={forecastExportFormats}/>;
  const compactValues=(rows:string[][])=><dl className="fs-royal-checks">{rows.map(([label,value])=>
   <div key={label}><dt>{label}</dt><dd><bdi>{value}</bdi></dd></div>)}</dl>;
  const equityHeaders=[l('السنة','Year'),l('حقوق الملكية الكلية','All equity holders'),l('ملكية الممول','Investor equity'),
@@ -703,7 +707,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
    </div>
    <Panel title={l('التوقعات التفصيلية وخدمة القرض','Detailed forecast and loan service')} icon="chart">
     {valuation}{forecast}
-    {allowExport&&<button className="fs-btn fs-btn--secondary" type="button" onClick={exportForecast}>{l('تصدير التوقعات CSV','Export forecast CSV')}</button>}
+    {exportForecast}
    </Panel>
   </>}
   {tab==='report'&&<>
@@ -712,8 +716,7 @@ export default function WaterModelPanel({water,locale,currency,tab,detail,onChan
    {costBreakdown&&<section className="fs-panel">
     <h4>{l('تقدير مكونات تكلفة الكرتون','Estimated carton cost components')}</h4>{compactValues(unitCostRows)}
    </section>}
-   {allowExport&&<div className="fs-actions"><button className="fs-btn fs-btn--secondary" type="button" onClick={exportForecast}>
-    {l('تصدير التوقعات CSV','Export forecast CSV')}</button></div>}{forecast}
+   {exportForecast}{forecast}
   </>}
  </section>;
 }

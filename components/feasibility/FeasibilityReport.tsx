@@ -4,6 +4,7 @@ import {RoyalIcon,type RoyalIconName} from './RoyalIcon';
 import type {FeasibilityStudy} from '@/lib/feasibility/engine';
 import {evaluateGeneralForecast} from '@/lib/feasibility/advanced-model';
 import {handoffReadiness} from '@/lib/feasibility/handoff';
+import {investmentAssessment} from '@/lib/feasibility/investment-assessment';
 import {evaluateRawLand} from '@/lib/feasibility/raw-land';
 import RawLandPanel from './RawLandPanel';
 import {evaluateWater,effectiveWaterInputs,studyReportReadiness,waterPeakFundingGap} from '@/lib/feasibility/water-model';
@@ -14,6 +15,7 @@ import PartnershipPanel from './PartnershipPanel';
 import CostingReport from './CostingReport';
 import {evaluateMonthlyLiquidity,liquidityMonthLabel,monthlyLiquidityAmounts} from '@/lib/feasibility/monthly-liquidity';
 import {licenceReviewLabel,licenceReviewReason} from '@/lib/feasibility/licence-review';
+import ForecastExports from './ForecastExports';
 
 const exportSections = ['summary','finance','funding','ownership','governance','decisions','notes'] as const;
 type ExportSection = typeof exportSections[number];
@@ -116,7 +118,8 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
   [l('صافي فجوة التمويل النقدي','Net funding gap'),money(advanced?advanced.cashNeed-base.cashEquity-study.investorLoan-study.otherDebt:base.cashFundingGap)],
   ...(advanced?[
    [l('صافي القيمة الحالية لحقوق الملكية','Equity NPV'),money(advanced.equityNpv)],
-   [l('العائد الداخلي لحقوق الملكية','Equity IRR'),percent(advanced.equityIrr)]
+   [l('العائد الداخلي لحقوق الملكية','Equity IRR'),percent(advanced.equityIrr)],
+   [l('أدنى تغطية لخدمة الدين','Minimum debt service coverage'),fmt(advanced.minDscr)]
   ]:[])
  ];
  const ownership=study.rawLand?[
@@ -146,11 +149,19 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
   [l('الملكية الاقتصادية للشريك','Partner economic ownership'),percent(base.partnerShare)]
  ];
  const ready=handoffReadiness(study);
+ const assessment=investmentAssessment(study,ready.checks,water??undefined);
+ const assessmentLabel={
+  BLOCKED:l('غير جاهزة للاعتماد بسبب نقص أو خطر جوهري','Investment approval blocked by a material gap or risk'),
+  NEEDS_EVIDENCE:l('قابلة للتقييم وتحتاج تحققًا أو أدلة إضافية','Assessable, with assumptions or evidence to verify'),
+  CALCULATED:l('محسوبة وفق المدخلات','Calculated from the supplied inputs')
+ }[assessment.status];
+ const additionalFindings=[...assessment.blockers,...assessment.evidence].filter(
+  finding=>!ready.checks.some(check=>check.key===finding.key));
  const requirementsId=dialogTitleId+'-requirements';
  const openChecks=ready.checks.filter(check=>!check.passed);
  const completeChecks=ready.checks.filter(check=>check.passed);
  const reviewedSource=study.handoff?.reviewedSourceUpdatedAt;
- const currentReview=ready.ready&&reviewedSource===study.updatedAt;
+ const currentReview=ready.ready&&assessment.status!=='BLOCKED'&&reviewedSource===study.updatedAt;
  const reviewState=currentReview
   ?l('مراجعة داخلية مسجّلة','Internal review recorded')
   :reviewedSource?l('تحتاج إعادة مراجعة','Review needs renewal'):l('لم تُسجّل مراجعة','Review not recorded');
@@ -187,7 +198,11 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
    </div>
    <section className="card fs-panel fs-royal-report-recommendation">
     <h3 className="fs-royal-report-title"><RoyalIcon name="target"/>{l('ملخص تنفيذي وتوصية مشروطة','Executive summary and conditional recommendation')}</h3>
-    <p className="fs-royal-report-notice"><RoyalIcon name="shield"/>{ready.ready
+    <p className="fs-royal-report-notice"><RoyalIcon name="shield"/><strong>{assessmentLabel}</strong></p>
+    {additionalFindings.length>0&&<ul className="fs-notes">{additionalFindings.map(finding=><li key={finding.key}>
+     {l(finding.ar,finding.en)}
+    </li>)}</ul>}
+    <p>{ready.ready&&assessment.status==='CALCULATED'
      ?l('استوفت الدراسة شروط الجاهزية الداخلية. راجع الافتراضات والمستندات قبل اعتماد القرار الاستثماري.',
         'The study passed the internal readiness checks. Verify assumptions and evidence before approving the investment.')
      :l('استكمل متطلبات الجاهزية المفتوحة وتحقق من الافتراضات والمستندات قبل الالتزام بالتمويل.',
@@ -298,11 +313,9 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
     {study.advanced&&<p className="fs-hint">{advanced
      ?l('التوقعات من السيناريو الأساسي للنموذج المالي المتقدم.','Projections use the advanced financial model’s base case.')
      :l('التوقعات من النموذج السنوي المبسط حتى تكتمل مدخلات النموذج المتقدم.','Projections use the simplified annual model until the advanced inputs are complete.')}</p>}
-    {allowExport&&<div className="fs-actions"><button className="fs-btn fs-btn--secondary" type="button"
-     onClick={()=>downloadFeasibilityCsv('feasibility-projections.csv',[
-      [...metrics,l('العملة','Currency')],...financeRows.map(row=>[...row,study.currency])
-     ],study.productionPlan?.enabled?metrics.map((_,index)=>index===0?'integer':index===1?'quantity':'money'):undefined
-     )}>{l('تصدير التوقعات CSV','Export forecast CSV')}</button></div>}
+    {allowExport&&<ForecastExports locale={locale} filename="feasibility-projections"
+     rows={[[...metrics,l('العملة','Currency')],...financeRows.map(row=>[...row,study.currency])]}
+     formats={study.productionPlan?.enabled?metrics.map((_,index)=>index===0?'integer':index===1?'quantity':'money'):undefined}/>}
     <div className="fs-table-wrap"><table className="fs-table">
      <thead><tr>{metrics.map(label=><th key={label} scope="col">{label}</th>)}</tr></thead>
      <tbody>{financeRows.map((row,index)=><tr key={index}>{row.map((value,i)=><td key={i}>{fmt(value)}</td>)}</tr>)}</tbody>

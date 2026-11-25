@@ -1,6 +1,16 @@
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {readFile,writeFile} from 'node:fs/promises';
+import ExcelJS from 'exceljs';
+
+export async function readForecastWorkbook(page){
+ const downloading=page.waitForEvent('download',{timeout:15000});
+ await page.getByRole('button',{name:'Export forecast Excel',exact:true}).click();
+ const download=await downloading;
+ const book=new ExcelJS.Workbook();
+ await book.xlsx.readFile(await download.path());
+ return book.worksheets[0];
+}
 
 // This runs only in the disposable Auth/API fixture, never against hosted QA or Production.
 export async function runWaterFinancialPolicyBrowser({browser,cookies,check}){
@@ -71,6 +81,15 @@ export async function runWaterFinancialPolicyBrowser({browser,cookies,check}){
    assert.equal(value(4,'Project free cash flow'),740);assert.equal(value(4,'Operating cash before terminal proceeds'),480);assert.equal(value(4,'Working capital after liquidation'),0);
    assert.ok(Math.abs(value(4,'Debt service coverage (DSCR)')-480/110)<1e-9);
    assert.equal(csv[4][headers.indexOf('Project free cash flow')],'740.00');
+   const workbook=await readForecastWorkbook(page);
+   const cashFlow=headers.indexOf('Project free cash flow')+1;
+   const coverage=headers.indexOf('Debt service coverage (DSCR)')+1;
+   assert.equal(workbook.rowCount,csv.length);
+   assert.equal(workbook.getCell(1,cashFlow).value,'Project free cash flow');
+   assert.equal(workbook.getCell(2,cashFlow).value,-10100);
+   assert.equal(workbook.getCell(5,cashFlow).value,value(4,'Project free cash flow'));
+   assert.ok(Math.abs(Number(workbook.getCell(5,coverage).value)-480/110)<1e-9);
+   console.log('PASS water forecast workbook downloads and preserves CSV/PDF source rows and coverage');
    evidence.assertions.push('UI policy PATCH/read/reload retained; legacy percentage stored but disabled; CSV flows -10100/640/600/740; operating DSCR 480/110 excludes exit 260');
 
    // Seed a separate public-land fixture with synthetic quantities and a narrow 15-column cash-flow table.
