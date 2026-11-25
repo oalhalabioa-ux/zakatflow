@@ -39,7 +39,7 @@ function downloadReportBlob(filename:string,blob:Blob){
  setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
-export async function downloadFeasibilityXlsx(filename:string,sheetName:string,rows:Parameters<typeof feasibilityCsv>[0],rightToLeft:boolean){
+export async function feasibilityXlsx(sheetName:string,rows:Parameters<typeof feasibilityCsv>[0],rightToLeft:boolean){
  const {Workbook}=await import('exceljs');
  const workbook=new Workbook();
  const sheet=workbook.addWorksheet(sheetName,{views:[{rightToLeft,state:'frozen',ySplit:1}]});
@@ -47,7 +47,11 @@ export async function downloadFeasibilityXlsx(filename:string,sheetName:string,r
  for(const row of rows)sheet.addRow([...row]);
  sheet.getRow(1).font={bold:true};
  sheet.columns.forEach(column=>{column.width=24;});
- const bytes=await workbook.xlsx.writeBuffer();
+ return workbook.xlsx.writeBuffer();
+}
+
+export async function downloadFeasibilityXlsx(filename:string,sheetName:string,rows:Parameters<typeof feasibilityCsv>[0],rightToLeft:boolean){
+ const bytes=await feasibilityXlsx(sheetName,rows,rightToLeft);
  downloadReportBlob(filename,new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
 }
 

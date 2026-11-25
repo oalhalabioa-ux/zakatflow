@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {runQuantityCostingBrowser} from './quantity-costing-browser.mjs';
-import {runWaterFinancialPolicyBrowser} from './water-financial-policy-browser.mjs';
+import {readForecastWorkbook,runWaterFinancialPolicyBrowser} from './water-financial-policy-browser.mjs';
 
 const marker='QA421';
 const phase=(caseName,step)=>console.log('QA421_PHASE '+JSON.stringify({source:'disposable-local-Chromium',caseName,step}));
@@ -899,6 +899,10 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    assert.equal(await page.getByText('Projections use the advanced financial model’s base case.',{exact:true}).isVisible(),true);
    const yearOne=page.locator('[data-report-section="finance"] tbody tr').nth(1);
    assert.equal(await yearOne.getByRole('cell').nth(2).innerText(),'36,000');
+   assert.equal((await readForecastWorkbook(page)).getCell('C3').value,36000);
+   await page.getByText('Investment approval blocked by a material gap or risk',{exact:true}).waitFor();
+   const dairyPdf=await page.pdf({path:new URL('./screenshots/template-finance-dairy-en.pdf',import.meta.url).pathname,format:'A4',printBackground:true});
+   assert.ok(dairyPdf.length>5000);
    await page.setViewportSize({width:390,height:1000});
    await navigate('ar');
    await button('التقرير والتصدير').click();
@@ -915,6 +919,7 @@ export async function runFeasibilityBillingAB({browser,cookies,appUrl,url,owner,
    await page.reload();
    await button('Report and export').click();
    await fundingReason.waitFor({state:'hidden'});
+   await page.getByText('Assessable, with assumptions or evidence to verify',{exact:true}).waitFor();
    const corrected=await read(legacy.id);
    assert.equal(corrected.study.investorEquity,110000);
    assert.deepEqual(corrected.study.legal,original.study.legal);
