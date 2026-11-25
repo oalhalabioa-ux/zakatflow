@@ -1,0 +1,165 @@
+/* Module screen palettes for Modern and Elegant. Financial status colors remain semantic. */
+@media screen {
+  .corp-shell.theme-modern .corp-content {
+    --brand-muted: #586589;
+  }
+
+  .corp-shell.theme-elegant .corp-content {
+    --brand-muted: #536e64;
+    --action-surface: var(--brand-surface);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content {
+    --module-accent-tint: color-mix(in srgb, var(--brand-primary) 10%, var(--brand-surface));
+  }
+
+  .corp-shell.theme-modern .corp-content .card:hover {
+    border-color: color-mix(in srgb, var(--brand-primary) 28%, var(--brand-border));
+    box-shadow: var(--brand-shadow);
+  }
+
+  .corp-shell.theme-modern .corp-content .btn:not(.secondary, .outline, .ghost, .danger, .success, .warning, [aria-pressed], :disabled):is(:hover, :focus-visible) {
+    background: var(--brand-secondary);
+    border-color: var(--brand-secondary);
+  }
+
+  .corp-shell.theme-modern .corp-content :is(input, select, textarea):not(:user-invalid, [aria-invalid=true]):focus {
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 3px var(--module-accent-tint);
+  }
+
+  .corp-shell.theme-modern .corp-content .table thead th {
+    background: var(--module-accent-tint);
+    color: var(--brand-secondary);
+    border-color: var(--brand-border);
+  }
+
+  .corp-shell.theme-modern .corp-content .table tbody tr:nth-child(even) {
+    background: var(--brand-surface-soft);
+  }
+
+  .corp-shell.theme-modern .corp-content .table tbody tr:hover {
+    background: var(--module-accent-tint);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .transactions-page .transaction-sort.active span:last-child {
+    background: var(--module-accent-tint);
+    color: var(--brand-secondary);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .asset-entry {
+    --entry-gold: var(--module-accent-tint);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .asset-entry .asset-entry-mode:not(.is-selected) {
+    border-color: var(--brand-border);
+    color: var(--brand-text);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .asset-entry .asset-entry-mode:not(.is-selected) :is(strong, small) {
+    color: var(--brand-text) !important;
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .asset-entry .asset-entry-mode.is-selected,
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .asset-entry .asset-entry-mode.is-selected :is(strong, small, .asset-entry-selected-check) {
+    color: var(--brand-surface) !important;
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .liquidity-page {
+    --liq-muted: var(--brand-muted);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .organizations-page {
+    --org-muted: var(--brand-muted);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .vat-tabs button.active {
+    background: var(--module-accent-tint);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-page {
+    --fs-navy: var(--brand-secondary);
+    --fs-ink: var(--brand-text);
+    --fs-muted: var(--brand-muted);
+    --fs-line: var(--brand-border);
+    --fs-gold: var(--brand-primary);
+    --fs-light-gold: var(--module-accent-tint);
+    --fs-green: var(--brand-primary);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-page :is(.fs-btn:not(.fs-btn--secondary), .fs-tabs button.active) {
+    color: var(--brand-surface);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-page :is(.fs-handoff-intro, .fs-collaboration code) {
+    background: var(--module-accent-tint);
+    color: var(--brand-text);
+    border-color: var(--brand-border);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-feasibility-slot .fs-royal-icon {
+    color: var(--brand-primary);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-connected-statements .fs-surface {
+    background: var(--brand-bg);
+    color: var(--brand-text);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root :is(.fs-metric-heading, .fs-card-title h2, .fs-statement-link h2, .fs-filter-toggle) > svg,
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root .fs-personal-eyebrow {
+    color: var(--brand-primary);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root :is(.fs-surface .fs-gold, .fs-surface .fs-default-activate, .fs-personal-actions button, .fs-personal-scope) {
+    background: var(--brand-primary);
+    border-color: var(--brand-primary);
+    color: var(--brand-surface);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root .fs-personal-tabs {
+    background: var(--brand-surface-soft);
+    border: 1px solid var(--brand-border);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root .fs-personal-tabs button {
+    color: var(--brand-secondary);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root .fs-personal-tabs button[aria-selected=true] {
+    background: var(--brand-primary);
+    color: var(--brand-surface);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root .fs-personal-tabs button small {
+    color: inherit;
+  }
+
+  .corp-shell.theme-elegant .corp-content .fs-root .fs-personal-tabs button[aria-selected=true] small,
+  .corp-shell.theme-elegant .corp-content .fs-root .fs-table .fs-row-total strong {
+    color: var(--brand-surface) !important;
+  }
+
+  .corp-shell.theme-elegant .corp-content .asset-details-dialog {
+    border-color: var(--brand-border);
+    color: var(--brand-text);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root .fs-personal-net,
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root .fs-table thead th,
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root .fs-table-footer {
+    background: var(--module-accent-tint);
+    color: var(--brand-secondary);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root .fs-table tbody .fs-row-subtotal,
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root .fs-table tbody .fs-row-subtotal th:first-child {
+    background: var(--module-accent-tint) !important;
+    color: var(--brand-secondary);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root .fs-table tbody .fs-row-total,
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root .fs-table tbody .fs-row-total th:first-child {
+    background: var(--brand-secondary) !important;
+  }
+}
