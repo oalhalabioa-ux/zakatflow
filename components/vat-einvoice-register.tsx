@@ -9,7 +9,7 @@ import { vatNoteMessages } from '@/lib/vat-note-messages';
 import Decimal from 'decimal.js';
 import { InvoiceActionLabel } from './invoice-action-label';
 import { InvoiceRegisterTotals } from './invoice-register-totals';
-import { Fragment, FormEvent, useEffect, useId, useState } from 'react';
+import { Fragment, FormEvent, useEffect, useId, useMemo, useState } from 'react';
 import { applyInvoiceLineDiscount, normalizeInvoiceLinePrice, previewInvoiceLine } from '@/lib/vat-invoice-price-mode';
 import { vatEInvoiceDraftSchema, calculateVatEInvoiceDraft } from '@/lib/vat-einvoice-draft';
 import { VatInvoiceReceipts } from '@/components/vat-invoice-receipts';
@@ -18,6 +18,7 @@ import { invoicePrintHtml } from '@/lib/vat-invoice-print';
 import { InvoiceRegisterFilters } from '@/components/invoice-register-filters';
 import { emptyInvoiceFilters, filterInvoiceRows, invoicePaymentState } from '@/lib/invoice-register-filters';
 import { VatContactPicker, type VatContact } from '@/components/vat-contact-picker';
+import { resolveVatExchangeQuote, type VatFxRate } from '@/lib/vat-invoice-currency';
 
 type SellerProfile = {
   registered_name: string;
@@ -89,7 +90,6 @@ type Invoice = {
 };
 
 type VatCurrency = { code: string; name_ar: string; name_en: string; symbol: string | null; decimals: number };
-type FxRate = { from_currency: string; to_currency: string; rate: string | number; valuation_date: string };
 
 const emptyLine = (taxRate = '15'): InvoiceLine => ({
   item_name: '', description: '', quantity: '1', unit_code: 'PCE', unit_price: '',
@@ -140,8 +140,9 @@ export function VatEInvoiceRegister({
   const [issueTime, setIssueTime] = useState(() => new Date().toTimeString().slice(0, 5));
   const [currency, setCurrency] = useState('SAR');
   const [exchangeRate, setExchangeRate] = useState('1');
+  const [exchangeRateManual, setExchangeRateManual] = useState(false);
   const [currencies, setCurrencies] = useState<VatCurrency[]>([{ code: 'SAR', name_ar: 'ريال سعودي', name_en: 'Saudi Riyal', symbol: 'ر.س', decimals: 2 }]);
-  const [fxRates, setFxRates] = useState<FxRate[]>([]);
+  const [fxRates, setFxRates] = useState<VatFxRate[]>([]);
   const [pricesIncludeTax, setPricesIncludeTax] = useState(false);
   const [fieldsMenuOpen, setFieldsMenuOpen] = useState(false);
   const [showUnitColumn, setShowUnitColumn] = useState(false);
@@ -170,6 +171,11 @@ export function VatEInvoiceRegister({
   const [collectionAmount, setCollectionAmount] = useState('');
   const [collectionDate, setCollectionDate] = useState(() => new Date().toISOString().slice(0,10));
   const [accountingSourceId, setAccountingSourceId] = useState<string | null>(null);
+  const savedFxQuote = useMemo(
+    () => resolveVatExchangeQuote(fxRates, currency, 'SAR', issueDate),
+    [fxRates, currency, issueDate],
+  );
+  const hasStoredExchangeRate = Boolean(editingDraftId || accountingSourceId || noteSource || precedingInvoiceId);
   const sellerProfileReady = Boolean(
     sellerProfile.registered_name.trim() && sellerProfile.seller_street.trim() &&
     /^\d{4}$/.test(sellerProfile.seller_building_number) && sellerProfile.seller_district.trim() &&
@@ -187,6 +193,7 @@ export function VatEInvoiceRegister({
     setShowDraftForm(false);
     setEditingDraftId(null);
     setAccountingSourceId(null);
+    setExchangeRateManual(false);
     setNoteSource(null);
     setCollectionInvoice(null);
     setReceiptInvoice(null);
@@ -246,7 +253,7 @@ export function VatEInvoiceRegister({
       const available = Array.isArray(currencyRows) ? currencyRows as VatCurrency[] : [];
       if (!available.some((item) => item.code === 'SAR')) available.unshift({ code: 'SAR', name_ar: 'ريال سعودي', name_en: 'Saudi Riyal', symbol: 'ر.س', decimals: 2 });
       setCurrencies(available);
-      setFxRates(Array.isArray(rateRows) ? rateRows as FxRate[] : []);
+      setFxRates(Array.isArray(rateRows) ? rateRows as VatFxRate[] : []);
     }).catch(() => undefined);
     try {
       const catalog = JSON.parse(localStorage.getItem(`vat-einvoice-service-catalog:${organizationId}`) || '[]');
@@ -257,11 +264,11 @@ export function VatEInvoiceRegister({
 
   useEffect(() => {
     if (currency === 'SAR') { setExchangeRate('1'); return; }
-    if (editingDraftId || accountingSourceId) return;
-    const latest = fxRates.find((item) => item.from_currency === currency && item.to_currency === 'SAR')
-      ?? fxRates.find((item) => item.from_currency === 'SAR' && item.to_currency === currency);
-    setExchangeRate(latest ? String(latest.from_currency === currency ? latest.rate : (1 / Number(latest.rate))) : '');
-  }, [currency, fxRates, editingDraftId, accountingSourceId]);
+    // Dated registry defaults apply only to a new draft. Manual entries and
+    // rates copied from a saved invoice/source retain their explicit value.
+    if (hasStoredExchangeRate || exchangeRateManual) return;
+    setExchangeRate(savedFxQuote?.rate ?? '');
+  }, [currency, savedFxQuote, hasStoredExchangeRate, exchangeRateManual]);
 
   async function saveDraft(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -405,6 +412,7 @@ export function VatEInvoiceRegister({
       setFieldsMenuOpen(false);
       setCurrency('SAR');
       setExchangeRate('1');
+      setExchangeRateManual(false);
       setShowDraftForm(false);
       setMessage({ error: false, text: documentType === 'INVOICE'
         ? (ar ? (editingDraftId ? 'حُفظت تعديلات المسودة. لم تصدر ولم تُرسل إلى زاتكا.' : 'حُفظت مسودة الفاتورة. لم تصدر ولم تُرسل إلى زاتكا.') : (editingDraftId ? 'Draft changes saved. It has not been issued or sent to ZATCA.' : 'Invoice draft saved. It has not been issued or sent to ZATCA.'))
@@ -495,6 +503,7 @@ export function VatEInvoiceRegister({
     setDueDate(invoice.due_date || invoice.issue_date);
     setCurrency(invoice.currency);
     setExchangeRate(String(invoice.exchange_rate || 1));
+    setExchangeRateManual(false);
     setBuyerContactId(invoice.buyer_contact_id || '');
     setBuyerName(invoice.buyer_name || '');
     setBuyerVatNumber(invoice.buyer_vat_number || '');
@@ -558,6 +567,7 @@ export function VatEInvoiceRegister({
     setDueDate(new Date().toISOString().slice(0,10));
     setCurrency(invoice.currency);
     setExchangeRate(String(invoice.exchange_rate || 1));
+    setExchangeRateManual(false);
     setBuyerContactId(invoice.buyer_contact_id || '');
     setBuyerName(invoice.buyer_name || '');
     setBuyerVatNumber(invoice.buyer_vat_number || '');
@@ -591,6 +601,7 @@ export function VatEInvoiceRegister({
     setDueDate(invoice.due_date || '');
     setCurrency(invoice.currency || 'SAR');
     setExchangeRate(String(invoice.exchange_rate || 1));
+    setExchangeRateManual(false);
     setBuyerContactId(invoice.buyer_contact_id || '');
     setBuyerName(invoice.buyer_name || '');
     setBuyerVatNumber(invoice.buyer_vat_number || '');
@@ -684,6 +695,7 @@ export function VatEInvoiceRegister({
     setShowUnitColumn(false);
     setCurrency('SAR');
     setExchangeRate('1');
+    setExchangeRateManual(false);
     setAddingServiceIndex(null);
     setDiscountMode('AMOUNT');
     setDocumentType(type);
@@ -712,9 +724,14 @@ export function VatEInvoiceRegister({
 
   const selectedCurrency = currencies.find((item) => item.code === currency);
   const currencyLabel = selectedCurrency?.symbol || currency;
-  const latestFx = currency === 'SAR' ? null : fxRates.find((item) => item.from_currency === currency && item.to_currency === 'SAR')
-    ?? fxRates.find((item) => item.from_currency === 'SAR' && item.to_currency === currency);
-  const latestFxDate = latestFx?.valuation_date;
+  const latestFxDate = savedFxQuote?.row?.valuation_date;
+  const exchangeRateHint = exchangeRateManual
+    ? (ar ? 'سعر يدوي لهذه الفاتورة. تغيير التاريخ لا يستبدله.' : 'Manual rate for this invoice. Date changes do not replace it.')
+    : hasStoredExchangeRate
+      ? (ar ? 'سعر الصرف المحفوظ في الفاتورة أو مصدرها.' : 'Saved invoice or source rate.')
+      : latestFxDate
+        ? (ar ? `سعر محفوظ بتاريخ ${latestFxDate} لا يتجاوز تاريخ الفاتورة. يمكنك تعديله.` : `Saved rate dated ${latestFxDate}, on or before the invoice date. You can adjust it.`)
+        : (ar ? 'لا يوجد سعر صرف محفوظ في تاريخ الفاتورة أو قبله؛ أدخل السعر يدويًا.' : 'No saved exchange rate on or before the invoice date. Enter it manually.');
   const previewTotals = (() => {
     try {
       return calculateVatEInvoiceDraft({ lines: lines.map((line) => {
@@ -826,9 +843,9 @@ export function VatEInvoiceRegister({
               <button type="button" className="vat-button secondary vat-edit-fields vat-edit-fields-icon" aria-label={ar ? 'تعديل الحقول' : 'Edit fields'} title={ar ? 'تعديل الحقول' : 'Edit fields'} aria-expanded={fieldsMenuOpen} aria-controls="vat-einvoice-field-settings" onClick={() => setFieldsMenuOpen((value) => !value)}><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 7h7m4 0h5M4 17h3m4 0h9"/><circle cx="13" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></button>
             </div>
           </div>
-          {currency !== 'SAR' && <div className="vat-einvoice-fx-rate"><label><span>{ar ? `سعر الصرف (${currency} إلى SAR)` : `Exchange rate (${currency} to SAR)`}</span><input required type="number" min="0.0000000001" step="0.0000000001" value={exchangeRate} onChange={(event) => setExchangeRate(event.target.value)} /></label><small>{latestFxDate ? (ar ? `آخر سعر محفوظ بتاريخ ${latestFxDate} — يمكنك تعديله لهذه الفاتورة.` : `Latest saved rate: ${latestFxDate}. You can adjust it for this invoice.`) : (ar ? 'لا يوجد سعر صرف محفوظ لهذه العملة؛ أدخل السعر يدويًا.' : 'No saved exchange rate for this currency. Enter it manually.')}</small></div>}
+          {currency !== 'SAR' && <div className="vat-einvoice-fx-rate"><label><span>{ar ? `سعر الصرف (${currency} إلى SAR)` : `Exchange rate (${currency} to SAR)`}</span><input required type="number" min="0.0000000001" step="0.0000000001" value={exchangeRate} onChange={(event) => { setExchangeRateManual(true); setExchangeRate(event.target.value); }} /></label><small>{exchangeRateHint}</small></div>}
           {fieldsMenuOpen && <div className="vat-einvoice-field-settings" id="vat-einvoice-field-settings" role="group" aria-label={ar ? 'إعدادات حقول الفاتورة' : 'Invoice field settings'}>
-              <label className="vat-einvoice-currency"><span>{ar ? 'العملة' : 'Currency'}</span><select disabled={Boolean(precedingInvoiceId)} value={currency} onChange={(event) => setCurrency(event.target.value)}>{currencies.map((item) => <option key={item.code} value={item.code}>{item.code} · {ar ? item.name_ar : item.name_en}</option>)}</select></label>
+              <label className="vat-einvoice-currency"><span>{ar ? 'العملة' : 'Currency'}</span><select disabled={Boolean(precedingInvoiceId)} value={currency} onChange={(event) => { setExchangeRateManual(false); setCurrency(event.target.value); }}>{currencies.map((item) => <option key={item.code} value={item.code}>{item.code} · {ar ? item.name_ar : item.name_en}</option>)}</select></label>
             <label><span>{ar ? 'طريقة عرض السعر' : 'Price mode'}</span><select value={pricesIncludeTax ? 'INCLUSIVE' : 'EXCLUSIVE'} onChange={(event) => setPricesIncludeTax(event.target.value === 'INCLUSIVE')}><option value="EXCLUSIVE">{ar ? 'غير شامل الضريبة' : 'Exclusive of tax'}</option><option value="INCLUSIVE">{ar ? 'شامل الضريبة' : 'Inclusive of tax'}</option></select></label>
             <label><span>{ar ? 'طريقة الخصم' : 'Discount type'}</span><select value={discountMode} onChange={(event) => { setDiscountMode(event.target.value as typeof discountMode); setLines((current) => current.map((line) => ({ ...line, discount_amount: '0' }))); }}><option value="NONE">{ar ? 'بدون خصم' : 'No discount'}</option><option value="AMOUNT">{ar ? 'خصم بقيمة' : 'Fixed amount'}</option><option value="PERCENT">{ar ? 'خصم بنسبة مئوية' : 'Percentage discount'}</option></select></label>
             <label className="vat-einvoice-field-toggle"><input type="checkbox" checked={showUnitColumn} onChange={(event) => setShowUnitColumn(event.target.checked)} /><span>{ar ? 'إظهار وحدة القياس' : 'Show unit'}</span></label>

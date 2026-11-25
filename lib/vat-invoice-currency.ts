@@ -7,27 +7,38 @@ export type VatFxRate = {
   valuation_date: string;
 };
 
+export type VatFxQuote = { rate: string; row: VatFxRate | null };
+
+export function resolveVatExchangeQuote(
+  rates: VatFxRate[],
+  sourceCurrency: string,
+  baseCurrency: string,
+  invoiceDate: string,
+): VatFxQuote | null {
+  const source = sourceCurrency.toUpperCase();
+  const base = baseCurrency.toUpperCase();
+  if (source === base) return { rate: '1', row: null };
+
+  const eligible = rates.filter((rate) => rate.valuation_date <= invoiceDate);
+  const direct = eligible
+    .filter((rate) => rate.from_currency.toUpperCase() === source && rate.to_currency.toUpperCase() === base)
+    .sort((a, b) => b.valuation_date.localeCompare(a.valuation_date))[0];
+  if (direct) return { rate: new Decimal(direct.rate).toSignificantDigits(12).toString(), row: direct };
+
+  const inverse = eligible
+    .filter((rate) => rate.from_currency.toUpperCase() === base && rate.to_currency.toUpperCase() === source)
+    .sort((a, b) => b.valuation_date.localeCompare(a.valuation_date))[0];
+  if (inverse) return { rate: new Decimal(1).div(inverse.rate).toSignificantDigits(12).toString(), row: inverse };
+  return null;
+}
+
 export function resolveVatExchangeRate(
   rates: VatFxRate[],
   sourceCurrency: string,
   baseCurrency: string,
   invoiceDate: string,
 ): string | null {
-  const source = sourceCurrency.toUpperCase();
-  const base = baseCurrency.toUpperCase();
-  if (source === base) return '1';
-
-  const eligible = rates.filter((rate) => rate.valuation_date <= invoiceDate);
-  const direct = eligible
-    .filter((rate) => rate.from_currency.toUpperCase() === source && rate.to_currency.toUpperCase() === base)
-    .sort((a, b) => b.valuation_date.localeCompare(a.valuation_date))[0];
-  if (direct) return new Decimal(direct.rate).toSignificantDigits(12).toString();
-
-  const inverse = eligible
-    .filter((rate) => rate.from_currency.toUpperCase() === base && rate.to_currency.toUpperCase() === source)
-    .sort((a, b) => b.valuation_date.localeCompare(a.valuation_date))[0];
-  if (inverse) return new Decimal(1).div(inverse.rate).toSignificantDigits(12).toString();
-  return null;
+  return resolveVatExchangeQuote(rates, sourceCurrency, baseCurrency, invoiceDate)?.rate ?? null;
 }
 
 export function convertVatAmountToBase(value: number | string, rate: number | string) {

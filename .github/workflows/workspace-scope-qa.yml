@@ -40,6 +40,7 @@ on:
       - 'components/FeasibilityWorkspace.tsx'
       - 'components/RecordWorkspaceNotice.tsx'
       - 'components/YaqeenFinancialSignals.tsx'
+      - 'components/vat-einvoice-register.tsx'
       - 'components/Budget*'
       - 'components/settings/**'
       - 'lib/*scope*'
@@ -47,6 +48,8 @@ on:
       - 'lib/feasibility/workspace-organization*'
       - 'lib/*navigation*'
       - 'lib/validation/schemas.ts'
+      - 'lib/vat-invoice-currency*'
+      - 'lib/vat-einvoice-draft*'
       - 'hooks/useWorkspaceScope.ts'
       - 'hooks/useRecordWorkspace.ts'
       - 'lib/yaqeen-dashboard-model*'
@@ -98,8 +101,17 @@ jobs:
         run: |
           npm install --prefix "$RUNNER_TEMP/workspace-browser" --no-save --package-lock=false playwright@1.64.1
           node "$RUNNER_TEMP/workspace-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Verify financial period prerequisite states with isolated components
+        run: SCOPE_BROWSER_MODULE="$RUNNER_TEMP/workspace-browser/node_modules/playwright/index.mjs" node tests/workspace-scope/report-period.browser.cjs
       - name: Verify real auth, scoped APIs, exports and navigation
         run: SCOPE_BROWSER_MODULE="$RUNNER_TEMP/workspace-browser/node_modules/playwright/index.mjs" node tests/workspace-scope/acceptance.mjs
+      - name: Verify e-invoice dated FX defaults with synthetic APIs
+        run: |
+          SCOPE_UI_START_SERVER=1 \
+          SCOPE_UI_ORIGIN=http://127.0.0.1:3185 \
+          SCOPE_UI_ARTIFACTS=tests/workspace-scope/artifacts/einvoice-fx-date \
+          SCOPE_UI_BROWSER_MODULE="$RUNNER_TEMP/workspace-browser/node_modules/playwright" \
+          node tests/workspace-scope/einvoice-fx-date.browser.cjs
       - name: Publish synthetic acceptance evidence
         if: always()
         uses: actions/upload-artifact@v4
