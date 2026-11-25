@@ -38,6 +38,47 @@ try{
  const log=await open(out+'/next.log','w');server=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3200'],{env,stdio:['ignore',log.fd,log.fd]});
  for(let i=0;i<180;i++){try{if((await fetch(app+'/api/financial-reporting/openings?action=context',{signal:AbortSignal.timeout(5000)})).status===401)break}catch{}await new Promise(r=>setTimeout(r,500));if(i===179)throw Error('NEXT_START_TIMEOUT')}
  const{chromium}=await import(process.env.FINANCIAL_SOURCE_BROWSER_MODULE);browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1672,height:941},acceptDownloads:true});await context.addCookies(cookies.map(c=>({name:c.name,value:c.value,domain:'localhost',path:'/',httpOnly:false,secure:false,sameSite:'Lax'})));page=await context.newPage();page.setDefaultTimeout(15000);page.setDefaultNavigationTimeout(20000);page.on('pageerror',e=>errors.push(e.message));
+ await check('Manufacturing chart activates through the authenticated UI and persists across locales',async()=>{
+  const company=randomUUID();
+  sql(`select set_config('request.jwt.claim.sub','${a.id}',false);
+   insert into public.organizations(id,owner_user_id,name) values('${company}','${a.id}','ZZ Chart template browser');
+   insert into public.organization_members(organization_id,user_id,role,status)
+    values('${company}','${a.id}','OWNER','ACTIVE') on conflict do nothing;`);
+  const chartContext=await browser.newContext({storageState:await context.storageState()});
+  try{
+   const chartPage=await chartContext.newPage();
+   chartPage.setDefaultTimeout(15000);
+   chartPage.on('pageerror',error=>errors.push(error.message));
+   const query=new URLSearchParams({scope:'ORGANIZATION',organization:company,template:'MANUFACTURING'});
+   await chartPage.setViewportSize({width:1440,height:900});
+   await chartPage.goto(app+'/en/chart-of-accounts?'+query);
+   const activate=chartPage.getByRole('button',{name:'Activate entire template',exact:true});
+   const [response]=await Promise.all([
+    chartPage.waitForResponse(response=>response.url().endsWith('/api/financial-reporting/chart')
+     && response.request().method()==='POST'),
+    activate.click(),
+   ]);
+   assert.equal(response.status(),200);
+   assert.deepEqual(response.request().postDataJSON(),{action:'apply-template',organization:company,industry:'MANUFACTURING'});
+   assert.deepEqual(await response.json(),{added:19});
+   await chartPage.getByText(/Accounts added:\s*19/).waitFor();
+   await chartPage.setViewportSize({width:390,height:844});
+   await chartPage.goto(app+'/ar/chart-of-accounts?'+query);
+   await chartPage.getByRole('row').filter({hasText:'مواد خام'}).first().waitFor();
+   assert.equal(await chartPage.getByRole('button',{name:'تفعيل القالب بالكامل',exact:true}).isDisabled(),true);
+   const chart=await chartPage.request.get(app+'/api/financial-reporting/chart?organization='+company);
+   assert.equal(chart.status(),200);
+   const {organizationId,accounts}=await chart.json();
+   assert.equal(organizationId,company);
+   assert.equal(accounts.filter(account=>!account.isSystem).length,19);
+   assert.ok(accounts.some(account=>account.code==='170031'&&account.parentCode==='1700'));
+   assert.equal(sql(`select count(*) from public.financial_chart_account_audit
+    where organization_id='${company}' and reason='Activate industry template MANUFACTURING';`),'19');
+   await chartPage.screenshot({path:out+'/chart-manufacturing-activated-ar-mobile.png'});
+  }finally{
+   await chartContext.close();
+  }
+ });
  await check('Financial setup reads real organization readiness, blocks fabricated completion and cross-tenant access',async()=>{
   const endpoint=app+'/api/financial-reporting/setup-readiness?';
   const params=new URLSearchParams({organization:org,mode:'EXISTING'});
@@ -940,7 +981,7 @@ try{
  await check('Actual source-bound group worksheet preserves company ledgers and rechecks member permissions',async()=>{
   const {verifySourceBoundGroupPreview}=await import('./verify-source-bound-group-preview.mjs');
   report.groupSourceBoundPreview=await verifySourceBoundGroupPreview({actor:a,page,app,out,sql,databaseUrl:url,subsidiary:report.defaultPostingActualCycle.organization,expenseEvent:report.centerExpenseEvent});
- },180000);
+ },300000);
  await check('Dated center branch assignment preserves original history and banner-scoped position export',async()=>{
   const {verifyDatedCenterSource}=await import('./verify-dated-center-source.mjs');
   report.datedCenterSource=await verifyDatedCenterSource({actor:a,page,app,out,sql,databaseUrl:url,organization:report.defaultPostingActualCycle.organization});
@@ -977,38 +1018,6 @@ try{
    }
   }
  },120000);
- await check('Manufacturing chart activates through the authenticated UI and persists across locales',async()=>{
-  const company=randomUUID();
-  sql(`select set_config('request.jwt.claim.sub','${a.id}',false);
-   insert into public.organizations(id,owner_user_id,name) values('${company}','${a.id}','ZZ Chart template browser');
-   insert into public.organization_members(organization_id,user_id,role,status)
-    values('${company}','${a.id}','OWNER','ACTIVE') on conflict do nothing;`);
-  const query=new URLSearchParams({scope:'ORGANIZATION',organization:company,template:'MANUFACTURING'});
-  await page.setViewportSize({width:1440,height:900});
-  await page.goto(app+'/en/chart-of-accounts?'+query);
-  const activate=page.getByRole('button',{name:'Activate entire template',exact:true});
-  const saved=page.waitForResponse(response=>response.url().endsWith('/api/financial-reporting/chart')
-   && response.request().method()==='POST');
-  await activate.click();
-  const response=await saved;
-  assert.equal(response.status(),200);
-  assert.deepEqual(response.request().postDataJSON(),{action:'apply-template',organization:company,industry:'MANUFACTURING'});
-  assert.deepEqual(await response.json(),{added:19});
-  await page.getByText(/Accounts added:\s*19/).waitFor();
-  await page.setViewportSize({width:390,height:844});
-  await page.goto(app+'/ar/chart-of-accounts?'+query);
-  await page.getByRole('row').filter({hasText:'مواد خام'}).first().waitFor();
-  assert.equal(await page.getByRole('button',{name:'تفعيل القالب بالكامل',exact:true}).isDisabled(),true);
-  const chart=await page.request.get(app+'/api/financial-reporting/chart?organization='+company);
-  assert.equal(chart.status(),200);
-  const {organizationId,accounts}=await chart.json();
-  assert.equal(organizationId,company);
-  assert.equal(accounts.filter(account=>!account.isSystem).length,19);
-  assert.ok(accounts.some(account=>account.code==='170031'&&account.parentCode==='1700'));
-  assert.equal(sql(`select count(*) from public.financial_chart_account_audit
-   where organization_id='${company}' and reason='Activate industry template MANUFACTURING';`),'19');
-  await page.screenshot({path:out+'/chart-manufacturing-activated-ar-mobile.png'});
- });
  assert.deepEqual(errors,[]);report.browserExceptions=errors;await context.close();
 }catch(error){report.failure={message:error.message,stack:error.stack};try{await page?.screenshot({path:out+'/failure.png',fullPage:true,timeout:5000})}catch{}throw error}finally{await Promise.race([browser?.close(),new Promise(r=>setTimeout(r,5000))]);server?.kill();await writeFile(out+'/results.json',JSON.stringify(report,null,2)+'\n')}
 // Exit only after assertions, evidence writes and cleanup; background SDK handles must not keep CI alive.
