@@ -21,6 +21,16 @@ export async function verifyStatementAcceptance({a,b,viewer,sql,app,cookie,conte
    assert.ok(parent&&child);
    const indent=lang==='ar'?parent.x+parent.width-child.x-child.width:child.x-parent.x;
    assert.ok(indent>=8,'Cash activity details must be visibly indented in '+lang+' '+size);
+   const widths=await table.evaluate(el=>{
+    const layout=el.closest('.fs-source-cash-layout');
+    const getWidths=()=>[...layout.children].map(panel=>panel.getBoundingClientRect().width);
+    const current=getWidths();
+    layout.classList.remove('fs-source-cash-layout');
+    const original=getWidths();
+    layout.classList.add('fs-source-cash-layout');
+    return {current,original};
+   });
+   assert.deepEqual(widths.current,widths.original,'Cash-flow table and analysis must keep their panel widths');
   }
  }
  async function disclosure(view,lang,size){
