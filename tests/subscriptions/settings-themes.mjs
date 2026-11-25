@@ -31,6 +31,7 @@ const separateRouteFixtures = new Map([
   ['assessments/[id]','requires a saved Zakat assessment'],
   ['cash-vouchers/[id]','requires an institutional cash voucher'],
   ['chart-of-accounts','requires Financial Opening Workspace'],
+  ['dashboard/report','requires the full dashboard schema'],
   ['feasibility/shared','requires the sharing flag and team fixtures'],
   ['feasibility/shared/review','requires a study proposal and the sharing flag'],
   ['financial-events','requires Financial Budget QA'],
@@ -73,26 +74,31 @@ async function verifyWorkspaceRoutes({page,theme,appUrl,root,org,modulePalette})
   for(const route of separateRouteFixtures.keys())assert.ok(routes.includes(route), `removed route fixture: ${route}`);
   const liveRoutes=routes.filter(route=>!separateRouteFixtures.has(route));
   const verifiedRoutes=[];
+  const failures=[];
   for(const [locale,width] of [['ar',390],['en',1440]]) {
     await page.setViewportSize({width,height:960});
     for(const route of liveRoutes) {
       const query=new URLSearchParams(route==='assets/dashboard'||route.startsWith('settings')
         ? {scope:'ORGANIZATION',organization:org} : {scope:'PERSONAL'});
-      const response=await page.goto(`${appUrl}/${locale}/${route}?${query}`,{waitUntil:'domcontentloaded'});
-      assert.ok(response?.ok(),`${theme} ${locale} ${width} ${route}: HTTP ${response?.status()}`);
-      const actual=new URL(page.url()).pathname;
-      assert.ok((routeTargets.get(route)??[route]).some(target=>actual===`/${locale}/${target}`),`${route} redirected to ${actual}`);
-      const workspace=page.locator(`.corp-shell.theme-${theme} .corp-content`);
-      await workspace.waitFor();
-      const [selector,token,paletteKey]=moduleControls[route]??['','--brand-muted','muted'];
-      const module=selector?workspace.locator(selector):workspace;
-      await module.waitFor();
-      const value=await module.evaluate((element,property)=>getComputedStyle(element).getPropertyValue(property).trim(),token);
-      assert.equal(value,modulePalette[paletteKey??'muted'],`${theme} ${locale} ${width} ${route} ${token}`);
-      verifiedRoutes.push({locale,width,route,actual});
+      try {
+        const response=await page.goto(`${appUrl}/${locale}/${route}?${query}`,{waitUntil:'domcontentloaded',timeout:12000});
+        assert.ok(response?.ok(),`HTTP ${response?.status()}`);
+        const actual=new URL(page.url()).pathname;
+        assert.ok((routeTargets.get(route)??[route]).some(target=>actual===`/${locale}/${target}`),`redirected to ${actual}`);
+        const workspace=page.locator(`.corp-shell.theme-${theme} .corp-content`);
+        const [selector,token,paletteKey]=moduleControls[route]??['','--brand-muted','muted'];
+        const module=selector?workspace.locator(selector):workspace;
+        await module.waitFor({timeout:5000});
+        const value=await module.evaluate((element,property)=>getComputedStyle(element).getPropertyValue(property).trim(),token);
+        assert.equal(value,modulePalette[paletteKey??'muted'],token);
+        verifiedRoutes.push({locale,width,route,actual});
+      } catch(error) {
+        failures.push({locale,width,route,error:error.message.split('\n')[0]});
+      }
     }
   }
-  console.log('WORKSPACE_THEME_ROUTES '+JSON.stringify({theme,verifiedRoutes,separateFixtures:[...separateRouteFixtures]}));
+  console.log('WORKSPACE_THEME_ROUTES '+JSON.stringify({theme,verifiedRoutes,failures,separateFixtures:[...separateRouteFixtures]}));
+  assert.deepEqual(failures,[],`${theme} workspace route failures`);
 }
 
 async function verifyModulePalette({page,theme,appUrl,root,org}) {
@@ -147,6 +153,8 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
       const active=await page.locator(selectedTab).evaluateAll(readColors);
       assert.equal(active.length,1,`${theme} ${section} active section must be unambiguous`);
       assert.ok(contrast(active[0])>=4.5,`${theme} ${section} selected tab contrast ${JSON.stringify(active[0])}`);
+      if((theme==='modern'||theme==='elegant')&&section==='billing')
+        assert.deepEqual(active[0],{fg:expected.ink,bg:expected.selected},`${theme} billing tab`);
       const primaryColors=await page.locator('.settings-tabs a').evaluateAll(readColors);
       for(const item of primaryColors)assert.ok(contrast(item)>=4.5,
         `${theme} ${section} primary navigation contrast ${JSON.stringify(item)}`);

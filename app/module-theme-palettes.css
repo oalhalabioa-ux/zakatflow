@@ -191,6 +191,19 @@
     color: var(--brand-surface) !important;
   }
 
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .asset-card-dialog .asset-card-header button.action-button {
+    background: transparent !important;
+    border-color: transparent !important;
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .asset-card-dialog :is(
+    .asset-card-toolbar .asset-card-primary,
+    .asset-card-tabs button[aria-pressed=true]
+  ) {
+    background: var(--brand-primary) !important;
+    border-color: var(--brand-primary) !important;
+  }
+
   .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .asset-card-dialog .asset-card-chip[data-active=true] {
     color: #205347;
   }
@@ -303,5 +316,51 @@
     .ob-branch-table th :is(strong, small)
   ) {
     color: var(--brand-surface) !important;
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .settings-workspace :is(
+    .settings-tabs a:not(.btn) .settings-icon,
+    .settings-finance-journey-tabs button .settings-icon,
+    .settings-finance-card-trigger > .settings-icon,
+    .yb-billing .pricing-grid h2 svg,
+    .yb-billing .billing-package-details li .settings-icon
+  ) {
+    color: var(--brand-primary);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .settings-workspace :is(
+    .settings-tabs a[aria-current=page]:not(.btn) .settings-icon,
+    .settings-finance-journey-tabs button[aria-pressed=true],
+    .settings-compact-action,
+    .settings-subsection-nav a[aria-current=page],
+    .settings-local-tabs button[aria-pressed=true],
+    .yp-preferences-tabs button[aria-pressed=true],
+    .yb-billing .yb-billing-tabs button[aria-pressed=true],
+    .yb-billing .yb-table-wrap table > thead > tr > th,
+    .yb-billing .bundle-builder .bundle-primary
+  ) {
+    background: var(--brand-primary) !important;
+    border-color: var(--brand-primary) !important;
+    color: var(--brand-surface) !important;
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .settings-workspace :is(
+    .settings-finance-journey-tabs button[aria-pressed=true],
+    .yb-billing-tabs button[aria-pressed=true]
+  ) .settings-icon {
+    color: inherit;
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .settings-workspace .settings-tabs a[aria-current=page]:not(.btn)::before,
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .settings-workspace .settings-tabs a[aria-current=page]:not(.btn)::after {
+    background: var(--brand-primary);
+  }
+
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .settings-workspace :is(
+    .financial-settings-journey-entry,
+    .yp-theme[aria-pressed=true]
+  ) {
+    background: var(--module-accent-tint);
+    border-color: var(--brand-primary);
   }
 }

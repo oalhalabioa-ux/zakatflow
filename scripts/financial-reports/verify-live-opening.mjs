@@ -956,6 +956,9 @@ try{
      if(route==='opening-balances'||route==='chart-of-accounts')
       await page.screenshot({path:`${out}/${route}-${theme}-${locale}-${width}.png`});
     }
+    const detail=await page.goto(`${app}/${locale}/dashboard/report?scope=PERSONAL&metric=assets`);
+    assert.ok(detail?.ok(),`${theme} ${locale} dashboard detail: ${detail?.status()}`);
+    await page.locator(`.corp-shell.theme-${theme} .corp-content h1`).first().waitFor();
    }
   }
  },120000);
