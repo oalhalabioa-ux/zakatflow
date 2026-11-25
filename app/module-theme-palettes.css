@@ -97,6 +97,7 @@
     }
 
     .corp-shell:is(.theme-modern, .theme-elegant) .organizations-page .orgs-entities-table-wrap {
+      position: relative;
       max-inline-size: 100%;
       overflow-x: auto;
     }
