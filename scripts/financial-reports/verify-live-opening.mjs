@@ -990,7 +990,7 @@ try{
   await page.reload();await groupTable.waitFor();
   const groupControl=page.locator('#corp-organization-controls').getByRole('button',{name:'Company and subsidiaries',exact:true});
   assert.equal(await groupControl.getAttribute('aria-pressed'),'true');
-  const reportsMenu=page.getByRole('button',{name:'Financial reports & statements',exact:true});
+  const reportsMenu=page.locator('button[aria-controls="corp-financial-reporting-nav"]');
   if(await reportsMenu.getAttribute('aria-expanded')!=='true')await reportsMenu.click();
   await page.locator('#corp-financial-reporting-nav').getByRole('link',{name:'Financial position',exact:true}).click();
   await page.waitForURL(u=>u.searchParams.get('screen')==='position'&&u.searchParams.get('level')==='GROUP');
