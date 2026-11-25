@@ -5,6 +5,7 @@ import {readFile,mkdir,writeFile,open} from 'node:fs/promises';
 import {createClient} from '@supabase/supabase-js';
 import {createServerClient} from '@supabase/ssr';
 import assert from 'node:assert/strict';
+import {verifyNativeBranchLedger,verifyNativeFinancingLedger} from './verify-native-period-ledger.mjs';
 const dir=process.env.OPENING_QA_WORKDIR;
 assert.ok(dir&&process.env.RUNNER_TEMP&&dir.startsWith(process.env.RUNNER_TEMP+'/'),'DISPOSABLE_RUNNER_REQUIRED');
 const status=JSON.parse(execFileSync('npx',['--yes','supabase@2.122.0','status','--workdir',dir,'--output','json'],{encoding:'utf8',stdio:['ignore','pipe','pipe']}));
@@ -399,6 +400,8 @@ try{
   const hq=page.waitForResponse(r=>new URL(r.url()).searchParams.get('branch')==='HQ');await picker.selectOption('HQ');const head=await hq;assert.equal(head.status(),200);assert.equal((await head.json()).statements.cash.opening,'200.0000');
   await page.locator('[data-statement-ready="position"]').waitFor();await page.screenshot({path:out+'/branch-report-banner-en.png',fullPage:true});
   await picker.selectOption('ALL');await page.locator('[data-statement-ready="position"]').waitFor();
+  await verifyNativeBranchLedger({page,app,out,organization:org,branch,actor:a,sql});
+  console.log('PASS approved branch, headquarters and company period ledger with fresh authorization');
  });
  await check('Cost center banner and fresh CSV use the selected source, never company balances',async()=>{
   const center=randomUUID();sql(`insert into public.organization_cost_centers(id,organization_id,code,name,center_type) values('${center}','${org}','REPORT_QA','QA income center','OPERATING')`);
@@ -632,6 +635,8 @@ try{
   assert.equal(report.statements.position.assets,'300.0000');
   assert.equal(report.statements.position.liabilities,'300.0000');
   assert.equal(report.statements.income.netProfit,'0.0000');
+  await verifyNativeFinancingLedger({page,app,out,organization:loanOrg,posted:recorded,statements:report.statements});
+  console.log('PASS funded debt journals reconcile to native period ledger without duplication');
   assert.ok((await b.client.rpc('financial_statement_live_snapshot',{p_org:loanOrg,p_from:'2026-01-01',p_to:'2026-12-31'})).error);
  });
  await check('Revocation clears both refreshed and exporting workspaces',async()=>{
