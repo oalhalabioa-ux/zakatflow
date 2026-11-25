@@ -1,9 +1,14 @@
 'use client';
 import {Money,CurrencyScope} from '@/components/DisplayCurrency';
 
-import { use, useEffect, useMemo, useState } from 'react';
+import { Suspense, use, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import './prices.css';
 import { organizationDisplayName } from '@/lib/organization-display';
+import { useWorkspaceScope } from '@/hooks/useWorkspaceScope';
+import { currentWorkspaceScope } from '@/lib/topbar-navigation';
+import TopbarOrganizationControls from '@/components/TopbarOrganizationControls';
+import WorkspaceOrganizationPicker from '@/components/WorkspaceOrganizationPicker';
 
 type Organization = {
   id: string;
@@ -36,6 +41,7 @@ type Price = {
 type FxRate = {
   id: string;
   organization_id: string | null;
+  scope?: 'PERSONAL' | 'GLOBAL';
   from_currency: string;
   to_currency: string;
   rate: number;
@@ -53,14 +59,33 @@ export default function Prices({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = use(params);
+  return (
+    <Suspense fallback={<div className="prices-loading" role="status">
+      {locale === 'ar' ? 'جارٍ تحميل العملات…' : 'Loading currencies…'}
+    </div>}>
+      <PricesScope locale={locale} />
+    </Suspense>
+  );
+}
+
+function PricesScope({ locale }: { locale: string }) {
+  const query = useSearchParams();
+  const [scope] = useWorkspaceScope(currentWorkspaceScope('prices', query.toString()));
+  return <ScopedPrices key={scope} locale={locale} personal={scope === 'PERSONAL'} />;
+}
+
+function ScopedPrices({ locale, personal }: { locale: string; personal: boolean }) {
   const ar = locale === 'ar';
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [organizationId, setOrganizationId] = useState('');
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [prices, setPrices] = useState<Price[]>([]);
-  const [fx, setFx] = useState<FxRate[]>([]);
+  const [fxResult, setFxResult] = useState<{ url: string; rows: FxRate[] }>();
+  const [personalBase, setPersonalBase] = useState('SAR');
+  const [fxRevision, setFxRevision] = useState(0);
+  const [priceRevision, setPriceRevision] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [ratesLoading, setRatesLoading] = useState(false);
+  const [pricesLoading, setPricesLoading] = useState(true);
   const [saving, setSaving] = useState<'price' | 'fx' | 'currency' | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [currencyDialog, setCurrencyDialog] = useState(false);
@@ -88,15 +113,12 @@ export default function Prices({
     decimals: '2',
   });
 
-  const sortedOrganizations = useMemo(
-    () =>
-      [...organizations].sort(
-        (a, b) =>
-          Number(a.sort_order ?? 100) - Number(b.sort_order ?? 100) ||
-          a.name.localeCompare(b.name),
-      ),
-    [organizations],
-  );
+  const selectedOrganization = organizations.find((item) => item.id === organizationId);
+  const baseCurrency = personal ? personalBase : selectedOrganization?.base_currency || 'SAR';
+  const fxUrl = personal ? '/api/fx?scope=PERSONAL' :
+    organizationId && `/api/fx?organization_id=${encodeURIComponent(organizationId)}`;
+  const fx = fxResult?.url === fxUrl ? fxResult.rows : [];
+  const fxLoading = !!fxUrl && fxResult?.url !== fxUrl;
 
   const currencyOptions = useMemo(
     () =>
@@ -108,53 +130,59 @@ export default function Prices({
   );
 
   useEffect(() => {
+    const controller = new AbortController();
+    const { signal } = controller;
+    async function loadCatalogs() {
+      const [currencyResult, organizationResult, settings] = await Promise.all([
+        fetchArray<Currency>('/api/currencies', signal),
+        personal ? Promise.resolve({ rows: [] } as { rows: Organization[]; error?: string }) :
+          fetchArray<Organization>('/api/organizations', signal),
+        personal ? fetch('/api/settings', { cache: 'no-store', signal })
+          .then((response) => response.ok ? response.json() : null).catch(() => null) : null,
+      ]);
+      if (signal.aborted) return;
+      setCurrencies(currencyResult.rows);
+      setOrganizations(organizationResult.rows);
+      if (settings?.profile?.base_currency) setPersonalBase(settings.profile.base_currency);
+      const error = currencyResult.error ?? organizationResult.error;
+      if (error) setNotice({ kind: 'error', text: messageFor(error, ar) });
+      setLoading(false);
+    }
     void loadCatalogs();
-  }, []);
+    return () => controller.abort();
+  }, [ar, personal]);
 
   useEffect(() => {
-    if (organizationId) void loadRates(organizationId);
-  }, [organizationId]);
+    const controller = new AbortController();
+    void fetchArray<Price>('/api/prices', controller.signal).then((result) => {
+      if (controller.signal.aborted) return;
+      setPrices(result.rows);
+      if (result.error) setNotice({ kind: 'error', text: messageFor(result.error, ar) });
+      setPricesLoading(false);
+    });
+    return () => controller.abort();
+  }, [ar, priceRevision]);
 
-  async function loadCatalogs() {
-    setLoading(true);
-    setNotice(null);
-    const [organizationResult, currencyResult] = await Promise.all([
-      fetchArray<Organization>('/api/organizations'),
-      fetchArray<Currency>('/api/currencies'),
-    ]);
+  useEffect(() => {
+    if (!fxUrl) return;
+    const controller = new AbortController();
+    void fetchArray<FxRate>(fxUrl, controller.signal).then((result) => {
+      if (controller.signal.aborted) return;
+      setFxResult({ url: fxUrl, rows: result.rows });
+      if (result.error) setNotice({ kind: 'error', text: messageFor(result.error, ar) });
+    });
+    return () => controller.abort();
+  }, [ar, fxUrl, fxRevision]);
 
-    setOrganizations(organizationResult.rows);
-    setCurrencies(currencyResult.rows);
-    const chosen =
-      organizationResult.rows.find(
-        (organization) =>
-          organization.organization_kind === 'HOLDING' &&
-          !organization.parent_organization_id,
-      ) ?? organizationResult.rows[0];
-
-    if (chosen) setOrganizationId(chosen.id);
-    if (currencyResult.error || organizationResult.error) {
-      const error = currencyResult.error ?? organizationResult.error;
-      setNotice({ kind: 'error', text: messageFor(error, ar) });
-    }
-    setLoading(false);
-  }
-
-  async function loadRates(selectedOrganizationId: string) {
-    setRatesLoading(true);
-    const [priceResult, fxResult] = await Promise.all([
-      fetchArray<Price>('/api/prices'),
-      fetchArray<FxRate>(
-        `/api/fx?organization_id=${encodeURIComponent(selectedOrganizationId)}`,
-      ),
-    ]);
-
-    setPrices(priceResult.rows);
-    setFx(fxResult.rows);
-    const error = priceResult.error ?? fxResult.error;
-    if (error) setNotice({ kind: 'error', text: messageFor(error, ar) });
-    setRatesLoading(false);
-  }
+  useEffect(() => {
+    setFxDraft({
+      from_currency: baseCurrency === 'USD' ? 'SAR' : 'USD',
+      to_currency: baseCurrency,
+      rate: '',
+      valuation_date: today(),
+      source: 'Manual',
+    });
+  }, [baseCurrency, organizationId]);
 
   async function savePrice(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -179,7 +207,7 @@ export default function Prices({
         text: ar ? 'تم حفظ السعر بنجاح.' : 'Price saved successfully.',
       });
       setPriceDraft((draft) => ({ ...draft, price_per_unit: '' }));
-      if (organizationId) await loadRates(organizationId);
+      setPriceRevision((value) => value + 1);
     } catch (error: any) {
       setNotice({ kind: 'error', text: messageFor(error.message, ar) });
     } finally {
@@ -189,10 +217,7 @@ export default function Prices({
 
   async function saveFx(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!organizationId) {
-      setNotice({ kind: 'error', text: messageFor('ORGANIZATION_ID_REQUIRED', ar) });
-      return;
-    }
+    if (!fxUrl) return;
     if (fxDraft.from_currency === fxDraft.to_currency) {
       setNotice({
         kind: 'error',
@@ -209,7 +234,7 @@ export default function Prices({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...fxDraft,
-          organization_id: organizationId,
+          ...(personal ? { scope: 'PERSONAL' } : { organization_id: organizationId }),
           rate: Number(fxDraft.rate),
         }),
       });
@@ -218,11 +243,13 @@ export default function Prices({
 
       setNotice({
         kind: 'success',
-        text: ar ? 'تم حفظ سعر الصرف لهذه المؤسسة.' : 'FX rate saved for this organization.',
+        text: personal
+          ? (ar ? 'تم حفظ سعر الصرف في حسابك الشخصي.' : 'FX rate saved for your personal account.')
+          : (ar ? 'تم حفظ سعر الصرف لهذه المؤسسة.' : 'FX rate saved for this organization.'),
       });
       setFxDraft((draft) => ({ ...draft, rate: '' }));
       window.dispatchEvent(new Event('zf-fx-rates-updated'));
-      await loadRates(organizationId);
+      setFxRevision((value) => value + 1);
     } catch (error: any) {
       setNotice({ kind: 'error', text: messageFor(error.message, ar) });
     } finally {
@@ -273,10 +300,16 @@ export default function Prices({
     }
   }
 
-  const selectedOrganization = organizations.find((item) => item.id === organizationId);
-
   return (
-    <main className="container prices-page" dir={ar ? 'rtl' : 'ltr'}><CurrencyScope currency={organizations.find(o=>o.id===organizationId)?.base_currency || "SAR"} organizationId={organizationId || undefined}/>
+    <main className="container prices-page" dir={ar ? 'rtl' : 'ltr'}>
+      <CurrencyScope currency={baseCurrency} organizationId={organizationId || undefined} />
+      {!personal && (
+        <TopbarOrganizationControls>
+          <WorkspaceOrganizationPicker ar={ar} organizations={organizations} value={organizationId}
+            onChange={(id) => { setNotice(null); setOrganizationId(id); }}
+            disabled={loading || saving !== null} />
+        </TopbarOrganizationControls>
+      )}
       <header className="prices-header">
         <div>
           <span className="prices-eyebrow">
@@ -289,20 +322,6 @@ export default function Prices({
               : 'Manage currency references, market prices and historical FX rates.'}
           </p>
         </div>
-        <label className="prices-organization-picker">
-          <span>{ar ? 'المؤسسة' : 'Organization'}</span>
-          <select
-            value={organizationId}
-            onChange={(event) => setOrganizationId(event.target.value)}
-            disabled={loading || organizations.length === 0}
-          >
-            {sortedOrganizations.map((organization) => (
-              <option key={organization.id} value={organization.id}>
-                {organizationDisplayName(organization.name, ar)}
-              </option>
-            ))}
-          </select>
-        </label>
       </header>
 
       {notice && (
@@ -314,9 +333,9 @@ export default function Prices({
 
       {loading ? (
         <div className="prices-loading" role="status">
-          {ar ? 'جارٍ تحميل العملات والمؤسسات…' : 'Loading currencies and organizations…'}
+          {ar ? 'جارٍ تحميل العملات…' : 'Loading currencies…'}
         </div>
-      ) : organizations.length === 0 ? (
+      ) : !personal && organizations.length === 0 ? (
         <section className="prices-empty card">
           <span aria-hidden="true">◈</span>
           <h2>{ar ? 'أضف مؤسسة أولًا' : 'Add an organization first'}</h2>
@@ -349,14 +368,14 @@ export default function Prices({
             <div className="prices-summary-card">
               <span className="prices-summary-icon fx">⇄</span>
               <div>
-                <small>{ar ? 'أسعار صرف للمؤسسة' : 'Organization FX rates'}</small>
-                <strong>{fx.filter((rate) => rate.organization_id === organizationId).length}</strong>
+                <small>{personal ? (ar ? 'أسعار الصرف الشخصية' : 'Personal FX rates') : (ar ? 'أسعار صرف للمؤسسة' : 'Organization FX rates')}</small>
+                <strong>{fx.filter((rate) => personal ? rate.scope === 'PERSONAL' : rate.organization_id === organizationId).length}</strong>
               </div>
             </div>
             <div className="prices-summary-context">
               {ar ? 'النطاق الحالي' : 'Current scope'}
               <strong>
-                {selectedOrganization
+                {personal ? (ar ? 'شخصي' : 'Personal') : selectedOrganization
                   ? organizationDisplayName(selectedOrganization.name, ar)
                   : '—'}
               </strong>
@@ -369,7 +388,7 @@ export default function Prices({
                 <div className="prices-panel-icon market">◈</div>
                 <div>
                   <h2>{ar ? 'تسجيل سعر سوق' : 'Record a market price'}</h2>
-                  <p>{ar ? 'مع تاريخ التقييم ومصدر السعر.' : 'Include the valuation date and source.'}</p>
+                  <p>{ar ? 'سعر سوق مرجعي مشترك، مع تاريخ التقييم ومصدر السعر.' : 'Shared market reference, with a valuation date and source.'}</p>
                 </div>
               </div>
 
@@ -441,9 +460,9 @@ export default function Prices({
                 <div>
                   <h2>{ar ? 'تسجيل سعر صرف' : 'Record an FX rate'}</h2>
                   <p>
-                    {ar
-                      ? 'يُحفظ السعر للمؤسسة المحددة ولا يغيّر أسعار المؤسسات الأخرى.'
-                      : 'Saved for the selected organization; other organizations keep their own rates.'}
+                    {personal
+                      ? (ar ? 'يُحفظ السعر في حسابك الشخصي ويُستخدم عند تسجيل أصولك الشخصية.' : 'Saved to your account and used when recording personal assets.')
+                      : (ar ? 'يُحفظ السعر للمؤسسة المحددة من البنر الرئيسي.' : 'Saved to the organization selected in the main banner.')}
                   </p>
                 </div>
               </div>
@@ -484,7 +503,7 @@ export default function Prices({
                   value={fxDraft.source}
                   onChange={(value) => setFxDraft({ ...fxDraft, source: value })}
                 />
-                <button className="prices-button primary prices-form-action" disabled={saving !== null}>
+                <button className="prices-button primary prices-form-action" disabled={saving !== null || !fxUrl}>
                   {saving === 'fx'
                     ? ar ? 'جارٍ الحفظ…' : 'Saving…'
                     : ar ? 'حفظ سعر الصرف' : 'Save FX rate'}
@@ -504,7 +523,7 @@ export default function Prices({
                     : 'Adding a currency makes it available in selectors across the platform.'}
                 </p>
               </div>
-              <button
+              {!personal && <button
                 type="button"
                 className="prices-button secondary"
                 onClick={() => setCurrencyDialog(true)}
@@ -512,7 +531,7 @@ export default function Prices({
               >
                 <span aria-hidden="true">＋</span>
                 {ar ? 'إضافة عملة' : 'Add currency'}
-              </button>
+              </button>}
             </div>
             <div className="prices-table-wrap">
               <table className="prices-table">
@@ -549,14 +568,14 @@ export default function Prices({
                 <h2>{ar ? 'الأسعار المسجلة' : 'Recorded prices'}</h2>
                 <p>{ar ? 'أسعار السوق المرجعية مع تاريخها ومصدرها.' : 'Reference market prices with valuation date and source.'}</p>
               </div>
-              {ratesLoading && <span className="prices-inline-loading">{ar ? 'تحديث…' : 'Refreshing…'}</span>}
+              {pricesLoading && <span className="prices-inline-loading">{ar ? 'تحديث…' : 'Refreshing…'}</span>}
             </div>
             <div className="prices-table-wrap">
               <table className="prices-table">
                 <thead><tr><th>{ar ? 'نوع الأصل' : 'Asset type'}</th><th>{ar ? 'العيار' : 'Karat'}</th><th>{ar ? 'السعر' : 'Price'}</th><th>{ar ? 'العملة' : 'Currency'}</th><th>{ar ? 'التاريخ' : 'Date'}</th><th>{ar ? 'المصدر' : 'Source'}</th></tr></thead>
                 <tbody>
                   {prices.map((price) => <tr key={price.id}><td>{assetLabel(price.asset_type, ar)}</td><td>{price.karat ?? '—'}</td><td><Money value={price.price_per_unit} currency={price.currency} precision={6} organizationId={organizationId || null}/></td><td>{price.currency}</td><td>{price.valuation_date}</td><td>{price.source}</td></tr>)}
-                  {!prices.length && <tr><td colSpan={6} className="prices-table-empty">{ratesLoading ? (ar ? 'جارٍ تحميل الأسعار…' : 'Loading prices…') : (ar ? 'لا توجد أسعار مسجلة.' : 'No prices recorded.')}</td></tr>}
+                  {!prices.length && <tr><td colSpan={6} className="prices-table-empty">{pricesLoading ? (ar ? 'جارٍ تحميل الأسعار…' : 'Loading prices…') : (ar ? 'لا توجد أسعار مسجلة.' : 'No prices recorded.')}</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -566,25 +585,27 @@ export default function Prices({
             <div className="prices-section-heading compact">
               <div>
                 <h2>{ar ? 'أسعار الصرف' : 'FX rates'}</h2>
-                <p>{ar ? 'تظهر أسعار المؤسسة المحددة والأسعار المرجعية العامة.' : 'Shows the selected organization’s rates and global reference rates.'}</p>
+                <p>{personal
+                  ? (ar ? 'أسعار حسابك الشخصي والأسعار المرجعية العامة.' : 'Your personal rates and global reference rates.')
+                  : (ar ? 'أسعار المؤسسة المحددة والأسعار المرجعية العامة.' : 'The selected organization’s rates and global reference rates.')}</p>
               </div>
-              {ratesLoading && <span className="prices-inline-loading">{ar ? 'تحديث…' : 'Refreshing…'}</span>}
+              {fxLoading && <span className="prices-inline-loading">{ar ? 'تحديث…' : 'Refreshing…'}</span>}
             </div>
             <div className="prices-table-wrap">
               <table className="prices-table">
                 <thead><tr><th>{ar ? 'زوج العملات' : 'Currency pair'}</th><th>{ar ? 'سعر التحويل' : 'Rate'}</th><th>{ar ? 'التاريخ' : 'Date'}</th><th>{ar ? 'المصدر' : 'Source'}</th><th>{ar ? 'النطاق' : 'Scope'}</th></tr></thead>
                 <tbody>
-                  {fx.map((rate) => <tr key={rate.id}><td><strong>{rate.from_currency}/{rate.to_currency}</strong></td><td>{rate.rate}</td><td>{rate.valuation_date}</td><td>{rate.source}</td><td><span className={`prices-scope ${rate.organization_id ? '' : 'global'}`}>{rate.organization_id ? (ar ? 'المؤسسة المحددة' : 'Selected organization') : (ar ? 'مرجع عام' : 'Global reference')}</span></td></tr>)}
-                  {!fx.length && <tr><td colSpan={5} className="prices-table-empty">{ratesLoading ? (ar ? 'جارٍ تحميل أسعار الصرف…' : 'Loading FX rates…') : (ar ? 'لا توجد أسعار صرف مسجلة لهذه المؤسسة.' : 'No FX rates recorded for this organization.')}</td></tr>}
+                  {fx.map((rate) => <tr key={rate.id}><td><strong>{rate.from_currency}/{rate.to_currency}</strong></td><td>{rate.rate}</td><td>{rate.valuation_date}</td><td>{rate.source}</td><td><span className={`prices-scope ${rate.organization_id || rate.scope === 'PERSONAL' ? '' : 'global'}`}>{rate.scope === 'PERSONAL' ? (ar ? 'شخصي' : 'Personal') : rate.organization_id ? (ar ? 'المؤسسة المحددة' : 'Selected organization') : (ar ? 'مرجع عام' : 'Global reference')}</span></td></tr>)}
+                  {!fx.length && <tr><td colSpan={5} className="prices-table-empty">{fxLoading ? (ar ? 'جارٍ تحميل أسعار الصرف…' : 'Loading FX rates…') : (ar ? 'لا توجد أسعار صرف مسجلة في هذا النطاق.' : 'No FX rates recorded for this scope.')}</td></tr>}
                 </tbody>
               </table>
             </div>
           </section>
 
           <p className="prices-scope-note">
-            {ar
-              ? 'سجل العملات مشترك بين المنصة، بينما أسعار الصرف اليدوية محفوظة لكل مؤسسة على حدة. إدارة العملات وأسعار الصرف متاحة لمالك المؤسسة أو مديرها.'
-              : 'The currency catalog is shared platform-wide; manually entered FX rates are organization-specific. Currency and FX management is available to organization owners and admins.'}
+            {personal
+              ? (ar ? 'سجل العملات مشترك، وأسعار الصرف اليدوية الشخصية خاصة بحسابك.' : 'The currency catalog is shared. Your manual personal FX rates are private.')
+              : (ar ? 'سجل العملات مشترك. يمكن لمالك المؤسسة أو مديرها إدارة العملات وأسعار صرف المؤسسة.' : 'The currency catalog is shared. Organization owners and admins can manage currencies and their organization’s FX rates.')}
           </p>
         </>
       )}
@@ -695,9 +716,9 @@ function SelectField({
   );
 }
 
-async function fetchArray<T>(url: string): Promise<{ rows: T[]; error?: string }> {
+async function fetchArray<T>(url: string, signal?: AbortSignal): Promise<{ rows: T[]; error?: string }> {
   try {
-    const response = await fetch(url, { cache: 'no-store' });
+    const response = await fetch(url, { cache: 'no-store', signal });
     const body = await response.json().catch(() => null);
     if (!response.ok || !Array.isArray(body)) {
       return {
@@ -728,6 +749,7 @@ function messageFor(code: string | undefined, ar: boolean) {
     CURRENCY_CODE_ALREADY_EXISTS: ['رمز العملة مسجل مسبقًا.', 'That currency code is already registered.'],
     CURRENCY_NOT_ACTIVE: ['اختر عملة نشطة من سجل العملات.', 'Choose an active currency from the catalog.'],
     ORGANIZATION_ID_REQUIRED: ['اختر مؤسسة أولًا.', 'Select an organization first.'],
+    FX_SCOPE_INVALID: ['أعد اختيار النطاق من البنر الرئيسي.', 'Select the workspace scope again in the main banner.'],
     FX_CURRENCIES_MUST_DIFFER: ['يجب أن تكون عملتا التحويل مختلفتين.', 'The source and target currencies must differ.'],
     NETWORK_ERROR: ['تعذر الاتصال بالخادم. تحقق من الاتصال ثم حاول مجددًا.', 'Could not reach the server. Check your connection and try again.'],
   };
