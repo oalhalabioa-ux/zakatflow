@@ -64,6 +64,7 @@ export async function verifyFeasibilityLicensingBrowser({ source, receiver, appU
   assert.equal((await receiver.request.get(download)).status(), 404);
 
   await button('Back to section').click();
+  await source.getByText('Edit requirements', { exact: true }).click();
   const savedEditor = row(requirement);
   await savedEditor.locator('summary').click();
   await savedEditor.getByLabel('Evidence reference', { exact: true }).fill('QA-WATER-2026-01');
