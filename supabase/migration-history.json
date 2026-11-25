@@ -2209,6 +2209,14 @@
       "expected_md5": "b1cc628c92e851a7bf9c27f56cb01aab",
       "file_sha256": "9c3c198007c1b188cff7abffcf3976092f8d2dec81cb5f9883e9521f40018c1d",
       "validation_project": "Canonical bootstrap and isolated asset statement, Zakat and payment acceptance"
+    },
+    {
+      "path": "supabase/migrations/20261125110000_preserve_later_personal_gold_sale.sql",
+      "version": "20261125110000",
+      "name": "preserve_later_personal_gold_sale",
+      "expected_md5": "4f0e9e0ad5632bdddbb2aa6272e256ff",
+      "file_sha256": "9ad216891a7161dc2f892c87776ac5c7b1fa8608019423dfd91c042677db6bd7",
+      "validation_project": "Synthetic QA V2: same-date gold correction preserving subsequent FIFO, receipt and Hawl records"
     }
   ]
 }

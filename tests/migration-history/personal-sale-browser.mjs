@@ -37,11 +37,11 @@ async function signedIn(){
   return {client,cookies:[...cookies.values()],user};
 }
 
-async function seed(client,owner){
+async function seed(client,owner,withHawl=false){
   const accounts = value(await client.from('asset_accounts').insert([
-    {user_id:owner.id,asset_type:'GOLD',name:'QA original gold',currency:'SAR',ownership_scope:'PERSONAL'},
-    {user_id:owner.id,asset_type:'GOLD',name:'QA correct gold',currency:'SAR',ownership_scope:'PERSONAL'},
-    {user_id:owner.id,asset_type:'BANK',name:'QA bank',currency:'SAR',ownership_scope:'PERSONAL'},
+    {user_id:owner.id,asset_type:'GOLD',name:'QA original gold',currency:'SAR',unit:'g',is_zakatable:withHawl,metadata:{karat:24},ownership_scope:'PERSONAL'},
+    {user_id:owner.id,asset_type:'GOLD',name:'QA correct gold',currency:'SAR',unit:'g',is_zakatable:withHawl,metadata:{karat:24},ownership_scope:'PERSONAL'},
+    {user_id:owner.id,asset_type:'BANK',name:'QA bank',currency:'SAR',is_zakatable:withHawl,ownership_scope:'PERSONAL'},
   ]).select('id,name'));
   const byName = Object.fromEntries(accounts.map(a=>[a.name,a.id]));
   const oldAsset=byName['QA original gold'], newAsset=byName['QA correct gold'], bank=byName['QA bank'];
@@ -52,6 +52,7 @@ async function seed(client,owner){
   value(await client.from('lots').insert(openings.map(tx=>({
     user_id:owner.id,asset_account_id:tx.asset_account_id,source_transaction_id:tx.id,acquisition_date:'2025-01-01',
     original_quantity:10,remaining_quantity:10,original_value_base:100,remaining_value_base:100,
+    hawl_start_date:withHawl?'2025-01-01':null,
   }))));
   const sale = value(await client.rpc('post_sale_with_proceeds',{
     p_user_id:owner.id,p_asset_account_id:oldAsset,p_destination_account_id:bank,p_date:'2025-02-01',
@@ -129,6 +130,46 @@ try {
   await page.getByText('QA correct gold',{exact:true}).waitFor();
   await page.reload({waitUntil:'domcontentloaded'});
   await page.getByRole('link',{name:/View original sale voucher/}).waitFor();
+
+  const preserveOwner=await signedIn();
+  const preserve=await seed(preserveOwner.client,preserveOwner.user,true);
+  const subsequent=value(await preserveOwner.client.rpc('post_sale_with_proceeds',{
+    p_user_id:preserveOwner.user.id,p_asset_account_id:preserve.newAsset,p_destination_account_id:preserve.bank,
+    p_date:'2025-02-02',p_quantity:7,p_sale_value:200,p_currency:'SAR',p_base_currency:'SAR',p_base_value:200,
+  }));
+  const laterIds=[subsequent.sale_transaction_id,subsequent.proceeds_transaction_id];
+  const laterEvidence=async()=>{
+    const [documents, numbers, allocation, hawl]=await Promise.all([
+      preserveOwner.client.from('transactions').select('*').in('id',laterIds).order('id'),
+      preserveOwner.client.from('voucher_numbers').select('*').in('source_id',laterIds).order('source_id'),
+      preserveOwner.client.from('transaction_allocations').select('*').eq('transaction_id',subsequent.sale_transaction_id),
+      preserveOwner.client.rpc('gold_receipt_assessment_periods',{p_receipt:subsequent.proceeds_transaction_id,p_calendar:'HIJRI'}),
+    ]);
+    return {documents:value(documents),numbers:value(numbers),allocation:value(allocation),hawl:value(hawl)};
+  };
+  const laterBefore=await laterEvidence();
+  assert.equal(laterBefore.numbers.length,2);
+  assert.equal(laterBefore.hawl.length,1);
+  const preserveContext=await openContext(browser,preserveOwner.cookies,{width:390,height:844});
+  const preservePage=await preserveContext.newPage();
+  await preservePage.goto(app+'/ar/transactions/'+preserve.sale.sale_transaction_id,{waitUntil:'domcontentloaded'});
+  await preservePage.getByRole('button',{name:'مراجعة تصحيح البيع',exact:true}).click();
+  await preservePage.getByLabel('نوع التصحيح').selectOption('asset');
+  await preservePage.getByLabel('الأصل المباع').selectOption(preserve.newAsset);
+  await preservePage.getByRole('status').filter({hasText:'يبقى تخصيص الدفعات'}).waitFor();
+  assert.equal(await preservePage.getByLabel('سعر الوحدة').count(),0);
+  await preservePage.getByLabel('سبب التصحيح').fill('اختيار الأصل الصحيح بنفس التاريخ');
+  const savedAsset=preservePage.waitForResponse(r=>r.request().method()==='POST'&&r.request().postDataJSON()?.action==='correct-sale');
+  await preservePage.getByRole('button',{name:'حفظ التصحيح',exact:true}).click();
+  const savedAssetResponse=await savedAsset;
+  const savedAssetResult=await savedAssetResponse.json();
+  assert.equal(savedAssetResponse.status(),201,JSON.stringify(savedAssetResult));
+  assert.equal(savedAssetResponse.request().postDataJSON().transaction_date,'2025-02-01');
+  await preservePage.goto(app+'/en/transactions/'+savedAssetResult.id,{waitUntil:'domcontentloaded'});
+  await preservePage.reload({waitUntil:'domcontentloaded'});
+  await preservePage.getByText('QA correct gold',{exact:true}).waitFor();
+  assert.deepEqual(await laterEvidence(),laterBefore);
+  await preserveContext.close();
 
   const historical=await seed(other.client,other.user);
   const later=value(await other.client.rpc('post_sale_with_proceeds',{
