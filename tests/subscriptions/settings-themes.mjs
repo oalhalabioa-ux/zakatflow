@@ -26,6 +26,22 @@ export const readColors = elements => elements.map(el=>{
   return {fg:style.color,bg:getComputedStyle(surface).backgroundColor};
 });
 
+// This destination uses opaque white text over Modern's two-stop RGB gradient.
+// backgroundColor alone is transparent there; the painted stops determine contrast.
+export function workflowDestinationContrast({fg,bg,image}) {
+  if(image==='none')return contrast({fg,bg});
+  const channel='\\d+(?:\\.\\d+)?';
+  const color=`rgb\\(\\s*${channel}\\s*,\\s*${channel}\\s*,\\s*${channel}\\s*\\)`;
+  const gradient=new RegExp(`^linear-gradient\\(-?${channel}deg,\\s*(${color}),\\s*(${color})\\)$`).exec(image);
+  assert.ok(gradient,`Unsupported workflow destination background: ${image}`);
+  assert.equal(fg,'rgb(255, 255, 255)','Workflow gradient contrast supports opaque white text only');
+  const stops=gradient.slice(1);
+  assert.ok(stops.every(stop=>stop.match(/[0-9.]+/g).every(value=>Number(value)<=255)),'Workflow gradient RGB channels must be readable');
+  // For white text and opaque sRGB interpolation, the lightest endpoint has
+  // the lowest contrast. Do not accept images, transparency or extra layers.
+  return Math.min(...stops.map(bg=>contrast({fg,bg})));
+}
+
 const separateRouteFixtures = new Map([
   ['admin','redirects to the owner console'],
   ['assessments/[id]','requires a saved Zakat assessment'],
@@ -105,7 +121,9 @@ async function verifyVisualFixes({page,workspace,route,theme,locale,width,root})
       const target=new URL(await link.getAttribute('href'),page.url());
       assert.equal(target.pathname,`/${locale}/${route}`);
       assert.deepEqual(Object.fromEntries(target.searchParams),{scope:'PERSONAL'},'Workflow links must preserve the requested personal workspace without a remembered company');
-      assert.ok(contrast((await link.evaluateAll(readColors))[0])>=4.5,'workflow destination contrast');
+      const colors=(await link.evaluateAll(readColors))[0];
+      const image=await link.evaluate(element=>getComputedStyle(element).backgroundImage);
+      assert.ok(workflowDestinationContrast({...colors,image})>=4.5,'workflow destination contrast');
     }
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'workflow page scroll');
     assert.ok(contrast((await status.evaluateAll(readColors))[0])>=4.5,'inactive workflow notice contrast');

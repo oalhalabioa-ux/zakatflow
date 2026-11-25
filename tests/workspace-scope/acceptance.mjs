@@ -20,6 +20,19 @@ const checks=[],pageErrors=[];
 const report={engine:'Canonical Supabase migrations + genuine Auth/PostgREST + Next + Chromium',sha:process.env.GITHUB_SHA??null,remoteConnections:false,checks};
 const sql=input=>execFileSync('docker',['exec','-i','supabase_db_workspace-scope-qa','psql','-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-U','postgres','-d','postgres'],{input,encoding:'utf8',timeout:60000,maxBuffer:8*1024*1024,stdio:['pipe','pipe','pipe']}).trim();
 const value=result=>{if(result.error)throw Error(result.error.message);return result.data;};
+const visibleScopeButtons=(page,active=false)=>page.locator('.corp-workspace-scope button'+(active?'[aria-pressed="true"]':'')).filter({visible:true});
+async function assertScope(page,label){
+ const active=visibleScopeButtons(page,true);
+ await active.waitFor();
+ assert.equal(await active.count(),1,'Expected one visible active workspace scope control');
+ await active.filter({hasText:label}).waitFor();
+}
+async function changeScope(page,label){
+ const button=visibleScopeButtons(page).filter({hasText:label});
+ await button.waitFor();
+ assert.equal(await button.count(),1,'Expected one visible target workspace scope control');
+ await button.click();
+}
 async function check(name,run){
  console.log('CHECK '+name);
  try{await run();checks.push({name,status:'passed'});console.log('PASS '+name);}
@@ -132,7 +145,7 @@ try{
   const response=await freshPage.goto(app+'/ar/dashboard?scope=PERSONAL',{waitUntil:'domcontentloaded',timeout:90000});
   assert.equal(response.status(),200);assert.ok(new URL(freshPage.url()).pathname.endsWith('/dashboard'));
   await freshPage.locator('.platform-personal').waitFor();
-  await freshPage.locator('.corp-workspace-scope button[aria-pressed="true"]').filter({hasText:'شخصي'}).waitFor();
+  await assertScope(freshPage,'شخصي');
   await freshPage.goto(app+'/en/dashboard',{waitUntil:'domcontentloaded',timeout:90000});
   await freshPage.locator('.platform-personal').waitFor();
   assert.equal(value(await fresh.client.rpc('organization_onboarding_required')),true,'Personal navigation must not create an institution');
@@ -211,14 +224,14 @@ try{
   await check(`${locale} ${width}px personal navigation clears institutional state and keeps shared preferences`,async()=>{
    await page.goto(app+`/${locale}/assets?scope=PERSONAL&organization=${orgA}&level=GROUP`);
    await page.waitForFunction(()=>new URL(location.href).searchParams.get('scope')==='PERSONAL'&&!new URL(location.href).searchParams.has('organization'));
-   await page.locator('.corp-workspace-scope button[aria-pressed="true"]').filter({hasText:ar?'شخصي':'Personal'}).waitFor();
+   await assertScope(page,ar?'شخصي':'Personal');
    if(width===390)await page.getByRole('button',{name:ar?'القائمة الجانبية':'Sidebar menu',exact:true}).click();
    const toggle=page.locator('button[aria-controls="corp-assets-nav"]');
    if(await toggle.getAttribute('aria-expanded')!=='true')await toggle.click();
    const href=await page.locator('#corp-assets-nav a[href*="/financial-position"]').getAttribute('href');
    const url=new URL(href,app);assert.equal(url.searchParams.get('scope'),'PERSONAL');assert.equal(url.searchParams.has('organization'),false);
    const newTab=await ownerContext.newPage();await newTab.goto(url.href,{waitUntil:'domcontentloaded',timeout:90000});
-   await newTab.locator('.corp-workspace-scope button[aria-pressed="true"]').filter({hasText:ar?'شخصي':'Personal'}).waitFor();await newTab.close();
+   await assertScope(newTab,ar?'شخصي':'Personal');await newTab.close();
    await page.goto(app+`/${locale}/settings/system?scope=PERSONAL`);
    await page.locator('.settings-tabs').waitFor();
    const links=await page.locator('.settings-tabs a').evaluateAll(nodes=>nodes.map(a=>a.getAttribute('href')));
@@ -229,10 +242,10 @@ try{
    await page.goto(app+`/${locale}/assets?scope=ORGANIZATION&organization=${orgA}&level=COMPANY`);
    const picker=page.locator('#corp-organization-controls select').first();
    await picker.waitFor();await page.waitForFunction(id=>document.querySelector('#corp-organization-controls select')?.value===id,orgA);
-   await page.locator('.corp-workspace-scope button').filter({hasText:ar?'شخصي':'Personal'}).click();
+   await changeScope(page,ar?'شخصي':'Personal');
    await page.waitForFunction(()=>new URL(location.href).searchParams.get('scope')==='PERSONAL'&&!new URL(location.href).searchParams.has('organization'));
    await page.goBack();
-   await page.locator('.corp-workspace-scope button[aria-pressed="true"]').filter({hasText:ar?'مؤسسي':'Business'}).waitFor();
+   await assertScope(page,ar?'مؤسسي':'Business');
    await page.waitForFunction(id=>document.querySelector('#corp-organization-controls select')?.value===id,orgA);
   });
  }
@@ -252,23 +265,23 @@ try{
   await page.getByRole('combobox',{name:/^النوع(?:\s|$)/}).selectOption('SALE');
   const proceeds=page.getByLabel('إيداع متحصلات البيع في');
   const ids=await proceeds.locator('option').evaluateAll(options=>options.map(o=>o.value).filter(Boolean));assert.deepEqual(ids,[personalBank]);
-  await page.locator('.corp-workspace-scope button').filter({hasText:'Business'}).click();
+  await changeScope(page,'Business');
   await page.locator('#transaction-entry').waitFor({state:'hidden'});
   await page.waitForFunction(()=>document.querySelector('#corp-organization-controls select')?.value);
   await page.getByRole('button',{name:'Add transaction',exact:true}).click();
   assert.equal(await page.getByRole('combobox',{name:/^الأصل(?:\s|$)/}).inputValue(),'');
-  await page.locator('.corp-workspace-scope button').filter({hasText:'Personal'}).click();
+  await changeScope(page,'Personal');
   await page.locator('#transaction-entry').waitFor({state:'hidden'});
  });
  await check('Personal report hub and scoped print open under their intended banner',async()=>{
   await page.goto(app+'/en/financial-reports?scope=PERSONAL');
-  await page.locator('.corp-workspace-scope button[aria-pressed="true"]').filter({hasText:'Personal'}).waitFor();
+  await assertScope(page,'Personal');
   await page.goto(app+'/en/reports/print?scope=PERSONAL');
   const personalReport=page.locator('main').last();
   assert.equal(await personalReport.locator('[role="alert"]').count(),0);assert.equal(await personalReport.locator('tbody tr').count(),0);
   assert.ok((await personalReport.innerText()).includes('Personal ·'));
   await page.goto(app+`/en/reports/print?scope=ORGANIZATION&organization=${orgA}&level=COMPANY`);
-  await page.locator('.corp-workspace-scope button[aria-pressed="true"]').filter({hasText:'Business'}).waitFor();
+  await assertScope(page,'Business');
   const report=page.locator('main').last(),text=await report.innerText();
   assert.equal(await report.locator('[role="alert"]').count(),0);assert.ok(text.includes('Organization · Scope Company A'));assert.ok(!text.includes('Scope Company B'));
   const values=await report.locator('[data-source-value]').evaluateAll(nodes=>nodes.map(node=>Number(node.dataset.sourceValue)));
