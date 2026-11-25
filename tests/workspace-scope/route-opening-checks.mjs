@@ -101,10 +101,11 @@ async function finishResponses(pending){
 }
 function trackReads(page,app,spec,scope,organizationId){
  const pending=new Map(),responses=new Map(),completed=[],failedReads=[],gatedReads=[];
+ const forwardedGates=new WeakSet(),canceled=new WeakSet();
  const isRead=request=>request.url().startsWith(app+'/api/')&&request.method()==='GET';
- const isDisabledRegistry=response=>{
-  const url=new URL(response.url());
-  return spec.disabledCenterBranches===true&&scope==='ORGANIZATION'
+ const isDisabledRegistry=request=>{
+  const url=new URL(request.url());
+  return isRead(request)&&spec.disabledCenterBranches===true&&scope==='ORGANIZATION'
    &&url.pathname==='/api/financial-reporting/center-branches'
    &&url.searchParams.size===1&&url.searchParams.getAll('organization').length===1
    &&url.searchParams.get('organization')===organizationId;
@@ -112,16 +113,17 @@ function trackReads(page,app,spec,scope,organizationId){
  page.on('request',request=>{if(isRead(request))pending.set(request,new URL(request.url()).pathname);});
  page.on('response',response=>{
   const request=response.request();if(!isRead(request))return;
+  if(forwardedGates.has(request))return;
   responses.set(request,response);
-  if(!response.ok()&&!(isDisabledRegistry(response)&&response.status()===404))
+  if(!response.ok()&&!(isDisabledRegistry(request)&&response.status()===404))
    failedReads.push(new URL(response.url()).pathname+' HTTP '+response.status());
  });
  page.on('requestfinished',request=>{
-  if(!isRead(request))return;
+  if(!isRead(request)||forwardedGates.has(request))return;
   void(async()=>{
    const response=responses.get(request);
    assert.ok(response,'Completed API request has no response');
-   if(isDisabledRegistry(response)){
+   if(isDisabledRegistry(request)){
     assert.equal(response.status(),404,'Center-branch registry must retain the staged disabled gate');
     const body=await within(response.json(),5000,()=> 'Could not read the disabled center-branch registry response');
     assert.ok(body&&Object.keys(body).length===1&&body.error==='CENTER_BRANCH_DISABLED','Expected only the CENTER_BRANCH_DISABLED error code');
@@ -135,10 +137,36 @@ function trackReads(page,app,spec,scope,organizationId){
   const reason=request.failure()?.errorText??'unknown network failure';
   // React cancels stale reads on scope changes. A canceled request is never
   // counted as successful; the required fresh read must still complete.
-  if(reason!=='net::ERR_ABORTED')failedReads.push(new URL(request.url()).pathname+': '+reason);
+  if(reason==='net::ERR_ABORTED')canceled.add(request);
+  else failedReads.push(new URL(request.url()).pathname+': '+reason);
   pending.delete(request);responses.delete(request);
  });
- return {pending,completed,failedReads,gatedReads};
+ const forwardDisabledRegistry=async route=>{
+  const request=route.request();
+  assert.ok(isDisabledRegistry(request),'Only the selected company disabled registry may use response pass-through');
+  let response;
+  try{
+   // Chromium can leave this unread 404 pending after the component hides.
+   // Read the actual loopback response, validate the deliberate gate, then
+   // forward it unchanged. No synthetic body or successful read is substituted.
+   response=await route.fetch({timeout:10000,maxRedirects:0});
+   assert.equal(response.url(),request.url(),'Disabled registry response redirected');
+   assert.equal(response.status(),404,'Center-branch registry must retain the staged disabled gate');
+   const body=await within(response.json(),5000,()=> 'Could not read the disabled center-branch registry response');
+   assert.ok(body&&Object.keys(body).length===1&&body.error==='CENTER_BRANCH_DISABLED','Expected only the CENTER_BRANCH_DISABLED error code');
+   if(canceled.has(request))return;
+   forwardedGates.add(request);
+   await within(route.fulfill({response}),5000,()=> 'Could not forward the verified disabled registry response');
+   if(!canceled.has(request))gatedReads.push({path:new URL(request.url()).pathname,status:404,error:'CENTER_BRANCH_DISABLED',organizationId,verification:'real-response-pass-through'});
+  }catch(error){
+   if(!canceled.has(request))failedReads.push(new URL(request.url()).pathname+': '+(error instanceof Error?error.message:String(error)));
+   await route.abort('failed').catch(()=>{});
+  }finally{
+   pending.delete(request);responses.delete(request);
+   await response?.dispose();
+  }
+ };
+ return {pending,completed,failedReads,gatedReads,isDisabledRegistry,forwardDisabledRegistry};
 }
 
 /** Requires the existing synthetic owner, two companies and Gold/Deposit fixtures.
@@ -162,7 +190,7 @@ export async function routeOpeningAcceptance({context,app,organizationId,otherOr
     await page.setViewportSize(routeOpeningCoverage.viewport);
     page.setDefaultTimeout(30000);
     const errors=[],writes=[];
-    const {pending,completed,failedReads,gatedReads}=trackReads(page,app,spec,scope,organizationId);
+    const {pending,completed,failedReads,gatedReads,isDisabledRegistry,forwardDisabledRegistry}=trackReads(page,app,spec,scope,organizationId);
     const required=spec.reads??(scope==='PERSONAL'?spec.personalReads:spec.businessReads)??[];
     page.on('pageerror',error=>errors.push(error.message));
     await page.route(app+'/api/**',async route=>{
@@ -171,6 +199,7 @@ export async function routeOpeningAcceptance({context,app,organizationId,otherOr
       writes.push(request.method()+' '+new URL(request.url()).pathname);
       await route.abort('blockedbyclient');return;
      }
+     if(isDisabledRegistry(request)){await forwardDisabledRegistry(route);return;}
      await route.continue();
     });
     const query=new URLSearchParams({scope});
@@ -213,6 +242,7 @@ export async function routeOpeningAcceptance({context,app,organizationId,otherOr
     await finishResponses(pending);
     if(spec.disabledCenterBranches){
      assert.ok(gatedReads.length>0,'Expected the selected company center-branch registry to report its disabled gate');
+     await page.locator('.settings-center-assignments').waitFor({state:'hidden'});
      assert.equal(await page.locator('.settings-center-assignments').count(),0,'Disabled center-branch registry UI must not render');
     }
     const final=new URL(page.url());
