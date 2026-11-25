@@ -471,8 +471,6 @@ try{
   await page.emulateMedia({media:'screen'});
   await report.getByRole('tab',{name:/Income & expenses/}).click();
   assert.equal(await report.getByRole('button',{name:'CSV',exact:true}).isDisabled(),true);
-  await page.getByRole('button',{name:'Business',exact:true}).click();
-  await page.locator('[data-statement-ready="overview"]').waitFor();
  });
  await check('The banner alone changes personal and institutional report scope',async()=>{
   await page.setViewportSize({width:1672,height:941});
@@ -486,6 +484,10 @@ try{
     await page.getByRole('link',{name:'Personal financial statements',exact:true}).click();
     await page.getByRole('heading',{name:'My personal financial reports'}).waitFor();
     await page.getByRole('button',{name:'Business',exact:true}).click();
+    await page.waitForURL(u=>u.pathname==='/en/financial-reports'&&u.searchParams.get('scope')==='ORGANIZATION');
+    const companies=page.locator('#corp-organization-controls').getByRole('combobox',{name:'Organization',exact:true});
+    await companies.locator('option[value="'+org+'"]').waitFor({state:'attached'});
+    if(await companies.inputValue()!==org)await companies.selectOption(org);
     await page.locator('[data-statement-ready="overview"]').waitFor();
     if(await menu.getAttribute('aria-expanded')!=='true')await menu.click();
    }
