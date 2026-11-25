@@ -2,13 +2,13 @@ name: Personal and organization scope acceptance
 on:
   pull_request:
     paths:
-      - 'app/[[]locale]/dashboard/**'
-      - 'app/[[]locale]/transactions/**'
-      - 'app/[[]locale]/lots/**'
-      - 'app/[[]locale]/enterprise/**'
-      - 'app/[[]locale]/workflow/**'
-      - 'app/[[]locale]/reports/**'
-      - 'app/[[]locale]/invoice-register/**'
+      - 'app/*/dashboard/**'
+      - 'app/*/transactions/**'
+      - 'app/*/lots/**'
+      - 'app/*/enterprise/**'
+      - 'app/*/workflow/**'
+      - 'app/*/reports/**'
+      - 'app/*/invoice-register/**'
       - 'app/api/investments/**'
       - 'app/api/reports/**'
       - 'app/api/assessments/manual/**'
