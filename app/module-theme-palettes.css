@@ -6,6 +6,7 @@
 
   .corp-shell.theme-elegant .corp-content {
     --brand-muted: #536e64;
+    --elegant-muted: var(--brand-muted);
     --action-surface: var(--brand-surface);
   }
 
@@ -100,7 +101,12 @@
       overflow-x: auto;
     }
 
-    .corp-shell:is(.theme-modern, .theme-elegant) .organizations-page :is(.orgs-profile h2, .orgs-profile small, .orgs-meta-grid strong) {
+    .corp-shell:is(.theme-modern, .theme-elegant) .organizations-page .orgs-profile > div {
+      min-inline-size: 0;
+    }
+
+    .corp-shell:is(.theme-modern, .theme-elegant) .organizations-page :is(.orgs-profile h2, .orgs-meta-grid strong) {
+      white-space: normal;
       overflow-wrap: anywhere;
     }
 
