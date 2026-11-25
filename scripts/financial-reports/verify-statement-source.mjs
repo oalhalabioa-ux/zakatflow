@@ -8,11 +8,36 @@ export async function verifyStatementAcceptance({a,b,viewer,sql,app,cookie,conte
  const incomeCellMetrics=new Map();
  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
  async function verifyCellSpacing(view,lang,size){
-  if(view!=='income'&&view!=='position')return;
   const metrics=await page.locator('.fs-source-statement-table .fs-row-detail td[data-amount]').first().evaluate(el=>{const c=getComputedStyle(el);return{paddingTop:c.paddingTop,paddingBottom:c.paddingBottom,paddingLeft:c.paddingLeft,paddingRight:c.paddingRight,fontSize:c.fontSize,lineHeight:c.lineHeight}});
   const key=lang+':'+size;
   if(view==='income')incomeCellMetrics.set(key,metrics);
-  else{assert.deepEqual(metrics,incomeCellMetrics.get(key),'Position cells must match income spacing and type scale on '+key);assert.ok(Number.parseFloat(metrics.paddingTop)>=6,'Position rows must not use the old compressed spacing')}
+  else assert.deepEqual(metrics,incomeCellMetrics.get(key),view+' cells must match income spacing and type scale on '+key);
+  if(view==='cash-flow'){
+   const table=page.locator('.fs-source-statement-table');
+   const [parent,child]=await Promise.all([
+    table.locator('[data-statement-row="cash-1"] .fs-statement-row-label > span').boundingBox(),
+    table.locator('[data-parent-row="cash-1"] .fs-statement-row-label > span').first().boundingBox(),
+   ]);
+   assert.ok(parent&&child);
+   const indent=lang==='ar'?parent.x+parent.width-child.x-child.width:child.x-parent.x;
+   assert.ok(indent>=8,'Cash activity details must be visibly indented in '+lang+' '+size);
+   const headings=table.getByRole('columnheader');
+   assert.equal(await headings.count(),4);
+   const colors=await headings.evaluateAll(headers=>headers.map(header=>getComputedStyle(header).backgroundColor));
+   assert.deepEqual(colors,Array(4).fill('rgb(251, 248, 242)'),'All cash headings must share the reference cream fill');
+   assert.equal(await table.locator('[data-statement-row="cash-5"] td').nth(1).textContent(),'—');
+   assert.equal(await table.locator('[data-statement-row="cash-5"] td').nth(2).textContent(),'—');
+   const widths=await table.evaluate(el=>{
+    const layout=el.closest('.fs-source-cash-layout');
+    const getWidths=()=>[...layout.children].map(panel=>panel.getBoundingClientRect().width);
+    const current=getWidths();
+    layout.classList.remove('fs-source-cash-layout');
+    const original=getWidths();
+    layout.classList.add('fs-source-cash-layout');
+    return {current,original};
+   });
+   assert.deepEqual(widths.current,widths.original,'Cash-flow table and analysis must keep their panel widths');
+  }
  }
  async function disclosure(view,lang,size){
   const table=page.locator('.fs-source-statement-table'),buttons=table.locator('.fs-statement-group-toggle'),first=buttons.first();assert.ok(await buttons.count()>0,'A populated statement must expose parent arrows');
@@ -56,7 +81,37 @@ export async function verifyStatementAcceptance({a,b,viewer,sql,app,cookie,conte
   if(lang==='en')await page.pdf({path:`docs/financial-reports/evidence-v3/statement-${view}-en.pdf`,format:'A4',printBackground:true});
   await page.emulateMedia({media:'screen'});for(let n=0;n<await groups.count();n++)if(await groups.nth(n).getAttribute('aria-expanded')==='false')await groups.nth(n).click();
 
-  await page.setViewportSize({width:390,height:844});await page.waitForFunction(()=>getComputedStyle(document.querySelector('.corp-workspace')).marginInlineStart==='0px');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.equal(await page.locator('.fs-source-statement-table').evaluate(el=>el.scrollWidth>el.clientWidth),false,'Current values must fit the mobile table');assert.ok(await page.locator('.fs-source-statement-table td[data-amount]').first().isVisible(),'Mobile current amount must be visible');await page.screenshot({path:`docs/financial-reports/evidence-v3/statement-${view}-${lang}-mobile.png`,fullPage:true});await verifyCellSpacing(view,lang,'mobile');await disclosure(view,lang,'mobile');if(view==='position')await compactPosition(lang,'mobile');
+  await page.setViewportSize({width:390,height:844});await page.waitForFunction(()=>getComputedStyle(document.querySelector('.corp-workspace')).marginInlineStart==='0px');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.equal(await page.locator('.fs-source-statement-table').evaluate(el=>el.scrollWidth>el.clientWidth),view==='cash-flow','Cash comparison columns scroll inside the mobile table');assert.ok(await page.locator('.fs-source-statement-table td[data-amount]').first().isVisible(),'Mobile current amount must be visible');await page.screenshot({path:`docs/financial-reports/evidence-v3/statement-${view}-${lang}-mobile.png`,fullPage:true});await verifyCellSpacing(view,lang,'mobile');await disclosure(view,lang,'mobile');if(view==='position')await compactPosition(lang,'mobile');
+ });
+ await check('Cash table renders a validated previous period and percentage',async()=>{
+  const response=await fetch(base+query,{headers:{cookie}});
+  assert.equal(response.status,200);
+  const current=await response.json();
+  // Clone the same reconciled activity one year earlier for the display-only comparison.
+  const prior=JSON.parse(JSON.stringify(current).replace(/202[56]-(?=\d{2}-\d{2})/g,year=>year==='2026-'?'2025-':'2024-'));
+  const tab=await context.newPage();
+  tab.on('pageerror',error=>errors.push(error.message));
+  try{
+   await tab.route('**/api/financial-reporting/statements?**',async route=>{
+    const params=new URL(route.request().url()).searchParams;
+    if(params.get('action')==='context'){
+     const actual=await route.fetch();
+     const periods=await actual.json();
+     const period=periods.find(row=>row.organizationId===STATEMENT_ORG);
+     return route.fulfill({json:[period,{...period,fiscalStart:prior.statements.from,fiscalEnd:prior.statements.to}]});
+    }
+    if(params.get('from')===prior.statements.from&&params.get('to')===prior.statements.to){
+     return route.fulfill({json:prior});
+    }
+    return route.continue();
+   });
+   await tab.setViewportSize({width:1440,height:900});
+   await tab.goto(app+'/design-preview/financial-reports/source-statements?screen=cash-flow&lang=ar');
+   await tab.locator('[data-statement-ready="cash-flow"]').waitFor();
+   const closing=tab.locator('[data-statement-row="cash-5"] td');
+   assert.equal(await closing.nth(1).textContent(),'575.00');
+   assert.match(await closing.nth(2).textContent(),/0[.]00%/);
+  }finally{await tab.close()}
  });
  for(const lang of['ar','en'])for(const view of['overview','statements','kpis'])await check(`Same-snapshot report hub, ${view}, exact exports and bilingual desktop/mobile ${lang}`,async()=>{
   const hub=await context.newPage();hub.on('pageerror',e=>errors.push(e.message));let reads=0;hub.on('request',r=>{if(r.url().includes('/api/financial-reporting/statements?')&&r.url().includes('action=statements'))reads++});

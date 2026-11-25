@@ -22,9 +22,28 @@
  .fs-connected-statements .fs-source-statement-table .fs-table{min-width:0!important;width:100%;table-layout:fixed}
  .fs-connected-statements .fs-source-statement-table .fs-table th,.fs-connected-statements .fs-source-statement-table .fs-table td{min-width:0;white-space:normal;overflow-wrap:anywhere}
  .fs-connected-statements .fs-source-statement-table .fs-table th:first-child{width:65%;min-width:0}
- .fs-connected-statements .fs-source-statement-table .fs-table th:nth-child(n+3),.fs-connected-statements .fs-source-statement-table .fs-table td:nth-child(n+3){display:none}
+ .fs-connected-statements .fs-source-statement-table:not(.fs-source-cash-layout *) .fs-table :is(th,td):nth-child(n+3){display:none}
  .fs-connected-statements .fs-source-statement-table.fs-position-table .fs-table th:nth-child(2),.fs-connected-statements .fs-source-statement-table.fs-position-table .fs-table td:nth-child(2){display:none}
  .fs-connected-statements .fs-source-statement-table.fs-position-table .fs-table th:nth-child(3),.fs-connected-statements .fs-source-statement-table.fs-position-table .fs-table td:nth-child(3){display:table-cell}
+}
+
+/* Match the connected cash statement’s table density to income. */
+.fs-root .fs-surface .fs-source-cash-layout .fs-source-statement-table .fs-table{font-size:14px;line-height:1.4}
+.fs-root .fs-surface .fs-source-cash-layout .fs-source-statement-table :is(th,td){padding:6px 10px;line-height:1.4}
+.fs-root .fs-surface .fs-source-cash-layout .fs-source-statement-table thead th{
+ background:#fbf8f2!important;color:#0f2d4a;border-bottom-color:#ead7b4!important
+}
+.fs-root .fs-source-cash-layout .fs-source-statement-table thead th:not(:first-child){text-align:center}
+.fs-root .fs-source-cash-layout .fs-table tbody tr.fs-row-parent{background:#edf2f7;font-weight:700}
+.fs-root .fs-source-cash-layout .fs-table tbody tr.fs-row-parent>th{background:inherit!important}
+.fs-root .fs-source-cash-layout .fs-table tbody tr[data-depth="0"]>th>.fs-statement-row-label{padding-inline-start:26px}
+.fs-root .fs-source-cash-layout .fs-table tbody tr[data-depth="1"]>th>.fs-statement-row-label{padding-inline-start:62px}
+@media(max-width:700px){
+ .fs-root .fs-surface .fs-source-cash-layout .fs-source-statement-table .fs-table{min-width:540px!important;font-size:12px;table-layout:fixed}
+ .fs-root .fs-source-cash-layout .fs-source-statement-table .fs-table th:first-child{width:46%}
+ .fs-root .fs-source-cash-layout .fs-source-statement-table .fs-table td{white-space:nowrap}
+ .fs-root .fs-surface .fs-source-cash-layout .fs-source-statement-table :is(th,td){padding:7px 9px}
+ .fs-root .fs-source-cash-layout .fs-table tbody tr[data-depth="1"]>th>.fs-statement-row-label{padding-inline-start:55px}
 }
 
 .fs-source-hub>.fr-middle{order:4;margin-top:0}
