@@ -8,6 +8,7 @@ import {createClient} from '@supabase/supabase-js';
 import {createServerClient} from '@supabase/ssr';
 import {budgetScopeAcceptance} from './budget-checks.mjs';
 import {routeOpeningAcceptance} from './route-opening-checks.mjs';
+import {fxIntegrationAcceptance,fxPendingSaveAcceptance} from './fx-integration-checks.mjs';
 
 const root=process.env.SCOPE_QA_WORKDIR;
 assert.ok(root&&process.env.RUNNER_TEMP&&root.startsWith(process.env.RUNNER_TEMP+'/'),'DISPOSABLE_RUNNER_REQUIRED');
@@ -217,6 +218,10 @@ try{
   assert.equal((await outsiderContext.request.get(app+`/api/reports?type=transactions&scope=ORGANIZATION&organization_id=${orgA}`)).status(),403);
  });
  await budgetScopeAcceptance({sql,owner,orgA,orgB,foreignOrg,request,check});
+ const freshFxContext=await contextFor(browser,fresh);
+ report.fxIntegration=await fxIntegrationAcceptance({app,ownerContext,outsiderContext,freshContext:freshFxContext,owner,other,fresh,orgA,orgB,foreignOrg,sql,check,pageErrors});
+ await freshFxContext.close();
+ report.fxOperationRaces=await fxPendingSaveAcceptance({context:ownerContext,app,orgA,orgB,check,pageErrors});
  report.routeOpening=await routeOpeningAcceptance({context:ownerContext,app,organizationId:orgA,otherOrganizationId:orgB,unavailableOrganizationId:foreignOrg,check});
 
  for(const locale of ['ar','en'])for(const width of [390,1440]){
