@@ -1,0 +1,20 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.can_reassign_personal_gold_sale(p_sale_id uuid, p_target_id uuid, p_date date)",
+      "fingerprint": "40672a495477aff0921143d1997a6cf8"
+    },
+    {
+      "category": "function",
+      "object_key": "public.correct_personal_asset_sale(p_sale_id uuid, p_request_id uuid, p_asset_id uuid, p_destination_id uuid, p_date date, p_quantity numeric, p_unit_price numeric, p_fx_rate numeric, p_notes text, p_reason text)",
+      "fingerprint": "437d6ce59655c1bc7689f8a62ef427c4"
+    },
+    {
+      "category": "function",
+      "object_key": "public.personal_sale_preflight(p_sale_id uuid, p_asset_id uuid, p_destination_id uuid, p_date date)",
+      "fingerprint": "4ff85dcc6d92ea88d363b523d304560f"
+    }
+  ]
+}

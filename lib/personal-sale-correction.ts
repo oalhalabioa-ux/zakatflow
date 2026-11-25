@@ -32,6 +32,7 @@ export const salePreflightSchema = z.object({
 export type SalePreflight = {
   amount_block: string | null;
   structural_block: string | null;
+  preserves_later_allocations?: boolean;
   movements: {id: string; date: string; type: string; same_lot?: boolean; document_sequence?: string}[];
 };
 
