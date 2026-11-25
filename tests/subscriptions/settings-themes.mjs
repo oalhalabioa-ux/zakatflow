@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {readdirSync} from 'node:fs';
+import {readdirSync, writeFileSync} from 'node:fs';
 
 const palettes = {
   'yaqeen-business': { selected: 'rgb(198, 163, 93)', ink: 'rgb(255, 255, 255)', nav: 'rgb(16, 47, 75)' },
@@ -75,8 +75,9 @@ async function verifyWorkspaceRoutes({page,theme,appUrl,root,org,modulePalette})
   const liveRoutes=routes.filter(route=>!separateRouteFixtures.has(route));
   const verifiedRoutes=[];
   const failures=[];
-  for(const [locale,width] of [['ar',390],['en',1440]]) {
-    await page.setViewportSize({width,height:960});
+  const evidenceRoutes=new Set(['dashboard','assets','transactions','feasibility','financial-reports','liquidity','vat','budget-planning','settings']);
+  for(const locale of ['ar','en'])for(const width of [390,1440]) {
+    await page.setViewportSize({width,height:width===390?844:960});
     for(const route of liveRoutes) {
       const query=new URLSearchParams(route==='assets/dashboard'||route.startsWith('settings')
         ? {scope:'ORGANIZATION',organization:org} : {scope:'PERSONAL'});
@@ -91,13 +92,21 @@ async function verifyWorkspaceRoutes({page,theme,appUrl,root,org,modulePalette})
         await module.waitFor({timeout:5000});
         const value=await module.evaluate((element,property)=>getComputedStyle(element).getPropertyValue(property).trim(),token);
         assert.equal(value,modulePalette[paletteKey??'muted'],token);
-        verifiedRoutes.push({locale,width,route,actual});
+        await page.evaluate(() => document.fonts.ready);
+        const layout=await workspace.evaluate(inspectViewport);
+        verifiedRoutes.push({locale,width,route,actual,...layout});
+        if(evidenceRoutes.has(route)||layout.documentOverflow>4||layout.repeatedUnwrappedText.length) {
+          const name=route.replaceAll('/','-');
+          await page.screenshot({path:new URL(`tests/subscriptions/screenshots/audit-${theme}-${locale}-${width}-${name}.png`,root).pathname,timeout:10000,animations:'disabled'});
+        }
       } catch(error) {
         failures.push({locale,width,route,error:error.message.split('\n')[0]});
       }
     }
   }
-  console.log('WORKSPACE_THEME_ROUTES '+JSON.stringify({theme,verifiedRoutes,failures,separateFixtures:[...separateRouteFixtures]}));
+  const result={theme,verifiedRoutes,failures,separateFixtures:[...separateRouteFixtures]};
+  writeFileSync(new URL(`tests/subscriptions/theme-${theme}-audit-result.json`,root),JSON.stringify(result,null,2));
+  console.log('THEME_AUDIT_SUMMARY '+JSON.stringify({theme,cases:verifiedRoutes.length,failures,viewportFindings:verifiedRoutes.filter(x=>x.documentOverflow>4||x.repeatedUnwrappedText.length).map(({route,locale,width,documentOverflow,repeatedUnwrappedText})=>({route,locale,width,documentOverflow,repeatedUnwrappedText})),contrastFindings:verifiedRoutes.filter(x=>x.lowContrast.length).map(({route,locale,width,lowContrast})=>({route,locale,width,lowContrast}))}));
   assert.deepEqual(failures,[],`${theme} workspace route failures`);
 }
 
@@ -197,4 +206,70 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
   await verifyModulePalette({page,theme,appUrl,root,org});
   await page.goto(`${appUrl}/en/settings?organization=${org}`);
   await page.getByLabel('Organization name',{exact:true}).waitFor();
+}
+export function inspectViewport(workspace) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 1;
+  const ctx = canvas.getContext('2d', {willReadFrequently:true});
+  const cache = new Map();
+  const rgba = color => {
+    if (cache.has(color)) return cache.get(color);
+    ctx.clearRect(0,0,1,1);
+    ctx.fillStyle = color;
+    ctx.fillRect(0,0,1,1);
+    const [r,g,b,a] = ctx.getImageData(0,0,1,1).data;
+    const result = [r/255,g/255,b/255,a/255];
+    cache.set(color,result);
+    return result;
+  };
+  const composite = (top,bottom) => {
+    const alpha = top[3] + bottom[3]*(1-top[3]);
+    if (!alpha) return [0,0,0,0];
+    return top.slice(0,3).map((value,index)=>(value*top[3]+bottom[index]*bottom[3]*(1-top[3]))/alpha).concat(alpha);
+  };
+  const luminance = ([r,g,b]) => {
+    const linear = value=>value<=.04045?value/12.92:((value+.055)/1.055)**2.4;
+    return .2126*linear(r)+.7152*linear(g)+.0722*linear(b);
+  };
+  const background = element => {
+    let accumulated = [0,0,0,0];
+    for (let current=element;current;current=current.parentElement) {
+      const style=getComputedStyle(current);
+      if (style.backgroundImage!=='none'||Number(style.opacity)<1) return null;
+      if (style.backgroundColor!=='rgba(0, 0, 0, 0)') {
+        accumulated=composite(accumulated,rgba(style.backgroundColor));
+        if (accumulated[3]>=.999) return accumulated;
+      }
+    }
+    return composite(accumulated,[1,1,1,1]);
+  };
+  const label = element => element.innerText.trim().replace(/\s+/g,' ').slice(0,85);
+  const visible = element => {
+    const rect=element.getBoundingClientRect();
+    return rect.width>0 && rect.height>0 && rect.right>0 && rect.left<innerWidth && rect.bottom>0 && rect.top<innerHeight && getComputedStyle(element).visibility==='visible';
+  };
+  const lowContrast=[];
+  const repeatedUnwrappedText=[];
+  const scanned=new Set();
+  for (const element of workspace.querySelectorAll('h1,h2,h3,h4,p,button,a,label,th,summary')) {
+    if (!visible(element)||element.closest('[disabled],[aria-disabled=true],[aria-hidden=true]')) continue;
+    const text=label(element);
+    if (!text||!Array.from(element.childNodes).some(node=>node.nodeType===Node.TEXT_NODE&&node.textContent.trim())) continue;
+    const style=getComputedStyle(element);
+    const key=element.tagName+'|'+text;
+    if (scanned.has(key)) continue;
+    scanned.add(key);
+    const surface=background(element);
+    if (surface) {
+      const foreground=composite(rgba(style.color),surface);
+      const [max,min]=[luminance(foreground),luminance(surface)].sort((a,b)=>b-a);
+      const ratio=(max+.05)/(min+.05);
+      const isLarge=parseFloat(style.fontSize)>=24||(parseFloat(style.fontSize)>=18.66&&Number(style.fontWeight)>=700);
+      if (ratio+0.08<(isLarge?3:4.5)&&lowContrast.length<5)
+        lowContrast.push({tag:element.tagName,text,ratio:Number(ratio.toFixed(2)),color:style.color,background:surface.slice(0,3).map(n=>Math.round(n*255))});
+    }
+    if (element.clientWidth>0 && element.scrollWidth-element.clientWidth>8 && style.textOverflow!=='ellipsis' && !element.closest('table, [role=tablist]') && repeatedUnwrappedText.length<5)
+      repeatedUnwrappedText.push({tag:element.tagName,text,pixels:element.scrollWidth-element.clientWidth});
+  }
+  return {documentOverflow:Math.max(document.documentElement.scrollWidth,document.body.scrollWidth)-innerWidth,lowContrast,repeatedUnwrappedText,heading:workspace.querySelector('h1')?.innerText.trim()??null};
 }
