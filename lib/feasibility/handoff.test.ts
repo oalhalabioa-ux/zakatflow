@@ -3,6 +3,7 @@ import {createStudy,defaultLegalItems} from './engine';
 import {createIndustrialStarter} from './project-templates';
 import {emptyAdvanced} from './advanced-model';
 import {handoffReadiness,handoffSetupPath} from './handoff';
+import {studyReportReadiness} from './water-model';
 
 function readyStudy(){
  const s=createStudy('study-1','Water factory');
@@ -94,8 +95,12 @@ describe('project company handoff preflight',()=>{
   expect(passed()).toBe(false);
   for(const item of requirements)item.status='VERIFIED';
   expect(passed()).toBe(false);
+  expect(studyReportReadiness(s).openCritical).toEqual(requirements);
+  for(const item of requirements)item.notes='  ';
+  expect(studyReportReadiness(s).openCritical).toEqual(requirements);
   for(const item of requirements)item.notes='Synthetic permit reference';
   expect(passed()).toBe(true);
+  expect(studyReportReadiness(s).openCritical).toEqual([]);
  });
  it('generates only allowlisted organization V2 setup paths',()=>{
   const id='6357a708-bae2-4634-9296-490404b1d8a4';

@@ -171,6 +171,7 @@ function FeasibilityWorkspaceContent({
  const navigationRef=useRef<HTMLElement>(null);
  const sectionHeadingRef=useRef<HTMLDivElement>(null);
  const [detail,setDetail]=useState<'water'|'valuation'|'scenario'|'evidence'|'permissions'>();
+ const [evidenceRequirement,setEvidenceRequirement]=useState('');
  const [organizationCanShare,setOrganizationCanShare]=useState(false);
  const [organizationLoaded,setOrganizationLoaded]=useState(false);
  const [organizationLoadedId,setOrganizationLoadedId]=useState('');
@@ -304,9 +305,11 @@ function FeasibilityWorkspaceContent({
   (id!=='sector'||water||study.sector==='INDUSTRIAL'||study.sector==='REAL_ESTATE')
  ):[];
  const tab=studyTabs.some(({id})=>id===selectedTab)?selectedTab:'overview';
+ const canViewEvidence=evidenceEnabled&&!sharedStudy&&(personalScope||organizationSharing);
  const selectSection=(id:StudyTab)=>{
   setTab(id);
   setDetail(undefined);
+  setEvidenceRequirement('');
  };
 
  const waterTab=tab==='overview'||tab==='investment'||tab==='partners'||tab==='operations'||tab==='scenarios'||tab==='cashflow'||tab==='advanced'||tab==='sector'?tab:null;
@@ -763,7 +766,7 @@ function FeasibilityWorkspaceContent({
    <div className="fs-royal-section-lead" ref={sectionHeadingRef}>
     <h2><RoyalIcon name={studyTabIcons[tab]}/>{tab==='report'?txt(ar,'التقرير الاستثماري الشامل','Comprehensive investment report'):details&&detail===details.id?details.label:ar?activeTab.ar:activeTab.en}</h2>
     {details&&<button className="fs-btn fs-btn--secondary" type="button" aria-pressed={detail===details.id}
-     onClick={()=>setDetail(value=>value===details.id?undefined:details.id)}>
+     onClick={()=>{setEvidenceRequirement('');setDetail(value=>value===details.id?undefined:details.id)}}>
      {detail===details.id?txt(ar,'عودة إلى القسم','Back to section'):details.label}
     </button>}
    </div>
@@ -838,15 +841,20 @@ function FeasibilityWorkspaceContent({
    {!water&&!rawLand&&tab==='advanced'&&<AdvancedModelPanel study={study} locale={locale} scenario={scenario} onChange={advanced=>update({advanced})}/>}
    {!water&&!rawLand&&tab==='sector'&&(study.sector==='INDUSTRIAL'||study.sector==='REAL_ESTATE')&&<SectorAnalysisPanel study={study} locale={locale} onChange={sectorSchedule=>update({sectorSchedule})}/>}
    {(tab==='legal'||tab==='tasks'||tab==='risks'||tab==='suppliers'||tab==='decisions')&&
-    <StudyRegisters key={study.id+':'+tab} study={study} tab={tab} evidence={detail==='evidence'} locale={locale} onChange={update}/>}
+    <StudyRegisters key={study.id+':'+tab} study={study} tab={tab} evidence={detail==='evidence'} locale={locale} onChange={update}
+      onOpenEvidence={canViewEvidence&&!effectiveReadOnly?requirement=>{
+       setEvidenceRequirement(requirement);setDetail('evidence');
+       requestAnimationFrame(()=>sectionHeadingRef.current?.scrollIntoView({block:'start'}));
+      }:undefined}/>}
    {tab==='sharing'&&personalScope&&<CollaborationPanel key={userId+':'+study.id} audit={detail==='permissions'} locale={locale} projectId={study.id} enabled={sharingEnabled&&personalScope} canWrite={!effectiveReadOnly} isOwner={cloudOwnerIds[study.id]===userId}/>}
    {tab==='handoff'&&<ProjectHandoffPanel study={study} locale={locale} onChange={handoff=>update({handoff})} cloudRevision={cloudRevisions[study.id]} cloudCurrent={cloudSavedStudyVersions[study.id]===study.updatedAt} cloudEnabled={cloudEnabled} canWrite={!effectiveReadOnly} bannerOrganizationId={organizationId}/>}
    </fieldset>
-   {evidenceEnabled&&!sharedStudy&&(personalScope||organizationSharing)&&
+   {canViewEvidence&&
     ((tab==='legal'&&detail==='evidence')||(tab==='partners'&&detail==='valuation'))&&
     <EvidenceDocuments key={userId+':'+saveScopeId+':'+study.id+':'+detail} locale={locale} project={study.id}
      organization={personalScope?undefined:organizationId}
      kind={detail==='evidence'?'licensing':'valuation'} requirements={study.legal}
+     initialRequirement={detail==='evidence'?evidenceRequirement:undefined}
      saved={personalScope?cloudOwnerIds[study.id]===userId:Boolean(organizationRecords[study.id])}
      canWrite={!effectiveReadOnly}/>}
    {tab==='sharing'&&!personalScope&&organizationSharing&&companyScopeReady&&organizationCanShare&&organizationRecords[study.id]&&

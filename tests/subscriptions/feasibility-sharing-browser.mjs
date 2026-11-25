@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { setTimeout as delay } from 'node:timers/promises';
 import { createServerClient } from '@supabase/ssr';
+import { verifyFeasibilityLicensingBrowser } from './feasibility-licensing-browser.mjs';
 
 export async function verifyFeasibilitySharingBrowser({ browser, appUrl, url, anonKey, owner, recipient, sourceOrg, recipientOrg }) {
   assert.equal(url, 'http://127.0.0.1:54321');
@@ -151,6 +153,17 @@ export async function verifyFeasibilitySharingBrowser({ browser, appUrl, url, an
     await receiver.reload();
     await receiver.getByText('The study is unavailable or access ended.', { exact: true }).waitFor();
     await setMode('read');
+    const licensingTimeout = new AbortController();
+    try {
+      await Promise.race([
+        verifyFeasibilityLicensingBrowser({ source, receiver, appUrl, sourceOrg, project }),
+        delay(90000, undefined, { signal: licensingTimeout.signal }).then(() => {
+          throw new Error('Licensing browser acceptance exceeded 90 seconds');
+        }),
+      ]);
+    } finally {
+      licensingTimeout.abort();
+    }
   } finally {
     await Promise.all(contexts.map(context => context.close()));
   }
