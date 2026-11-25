@@ -145,3 +145,14 @@
  .fs-personal-panel .fs-table{min-width:0}
  .fs-personal-card{break-inside:avoid}
 }
+
+.fs-ledger-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-block:12px}
+.fs-ledger-controls select{max-width:100%}
+.fs-connected [data-statement-ready="trial-balance"] th button{white-space:normal;text-align:start}
+@media print{
+ .fs-ledger-controls,
+ .corp-shell:has(.fs-surface:is([data-screen="trial-balance"],[data-screen="general-ledger"])) :is(.corp-sidebar,.corp-topbar,.corp-workspace>.footer){display:none!important}
+ .corp-shell:has(.fs-surface:is([data-screen="trial-balance"],[data-screen="general-ledger"])) .corp-workspace{margin:0!important}
+ .fs-connected :is([data-statement-ready="trial-balance"],[data-statement-ready="general-ledger"]) .fs-card{break-inside:auto}
+ .fs-connected :is([data-statement-ready="trial-balance"],[data-statement-ready="general-ledger"]) .fs-table{min-width:0}
+}

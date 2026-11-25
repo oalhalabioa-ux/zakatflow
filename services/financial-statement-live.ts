@@ -58,7 +58,7 @@ export async function liveStatementContext(){
    .map(period=>({...period,parentOrganizationId:parents.get(org.id)??null,dimensionalCenters:centerReportsEnabled(org.id),canEditCenterOpenings:centerOpeningsEnabled()}));
  });
 }
-export async function liveStatementSource(input:unknown){
+export async function liveStatementSource(input:unknown,includePeriodLedger=false){
  assertLiveStatements();const q=statementQuery.parse(input),{supabase,user}=await requireUser();
  const args={p_org:q.organization,p_from:q.from,p_to:q.to};
  const primary=await supabase.rpc('financial_statement_live_snapshot',args);
@@ -75,7 +75,7 @@ export async function liveStatementSource(input:unknown){
   ?await supabase.rpc('financial_statement_first_activity_snapshot',args)
   :primary);
  if(raw?.origin!=='LIVE_CANONICAL_EVENTS')throw Error('REPORTING_UNAVAILABLE');
- const result=normalizeStatementSource(raw,q);
+ const result=normalizeStatementSource(raw,q,includePeriodLedger);
  // Independently attest *all* legacy cash/asset recognition parts against the
  // original organization register in a privileged but finance-scoped DB RPC.
  // Its only return value is true; raw cross-user FIFO lot allocations are
