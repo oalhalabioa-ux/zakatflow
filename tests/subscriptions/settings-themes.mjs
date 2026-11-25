@@ -48,6 +48,7 @@ const separateRouteFixtures = new Map([
 ]);
 const routeTargets = new Map([
   ['dashboard',['dashboard','onboarding']],
+  ['enterprise',['assessments']],
   ['invoice-register',['vat']],
   ['qard-loans',['loans']],
 ]);
@@ -93,12 +94,21 @@ async function verifyVisualFixes({page,workspace,route,theme,locale,width,root})
     const ar=locale==='ar';
     const flow=workspace.locator('.review-workflow');
     await flow.getByRole('heading',{level:1,name:ar?'دورة المراجعة والاعتماد':'Review and approval workflow',exact:true}).waitFor();
-    const step=flow.locator('[aria-current=step]');
-    assert.equal(await step.innerText(),ar?'المراجعة المحاسبية':'Accounting review');
+    const status=flow.getByRole('status');
+    assert.equal(await status.innerText(),ar
+      ? 'لا توجد دورة اعتماد موحدة مفعّلة في هذه الصفحة. افتح الاحتسابات والدفعات لعرض سجلاتك وإدارة الإجراءات المتاحة في النطاق المختار.'
+      : 'A unified approval workflow is not active on this page. Open assessments and payments to view your saved records and manage the actions available in the selected workspace.');
+    assert.equal(await flow.locator('[aria-current=step]').count(),0,'Inactive workflow must not display a fabricated approval stage');
+    assert.equal(await flow.getByRole('button').count(),0,'Inactive workflow must not offer unpersisted approval transitions');
+    for(const [route,label] of [['assessments',ar?'فتح احتسابات الزكاة':'Open Zakat assessments'],['payments',ar?'فتح دفعات الزكاة':'Open Zakat payments']]) {
+      const link=flow.getByRole('link',{name:label,exact:true});
+      const target=new URL(await link.getAttribute('href'),page.url());
+      assert.equal(target.pathname,`/${locale}/${route}`);
+      assert.deepEqual(Object.fromEntries(target.searchParams),{scope:'PERSONAL'},'Workflow links must preserve the requested personal workspace without a remembered company');
+      assert.ok(contrast((await link.evaluateAll(readColors))[0])>=4.5,'workflow destination contrast');
+    }
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'workflow page scroll');
-    assert.ok(contrast((await step.evaluateAll(readColors))[0])>=4.5,'active workflow step contrast');
-    await flow.getByRole('button',{name:ar?'انتقال إلى المراجعة الشرعية':'Move to Sharia review',exact:true}).click();
-    assert.equal(await step.innerText(),ar?'المراجعة الشرعية':'Sharia review');
+    assert.ok(contrast((await status.evaluateAll(readColors))[0])>=4.5,'inactive workflow notice contrast');
   }
   if(['organizations','workflow','reports','notifications'].includes(route)) {
     await page.screenshot({path:new URL(`tests/subscriptions/screenshots/after-${theme}-${route}-${locale}-${width}.png`,root).pathname});
@@ -136,6 +146,7 @@ async function verifyWorkspaceRoutes({page,theme,appUrl,root,org,modulePalette})
         assert.ok(response?.ok(),`HTTP ${response?.status()}`);
         const actual=new URL(page.url()).pathname;
         assert.ok((routeTargets.get(route)??[route]).some(target=>actual===`/${locale}/${target}`),`redirected to ${actual}`);
+        if(route==='enterprise')assert.deepEqual(Object.fromEntries(new URL(page.url()).searchParams),{scope:'PERSONAL',source:'register'},'Legacy consolidation must retain explicit personal ownership when redirecting to real assessments');
         const workspace=page.locator(`.corp-shell.theme-${theme} .corp-content`);
         const [selector,token,paletteKey]=moduleControls[route]??['','--brand-muted','muted'];
         const module=selector?workspace.locator(selector):workspace;
@@ -264,6 +275,6 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
   }
   await verifyModulePalette({page,theme,appUrl,root,org});
   if(theme==='modern'||theme==='elegant')await verifyOwnerConsole({page,theme,appUrl,root});
-  await page.goto(`${appUrl}/en/settings?organization=${org}`);
+  await page.goto(`${appUrl}/en/settings?scope=ORGANIZATION&organization=${org}&level=COMPANY`);
   await page.getByLabel('Organization name',{exact:true}).waitFor();
 }

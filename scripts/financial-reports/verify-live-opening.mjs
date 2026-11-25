@@ -823,7 +823,7 @@ try{
   }
   await page.evaluate(()=>localStorage.removeItem('zf-theme'));
  });
- await check('All native settings sections retain real organization scope across desktop/mobile AR/EN',async()=>{
+ await check('Native settings retain corporate context while shared system preferences clear company filters across desktop/mobile AR/EN',async()=>{
   // Earlier revocation assertions intentionally disabled this synthetic member.
   // Restore only that disposable fixture before testing authorized settings.
   sql(`update public.organization_members set status='ACTIVE' where organization_id='${org}' and user_id='${a.id}'`);
@@ -857,7 +857,7 @@ try{
   const sections=[['settings/structure','[data-structure-workspace]'],['settings','.organization-details-workspace'],['settings/regulatory','[data-regulatory-workspace]'],['settings/financial','[data-financial-settings]'],['settings/team','.settings-native-team'],['settings/system','[data-system-preferences]'],['billing','.yb-billing']];
   for(const locale of ['ar','en'])for(const [route,selector] of sections){
    await page.setViewportSize({width:1490,height:1050});
-   await page.goto(app+'/'+locale+'/'+route+'?organization='+org);
+   await page.goto(app+'/'+locale+'/'+route+'?scope=ORGANIZATION&organization='+org);
    await page.locator(selector).waitFor();
    assert.equal(await page.locator('iframe').count(),0,'Native settings cannot contain framed app screens');
    if(route==='settings/structure'&&locale==='en'){
@@ -915,7 +915,14 @@ try{
 
     }
    }
-   assert.equal(new URL(page.url()).searchParams.get('organization'),org);
+   await page.waitForURL(url=>url.searchParams.get('scope')==='ORGANIZATION'&&(route!=='settings/system'||!url.searchParams.has('organization')));
+   const settingsUrl=new URL(page.url());
+   if(route==='settings/system'){
+    // System preferences belong to the signed-in account. The chosen workspace
+    // scope survives, while company and dimension filters must be removed.
+    for(const key of ['organization','organization_id','level','entity','entity_id','branch','branch_id','cost_center','cost_center_id','center','center_id'])assert.equal(settingsUrl.searchParams.has(key),false,'Shared system preferences must clear '+key);
+    assert.equal(await page.locator('#corp-organization-controls').getByRole('combobox').count(),0,'Shared preferences do not select a company');
+   }else assert.equal(settingsUrl.searchParams.get('organization'),org,locale+' '+route+' preserves the requested company');
    for(const width of [1490,390]){
     await page.setViewportSize({width,height:1050});
     await page.waitForFunction(()=>{const w=document.querySelector('.corp-workspace');return !w||Math.abs(w.getBoundingClientRect().width-innerWidth)<2||innerWidth>1000;});

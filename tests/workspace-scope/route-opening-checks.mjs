@@ -41,7 +41,7 @@ const business=[...shared,
  {path:'settings/financial',marker:'[data-financial-settings] .settings-finance-status',reads:[api('/api/financial-reporting/setup-readiness','company')]},
  {path:'settings/regulatory',marker:'[data-regulatory-workspace]',reads:[api('/api/organizations')]},
  {path:'settings/team',marker:'.settings-team-access-summary',reads:[api('/api/organizations/users','company'),api('/api/organizations/permissions','company')]},
- {path:'settings/structure',marker:'[data-structure-workspace] .settings-data-table',reads:[api('/api/organizations/entities','company')]},
+ {path:'settings/structure',marker:'[data-structure-workspace] .settings-data-table',reads:[api('/api/organizations/entities','company')],disabledCenterBranches:true},
  {path:'settings/financial/setup',marker:'[data-financial-setup]',reads:[api('/api/financial-reporting/setup-readiness','company')]},
  ...['employee-advances','debt-openings'].map(path=>({path,marker:'.debt-kpis',reads:[api('/api/debt-contracts','company')]})),
  ...account,
@@ -55,6 +55,7 @@ export const routeOpeningCoverage=Object.freeze({
   'Feasibility enrollment and subscription gates are exercised by the separate subscription workflow; personal exchange rates belong to PR #522.',
   'Auth/admin/preview/share routes, legacy aliases, record detail routes, fiscal and branch/center subpages, notifications/guide/governance and inactive workflow information are outside this main-entry sweep.',
   'This sweep does not create transactions, approve assessments, settle payments, change preferences, or claim every tab and financial workflow is verified.',
+  'Structure opens with the center-branch registry disabled; its exact disabled response and absent UI are verified, not enabled registry readiness.',
  ],
 });
 
@@ -93,8 +94,51 @@ async function settleFrames(page,pending){
 }
 async function finishResponses(pending){
  const deadline=Date.now()+30000;
- while(pending.size)await within(Promise.allSettled([...pending.keys()]),Math.max(1,deadline-Date.now()),
-  ()=>`API response bodies did not finish within 30000ms: ${pendingEndpoints(pending)}`);
+ while(pending.size){
+  assert.ok(Date.now()<deadline,`API requests did not finish within 30000ms: ${pendingEndpoints(pending)}`);
+  await delay(25);
+ }
+}
+function trackReads(page,app,spec,scope,organizationId){
+ const pending=new Map(),responses=new Map(),completed=[],failedReads=[],gatedReads=[];
+ const isRead=request=>request.url().startsWith(app+'/api/')&&request.method()==='GET';
+ const isDisabledRegistry=response=>{
+  const url=new URL(response.url());
+  return spec.disabledCenterBranches===true&&scope==='ORGANIZATION'
+   &&url.pathname==='/api/financial-reporting/center-branches'
+   &&url.searchParams.size===1&&url.searchParams.getAll('organization').length===1
+   &&url.searchParams.get('organization')===organizationId;
+ };
+ page.on('request',request=>{if(isRead(request))pending.set(request,new URL(request.url()).pathname);});
+ page.on('response',response=>{
+  const request=response.request();if(!isRead(request))return;
+  responses.set(request,response);
+  if(!response.ok()&&!(isDisabledRegistry(response)&&response.status()===404))
+   failedReads.push(new URL(response.url()).pathname+' HTTP '+response.status());
+ });
+ page.on('requestfinished',request=>{
+  if(!isRead(request))return;
+  void(async()=>{
+   const response=responses.get(request);
+   assert.ok(response,'Completed API request has no response');
+   if(isDisabledRegistry(response)){
+    assert.equal(response.status(),404,'Center-branch registry must retain the staged disabled gate');
+    const body=await within(response.json(),5000,()=> 'Could not read the disabled center-branch registry response');
+    assert.ok(body&&Object.keys(body).length===1&&body.error==='CENTER_BRANCH_DISABLED','Expected only the CENTER_BRANCH_DISABLED error code');
+    gatedReads.push({path:new URL(response.url()).pathname,status:404,error:'CENTER_BRANCH_DISABLED'});
+   }else if(response.ok())completed.push(response);
+  })().catch(error=>failedReads.push(new URL(request.url()).pathname+': '+(error instanceof Error?error.message:String(error))))
+   .finally(()=>{pending.delete(request);responses.delete(request);});
+ });
+ page.on('requestfailed',request=>{
+  if(!isRead(request))return;
+  const reason=request.failure()?.errorText??'unknown network failure';
+  // React cancels stale reads on scope changes. A canceled request is never
+  // counted as successful; the required fresh read must still complete.
+  if(reason!=='net::ERR_ABORTED')failedReads.push(new URL(request.url()).pathname+': '+reason);
+  pending.delete(request);responses.delete(request);
+ });
+ return {pending,completed,failedReads,gatedReads};
 }
 
 /** Requires the existing synthetic owner, two companies and Gold/Deposit fixtures.
@@ -117,8 +161,8 @@ export async function routeOpeningAcceptance({context,app,organizationId,otherOr
     },otherOrganizationId);
     await page.setViewportSize(routeOpeningCoverage.viewport);
     page.setDefaultTimeout(30000);
-    const errors=[],failedReads=[],writes=[],completed=[];
-    const pending=new Map();
+    const errors=[],writes=[];
+    const {pending,completed,failedReads,gatedReads}=trackReads(page,app,spec,scope,organizationId);
     const required=spec.reads??(scope==='PERSONAL'?spec.personalReads:spec.businessReads)??[];
     page.on('pageerror',error=>errors.push(error.message));
     await page.route(app+'/api/**',async route=>{
@@ -128,17 +172,6 @@ export async function routeOpeningAcceptance({context,app,organizationId,otherOr
       await route.abort('blockedbyclient');return;
      }
      await route.continue();
-    });
-    page.on('response',response=>{
-     if(!response.url().startsWith(app+'/api/')||response.request().method()!=='GET')return;
-     const task=(async()=>{
-      // Consume only to wait for completion; no response bodies or auth data
-      // are stored in artifacts.
-      if(await response.finished())return;
-      if(!response.ok())failedReads.push(new URL(response.url()).pathname+' HTTP '+response.status());
-      else completed.push(response);
-     })().catch(()=>{}).finally(()=>pending.delete(task));
-     pending.set(task,new URL(response.url()).pathname);
     });
     const query=new URLSearchParams({scope});
     if(scope==='ORGANIZATION'&&!spec.account){query.set('organization',organizationId);query.set('level','COMPANY');}
@@ -178,6 +211,10 @@ export async function routeOpeningAcceptance({context,app,organizationId,otherOr
     // React may commit the result immediately after the body finishes.
     await settleFrames(page,pending);
     await finishResponses(pending);
+    if(spec.disabledCenterBranches){
+     assert.ok(gatedReads.length>0,'Expected the selected company center-branch registry to report its disabled gate');
+     assert.equal(await page.locator('.settings-center-assignments').count(),0,'Disabled center-branch registry UI must not render');
+    }
     const final=new URL(page.url());
     assert.equal(await activeScope.count(),1,'Expected one visible active workspace scope control');
     assert.equal(final.searchParams.get('scope'),scope,'Scope changed while opening the module');
@@ -193,7 +230,7 @@ export async function routeOpeningAcceptance({context,app,organizationId,otherOr
     assert.deepEqual(writes,[],'Opening a route attempted an API mutation');
     assert.deepEqual(failedReads,[],'Module read failed');
     assert.deepEqual(errors,[],'Browser exception');
-    outcomes.push({scope,path:'/en/'+spec.path,status:'opened',verifiedReads:required.map(({path})=>path),recordIsolation:Boolean(spec.fixture)});
+    outcomes.push({scope,path:'/en/'+spec.path,status:'opened',verifiedReads:required.map(({path})=>path),recordIsolation:Boolean(spec.fixture),...(gatedReads.length?{gatedReads}:{} )});
    });}catch(error){
     outcomes.push({scope,path:'/en/'+spec.path,status:'failed',error:error instanceof Error?error.message:String(error)});
    }finally{
