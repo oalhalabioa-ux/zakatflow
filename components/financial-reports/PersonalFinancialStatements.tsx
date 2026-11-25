@@ -67,6 +67,10 @@ export default function PersonalFinancialStatements({english=false}:{english?:bo
    {tabs.map(([id,ar,en])=><button key={id} type="button" role="tab" aria-selected={tab===id} onClick={()=>setTab(id)}>{english?en:ar}{id==='income'&&<small> {t('قيد الربط','Pending')}</small>}</button>)}
   </div>
   <div className="fs-personal-period"><label>{t('من تاريخ','From')}<input aria-label={t('بداية الفترة','Period start')} type="date" value={from} max={to} onChange={e=>setFrom(e.target.value)}/></label><label>{t('إلى تاريخ','To')}<input aria-label={t('نهاية الفترة','Period end')} type="date" value={to} min={from} max={riyadhToday()} onChange={e=>setTo(e.target.value)}/></label>{report&&<small>{t('المركز المالي بتاريخ','Financial position as of')} {report.asOf}</small>}</div>
+  {report&&<p className="fs-personal-print-context">
+   {tabs.find(([id])=>id===tab)?.[english?2:1]} · {t('المركز المالي بتاريخ','Financial position as of')} <bdi>{report.asOf}</bdi>
+   {' · '}{t('فترة الحركة النقدية','Cash movement period')} <bdi>{report.from} – {report.to}</bdi>
+  </p>}
   <p className="fs-personal-disclaimer">{t('عرض شخصي تقديري من الأرصدة الحالية، وليس قوائم مدققة أو دفتر قيود شركات. لا تُجمع العملات المختلفة تلقائيًا.','Personal current-balance estimate, not audited statements or corporate journals. Different currencies are not silently combined.')}</p>
   {busy&&<p role="status" className="fs-source-loading">{t('جارٍ قراءة سجلاتك الشخصية…','Loading your personal registers…')}</p>}
   {error&&<div className="fs-source-error" role="alert">{error==='UNAUTHORIZED'?t('يرجى تسجيل الدخول للاطلاع على سجلاتك الشخصية.','Sign in to view your personal records.'):error==='INVALID_PERIOD'?t('الفترة المحددة غير صحيحة.','Invalid reporting period.'):t('تعذر التحقق من السجلات الشخصية؛ لن تُعرض أرقام بديلة.','Personal source verification failed; no substitute figures are shown.')}</div>}

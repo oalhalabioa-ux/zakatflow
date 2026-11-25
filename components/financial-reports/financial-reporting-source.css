@@ -135,4 +135,13 @@
 .fs-personal-pending{border-color:#e8d6b6;background:#fffaf0}
 .fs-personal-warning,.fs-personal-empty{border:1px solid #e8d6b6;border-radius:10px;padding:14px 16px;background:#fffaf0;color:#765b32;font-size:13px}
 @media(max-width:680px){.fs-personal-reports{padding:13px;gap:12px}.fs-personal-head{padding:15px;flex-direction:column}.fs-personal-actions{justify-content:flex-start;max-width:100%}.fs-personal-actions button{padding:8px 10px;font-size:11px}.fs-personal-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.fs-personal-tabs button{padding:9px;font-size:12px}.fs-personal-cards{grid-template-columns:1fr}.fs-personal-card{padding:15px}.fs-personal-period{gap:8px}}
-@media print{.fs-personal-tabs,.fs-personal-period,.fs-personal-actions button{display:none!important}.fs-personal-card,.fs-personal-panel{break-inside:avoid}}
+.fs-personal-print-context{display:none}
+@media print{
+ .corp-shell:has(.fs-personal-reports) :is(.corp-sidebar,.corp-topbar,.corp-workspace>.footer),
+ .fs-personal-tabs,.fs-personal-period,.fs-personal-actions button{display:none!important}
+ .corp-shell:has(.fs-personal-reports) .corp-workspace{margin:0!important}
+ .corp-shell:has(.fs-personal-reports) .corp-content{padding:0}
+ .fs-personal-print-context{display:block;margin:0}
+ .fs-personal-panel .fs-table{min-width:0}
+ .fs-personal-card{break-inside:avoid}
+}

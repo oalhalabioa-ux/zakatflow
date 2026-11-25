@@ -461,8 +461,14 @@ try{
   await page.evaluate(()=>{window.print=()=>{document.body.dataset.work03Printed='true'}});
   await report.getByRole('button',{name:'Print / PDF',exact:true}).click();
   await page.waitForFunction(()=>document.body.dataset.work03Printed==='true');
+  await page.emulateMedia({media:'print'});
+  const printContext=report.locator('.fs-personal-print-context');
+  assert.equal(await printContext.isVisible(),true);
+  assert.match(await printContext.innerText(),/Financial position as of \d{4}-\d{2}-\d{2} · Cash movement period \d{4}-\d{2}-\d{2} – \d{4}-\d{2}-\d{2}/);
+  assert.equal(await page.locator('.corp-sidebar').isVisible(),false);
   const pdf=await page.pdf({format:'A4'});
   assert.equal(pdf.subarray(0,5).toString(),'%PDF-');
+  await page.emulateMedia({media:'screen'});
   await report.getByRole('tab',{name:/Income & expenses/}).click();
   assert.equal(await report.getByRole('button',{name:'CSV',exact:true}).isDisabled(),true);
   await page.getByRole('button',{name:'Business',exact:true}).click();
