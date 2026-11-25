@@ -66,10 +66,10 @@ async function seed(owner,organization_id=null,manualGold=false,name){
  return id;
 }
 
-async function context(browser,account,viewport){
+async function context(browser,account,viewport,theme='yaqeen-business'){
  const ctx=await browser.newContext({viewport});
  await ctx.addCookies(account.cookies.map(({name,value})=>({name,value,url:app})));
- await ctx.addInitScript(()=>localStorage.setItem('zf-theme','yaqeen-business'));
+ await ctx.addInitScript(theme=>localStorage.setItem('zf-theme',theme),theme);
  return ctx;
 }
 function today(){
@@ -197,6 +197,27 @@ async function verifyJuneZakatPayment(browser) {
   assert.equal(await bankBalance(),2427.5);
   const movements = value(await client.from('transactions').select('id').eq('asset_account_id',bank).eq('transaction_type','ZAKAT_PAYMENT'));
   assert.equal(movements.length,1);
+  const sale = value(await client.from('transactions').select('id')
+   .eq('asset_account_id',gold).eq('transaction_type','SALE').single());
+  for(const [theme,ink] of [['modern','#27345a'],['elegant','#1a3b32']]){
+   const themed=await context(browser,owner,{width:390,height:844},theme);
+   try{
+    const detail=await themed.newPage();
+    for(const [locale,width] of [['ar',390],['en',1440]]){
+     await detail.setViewportSize({width,height:960});
+     const ar=locale==='ar';
+     const workspace=detail.locator(`.corp-shell.theme-${theme} .corp-content`);
+     await detail.goto(`${app}/${locale}/assessments/${assessment.id}`);
+     await workspace.getByRole('heading',{name:ar?'تفاصيل احتساب الزكاة':'Zakat Assessment',exact:true}).waitFor();
+     await detail.goto(`${app}/${locale}/lots/${remainingGold}`);
+     await workspace.getByRole('heading',{name:ar?'تفاصيل الدفعة':'Lot Detail',exact:true}).waitFor();
+     await detail.goto(`${app}/${locale}/transactions/${sale.id}`);
+     await workspace.locator('.operation-detail-card[aria-busy=false] [role=tab]').first().waitFor();
+     assert.equal(await workspace.evaluate(node=>getComputedStyle(node).getPropertyValue('--brand-text').trim()),ink);
+    }
+   }finally{await themed.close();}
+  }
+  console.log('PASS Modern and Elegant recorded assessment, lot and transaction details');
   console.log('PASS June Zakat browser save, finalize and reload:', voucher, payment.payment_date, 'one SAR 22.50 payment, bank SAR 2450 → 2427.50');
  } finally {
   await ctx.close();
@@ -431,6 +452,34 @@ try{
   assert.equal(await dialog.count(),0);
   assert.equal(await trigger.evaluate(el=>document.activeElement===el),true);
   await ctx.close();
+ }
+ for(const [theme,headerColor,tabColor] of [
+  ['modern','rgb(41, 60, 143)','rgb(67, 85, 199)'],
+  ['elegant','rgb(25, 77, 66)','rgb(13, 117, 95)'],
+ ])for(const locale of ['ar','en'])for(const width of [390,1440]){
+  const ctx=await context(browser,owner,{width,height:960},theme);
+  try{
+   const page=await ctx.newPage();
+   await page.goto(app+'/'+locale+'/assets?scope=PERSONAL',{waitUntil:'domcontentloaded'});
+   const workspace=page.locator(`.corp-shell.theme-${theme}`);
+   await workspace.getByRole('row').filter({hasText:'QA 18K Gold'}).getByRole('button',{
+    name:locale==='ar'?'التفاصيل والإجراءات':'Details and actions',exact:true,
+   }).click();
+   const card=workspace.locator('.asset-card-dialog');
+   const colors=await card.evaluate(dialog=>{
+    const header=dialog.querySelector('.asset-card-header');
+    const tab=dialog.querySelector('.asset-card-tabs button[aria-pressed=true]');
+    return {
+     header:getComputedStyle(header).backgroundColor,
+     heading:getComputedStyle(header.querySelector('h2')).color,
+     tab:getComputedStyle(tab).backgroundColor,
+     tabText:getComputedStyle(tab).color,
+    };
+   });
+   assert.deepEqual(colors,{header:headerColor,heading:'rgb(255, 255, 255)',tab:tabColor,tabText:'rgb(255, 255, 255)'});
+   assert.ok(await card.evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1));
+   await page.screenshot({path:`asset-qa-preview/card-${theme}-${locale}-${width}.png`});
+  }finally{await ctx.close();}
  }
  // Save a new personal sale inside the card and reconcile the asset and its single receipt.
  {

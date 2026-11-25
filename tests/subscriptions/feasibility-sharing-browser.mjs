@@ -86,6 +86,27 @@ export async function verifyFeasibilitySharingBrowser({ browser, appUrl, url, an
     await source.goto(appUrl + '/en/notifications');
     await source.getByRole('link', { name: 'Review changes', exact: true }).click();
     await source.getByRole('table').getByRole('row').filter({ hasText: 'Synthetic QA reviewed copy' }).waitFor();
+    const reviewUrl=source.url(),sharedUrl=receiver.url();
+    for(const [theme,accent] of [['modern','#4355c7'],['elegant','#0d755f']]){
+      for(const [view,url] of [[source,reviewUrl],[receiver,sharedUrl]]){
+        await view.evaluate(value=>localStorage.setItem('zf-theme',value),theme);
+        for(const [locale,width] of [['ar',390],['en',1440]]){
+          const localized=new URL(url);
+          localized.pathname=localized.pathname.replace(/^\/en\//,`/${locale}/`);
+          await view.setViewportSize({width,height:960});
+          const loaded=await view.goto(localized.toString());
+          assert.ok(loaded?.ok());
+          const workspace=view.locator(`.corp-shell.theme-${theme} .corp-content .fs-page`);
+          await workspace.waitFor();
+          assert.equal(await workspace.evaluate(node=>getComputedStyle(node).getPropertyValue('--fs-gold').trim()),accent);
+        }
+      }
+    }
+    for(const view of [source,receiver]){
+      await view.evaluate(()=>localStorage.removeItem('zf-theme'));
+      await view.reload();
+    }
+    console.log('PASS Modern and Elegant shared feasibility inbox and proposal review');
     await source.getByLabel('Resolve field Study title', { exact: true }).selectOption('proposed');
     await source.getByLabel('Decision reason for Study title', { exact: true }).fill('The proposed title is accurate.');
     await source.getByRole('button', { name: 'Save item decisions', exact: true }).click();

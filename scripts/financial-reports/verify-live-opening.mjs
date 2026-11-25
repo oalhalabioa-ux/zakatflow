@@ -754,6 +754,21 @@ try{
   const posted=JSON.parse(sql(`select to_jsonb(x) from(select s.organization_id org,s.financial_event_id event,a.name bank from public.liquidity_settlements s join public.liquidity_accounts a on a.id=s.account_id join public.organization_members m on m.organization_id=s.organization_id and m.user_id='${a.id}' and m.status='ACTIVE' and m.role='OWNER' where s.status='POSTED' and s.financial_event_id is not null order by s.id limit 1)x`));assert.ok(posted);
   await page.setViewportSize({width:1672,height:941});await page.goto(app+'/en/liquidity?tab=position&organization='+posted.org);await page.getByRole('button',{name:'Account details and statement: '+posted.bank,exact:true}).click();const details=page.getByRole('dialog',{name:'Bank account details and statement',exact:true}),link=details.locator('a[href*="/cash-vouchers/'+posted.event+'"]');await link.waitFor({state:'attached'});await link.locator('..').locator('summary').click();await link.click();await page.locator('[data-cash-voucher="'+posted.event+'"]').waitFor();await page.getByRole('heading',{name:'Original cash movement voucher',exact:true}).waitFor();
  });
+ await check('Modern and Elegant themes reach the original posted voucher',async()=>{
+  const voucher=new URL(page.url());
+  assert.match(voucher.pathname,/\/cash-vouchers\/[^/]+$/);
+  for(const theme of ['modern','elegant']){
+   await page.evaluate(value=>localStorage.setItem('zf-theme',value),theme);
+   for(const [locale,width] of [['ar',390],['en',1440]]){
+    await page.setViewportSize({width,height:960});
+    voucher.pathname=voucher.pathname.replace(/^\/(ar|en)\//,`/${locale}/`);
+    const response=await page.goto(voucher.toString());
+    assert.ok(response?.ok());
+    await page.locator(`.corp-shell.theme-${theme} .corp-content [data-cash-voucher]`).waitFor();
+   }
+  }
+  await page.evaluate(()=>localStorage.removeItem('zf-theme'));
+ });
  await check('All native settings sections retain real organization scope across desktop/mobile AR/EN',async()=>{
   // Earlier revocation assertions intentionally disabled this synthetic member.
   // Restore only that disposable fixture before testing authorized settings.
@@ -930,6 +945,38 @@ try{
   const {verifyDatedCenterSource}=await import('./verify-dated-center-source.mjs');
   report.datedCenterSource=await verifyDatedCenterSource({actor:a,page,app,out,sql,databaseUrl:url,organization:report.defaultPostingActualCycle.organization});
  });
+ await check('Modern and Elegant palettes in protected finance workspaces',async()=>{
+  const paths=[
+   ['chart-of-accounts','.coa-page','--coa-gold'],
+   ['opening-balances','.ob-tabs button[aria-selected=true]','backgroundColor'],
+   ['opening-balances/branches','.ob-branch-page','color'],
+   ['opening-balances/centers','.ob-branch-page','color'],
+   ['financial-reporting-policy','.fs-root.fs-surface','color'],
+  ];
+  for(const [theme,accent,active,ink] of [
+   ['modern','#4355c7','rgb(67, 85, 199)','rgb(39, 52, 90)'],
+   ['elegant','#0d755f','rgb(13, 117, 95)','rgb(26, 59, 50)'],
+  ]){
+   await page.evaluate(value=>localStorage.setItem('zf-theme',value),theme);
+   for(const [locale,width] of [['ar',390],['en',1440]]){
+    await page.setViewportSize({width,height:960});
+    for(const [route,selector,property] of paths){
+     const response=await page.goto(`${app}/${locale}/${route}?scope=ORGANIZATION&organization=${org}&fiscalStart=2026-01-01`);
+     assert.ok(response?.ok(),`${theme} ${locale} ${route}: ${response?.status()}`);
+     const el=page.locator(`.corp-shell.theme-${theme} .corp-content ${selector}`).first();
+     await el.waitFor();
+     const actual=await el.evaluate((node,key)=>key.startsWith('--')
+      ? getComputedStyle(node).getPropertyValue(key).trim() : getComputedStyle(node)[key],property);
+     assert.equal(actual,property==='--coa-gold'?accent:property==='backgroundColor'?active:ink,`${theme} ${locale} ${route}`);
+     if(route==='opening-balances'||route==='chart-of-accounts')
+      await page.screenshot({path:`${out}/${route}-${theme}-${locale}-${width}.png`});
+    }
+    const detail=await page.goto(`${app}/${locale}/dashboard/report?scope=PERSONAL&metric=assets`);
+    assert.ok(detail?.ok(),`${theme} ${locale} dashboard detail: ${detail?.status()}`);
+    await page.locator(`.corp-shell.theme-${theme} .corp-content h1`).first().waitFor();
+   }
+  }
+ },120000);
  assert.deepEqual(errors,[]);report.browserExceptions=errors;await context.close();
 }catch(error){report.failure={message:error.message,stack:error.stack};try{await page?.screenshot({path:out+'/failure.png',fullPage:true,timeout:5000})}catch{}throw error}finally{await Promise.race([browser?.close(),new Promise(r=>setTimeout(r,5000))]);server?.kill();await writeFile(out+'/results.json',JSON.stringify(report,null,2)+'\n')}
 // Exit only after assertions, evidence writes and cleanup; background SDK handles must not keep CI alive.
