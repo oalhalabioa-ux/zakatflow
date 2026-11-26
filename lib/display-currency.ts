@@ -1,7 +1,8 @@
 import Decimal from 'decimal.js';
+import { SAMA_SAR_PER_USD } from './official-fx-reference';
 export type DisplayCurrencyMode='PRIMARY'|'USD';
 export type DisplayFxRate={from_currency:string;to_currency:string;rate:number;valuation_date:string;source:string;organization_id?:string|null};
-export const SAR_USD_REFERENCE={from_currency:'USD',to_currency:'SAR',rate:3.75,valuation_date:'2026-10-12',source:'SAMA · official peg'} satisfies DisplayFxRate;
+export const SAR_USD_REFERENCE={from_currency:'USD',to_currency:'SAR',rate:SAMA_SAR_PER_USD,valuation_date:'2026-10-12',source:'SAMA · official peg'} satisfies DisplayFxRate;
 export function displayQuote(currency:string,rates:DisplayFxRate[],today:string){
  const code=currency.toUpperCase();
  if(code==='USD')return {rate:1,recordedRate:1,inverse:false,date:today,source:'USD'};
