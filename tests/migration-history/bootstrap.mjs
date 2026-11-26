@@ -15,6 +15,9 @@ const sql=input=>execFileSync('docker',['exec','-i','supabase_db_migration-histo
 const checks=[];const check=async(name,run)=>{await run();checks.push({name,status:'passed'});console.log('PASS '+name)};
 try{
  const manifest=await verifyFiles();
+ await check('invoice Hawl due/classification and verified net collection respect historical cutoffs',async()=>{
+  sql(await load('tests/sql/personal-invoice-hawl-evidence.sql'));
+ });
  await check('document-origin personal receivables reconcile at cutoff',async()=>{
   sql(await load('tests/sql/personal-income-receivable-cutoff.sql'));
  });
@@ -125,6 +128,7 @@ try{
    'v2-reporting-source-contracts-schema-delta',
    'personal-income-schema-delta',
    'personal-income-receivable-cutoff-schema-delta',
+   'personal-invoice-hawl-evidence-schema-delta',
   ];
   const deltas=await Promise.all(deltaNames.map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
   for(const delta of deltas){
@@ -200,8 +204,8 @@ try{
  });
  await check('bootstrap contains no customer, owner, membership or subscription records',async()=>{
   assert.equal(sql('select (select count(*) from auth.users)+(select count(*) from organizations)+(select count(*) from organization_members)+(select count(*) from platform_admins)+(select count(*) from platform_subscriptions)'), '0');
-  // The two pinned dependencies add three reporting and four personal income policies.
-  assert.equal(sql('select count(*) from pg_policies where schemaname in (\'public\',\'private\',\'subscription_private\')'),'207');
+  // The pinned dependencies add seven policies; the owner-only invoice event reader adds one.
+  assert.equal(sql('select count(*) from pg_policies where schemaname in (\'public\',\'private\',\'subscription_private\')'),'208');
   assert.equal(sql('select count(*) from subscription_private.guard_coverage'),'103');
  });
  const admin=createClient(status.API_URL,status.SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});

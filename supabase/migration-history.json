@@ -2297,6 +2297,14 @@
       "expected_md5": "6844a5ef59175e2be828efdfb6b6e0d8",
       "file_sha256": "2b61a6a105e69cb75a0bdf4cc8cb716dd5b14d53ef9f7ba756c0944710bf7ec6",
       "validation_project": "Disposable source integration: original document, dated COLLECT pair, cutoff, evidence gaps, ownership and unchanged existing debt coverage"
+    },
+    {
+      "path": "supabase/migrations/20261127013000_personal_invoice_hawl_evidence.sql",
+      "version": "20261127013000",
+      "name": "personal_invoice_hawl_evidence",
+      "expected_md5": "b3499b5b86b5155632413b62408e52bc",
+      "file_sha256": "a06d9b7c11c4214af8d8c22c2a2f80e91fc66aed4b6194552b83e9e3070e79a4",
+      "validation_project": "Disposable recognized invoice due/classification evidence and verified net receipt allocation at cutoff"
     }
   ]
 }
