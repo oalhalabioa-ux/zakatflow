@@ -15,6 +15,11 @@ describe('classified personal report source',()=>{
   expect(projectClassifiedPersonalActivity([reversal]).totals).toEqual([{currency:'SAR',income:'-28.125',expense:'0',net:'-28.125'}]);
   expect(projectClassifiedPersonalActivity([receipt,reversal]).totals[0].net).toBe('0');
  });
+ it('does not round the native eight-place values when totaling large books',()=>{
+  const large={...receipt,base_amount:'9999999999999999.99999999'};
+  const small={...receipt,transaction_id:'b897c148-baa8-4f3c-9274-ba6fe2bf146e',base_amount:'0.00000002'};
+  expect(projectClassifiedPersonalActivity([large,small]).totals[0].net).toBe('10000000000000000.00000001');
+ });
  it('never guesses a category or counts the same source twice',()=>{
   expect(projectClassifiedPersonalActivity([]).totals).toEqual([]);
   expect(()=>projectClassifiedPersonalActivity([{...receipt,kind:'ADD'}])).toThrow();
