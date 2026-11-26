@@ -113,6 +113,18 @@ describe('independent read-only personal financial reports',()=>{
   expect(r.cashTransferReconciliation).toHaveLength(2);
   expect(r.cashTransferReconciliation.every(p=>p.verifiedPairs===0&&p.unverifiedLegs===1)).toBe(true);
  });
+ it('evaluates transfer reversals and duplicate source legs at the selected cutoff',()=>{
+  const d=personal();d.accounts.push({...d.accounts[0],id:'cash'});
+  d.cashMovements=[
+   {id:'out',accountId:'bank',date:'2026-11-01',currency:'SAR',amount:-150,internalTransferId:'x',transactionType:'TRANSFER_OUT',description:'out',reference:'x',source:'ASSETS'},
+   {id:'in',accountId:'cash',date:'2026-11-01',currency:'SAR',amount:150,internalTransferId:'x',transactionType:'TRANSFER_IN',description:'in',reference:'x',source:'ASSETS'},
+   {id:'undo',accountId:'bank',date:'2026-11-05',currency:'SAR',amount:150,reversalOfTransactionId:'out',transactionType:'REVERSAL',description:'undo',reference:'x',source:'ASSETS'},
+  ];
+  expect(personalFinancialReports(d,'2026-11-01','2026-11-02').cashTransferReconciliation[0]).toMatchObject({verifiedPairs:1,unverifiedLegs:0});
+  expect(personalFinancialReports(d,'2026-11-01','2026-11-06').cashTransferReconciliation[0]).toMatchObject({verifiedPairs:0,unverifiedLegs:2});
+  d.cashMovements.push({...d.cashMovements[0],id:'old-leg',date:'2026-10-31'});
+  expect(personalFinancialReports(d,'2026-11-01','2026-11-02').cashTransferReconciliation[0]).toMatchObject({verifiedPairs:0,unverifiedLegs:2});
+ });
  it('reconciles many personal accounts without mutating source movements or mixing balances',()=>{
   const d=personal();d.accounts=Array.from({length:80},(_,i)=>({...d.accounts[0],id:'bank-'+i,name:'Bank '+i,balance:1000,baseBalance:1000}));
   d.cashMovements=d.accounts.flatMap((a,i)=>[

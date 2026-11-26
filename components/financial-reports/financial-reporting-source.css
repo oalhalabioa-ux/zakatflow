@@ -22,9 +22,28 @@
  .fs-connected-statements .fs-source-statement-table .fs-table{min-width:0!important;width:100%;table-layout:fixed}
  .fs-connected-statements .fs-source-statement-table .fs-table th,.fs-connected-statements .fs-source-statement-table .fs-table td{min-width:0;white-space:normal;overflow-wrap:anywhere}
  .fs-connected-statements .fs-source-statement-table .fs-table th:first-child{width:65%;min-width:0}
- .fs-connected-statements .fs-source-statement-table .fs-table th:nth-child(n+3),.fs-connected-statements .fs-source-statement-table .fs-table td:nth-child(n+3){display:none}
+ .fs-connected-statements .fs-source-statement-table:not(.fs-source-cash-layout *) .fs-table :is(th,td):nth-child(n+3){display:none}
  .fs-connected-statements .fs-source-statement-table.fs-position-table .fs-table th:nth-child(2),.fs-connected-statements .fs-source-statement-table.fs-position-table .fs-table td:nth-child(2){display:none}
  .fs-connected-statements .fs-source-statement-table.fs-position-table .fs-table th:nth-child(3),.fs-connected-statements .fs-source-statement-table.fs-position-table .fs-table td:nth-child(3){display:table-cell}
+}
+
+/* Match the connected cash statement’s table density to income. */
+.fs-root .fs-surface .fs-source-cash-layout .fs-source-statement-table .fs-table{font-size:14px;line-height:1.4}
+.fs-root .fs-surface .fs-source-cash-layout .fs-source-statement-table :is(th,td){padding:6px 10px;line-height:1.4}
+.fs-root .fs-surface .fs-source-cash-layout .fs-source-statement-table thead th{
+ background:#fbf8f2!important;color:#0f2d4a;border-bottom-color:#ead7b4!important
+}
+.fs-root .fs-source-cash-layout .fs-source-statement-table thead th:not(:first-child){text-align:center}
+.fs-root .fs-source-cash-layout .fs-table tbody tr.fs-row-parent{background:#edf2f7;font-weight:700}
+.fs-root .fs-source-cash-layout .fs-table tbody tr.fs-row-parent>th{background:inherit!important}
+.fs-root .fs-source-cash-layout .fs-table tbody tr[data-depth="0"]>th>.fs-statement-row-label{padding-inline-start:26px}
+.fs-root .fs-source-cash-layout .fs-table tbody tr[data-depth="1"]>th>.fs-statement-row-label{padding-inline-start:62px}
+@media(max-width:700px){
+ .fs-root .fs-surface .fs-source-cash-layout .fs-source-statement-table .fs-table{min-width:540px!important;font-size:12px;table-layout:fixed}
+ .fs-root .fs-source-cash-layout .fs-source-statement-table .fs-table th:first-child{width:46%}
+ .fs-root .fs-source-cash-layout .fs-source-statement-table .fs-table td{white-space:nowrap}
+ .fs-root .fs-surface .fs-source-cash-layout .fs-source-statement-table :is(th,td){padding:7px 9px}
+ .fs-root .fs-source-cash-layout .fs-table tbody tr[data-depth="1"]>th>.fs-statement-row-label{padding-inline-start:55px}
 }
 
 .fs-source-hub>.fr-middle{order:4;margin-top:0}
@@ -135,4 +154,24 @@
 .fs-personal-pending{border-color:#e8d6b6;background:#fffaf0}
 .fs-personal-warning,.fs-personal-empty{border:1px solid #e8d6b6;border-radius:10px;padding:14px 16px;background:#fffaf0;color:#765b32;font-size:13px}
 @media(max-width:680px){.fs-personal-reports{padding:13px;gap:12px}.fs-personal-head{padding:15px;flex-direction:column}.fs-personal-actions{justify-content:flex-start;max-width:100%}.fs-personal-actions button{padding:8px 10px;font-size:11px}.fs-personal-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.fs-personal-tabs button{padding:9px;font-size:12px}.fs-personal-cards{grid-template-columns:1fr}.fs-personal-card{padding:15px}.fs-personal-period{gap:8px}}
-@media print{.fs-personal-tabs,.fs-personal-period,.fs-personal-actions button{display:none!important}.fs-personal-card,.fs-personal-panel{break-inside:avoid}}
+.fs-personal-print-context{display:none}
+@media print{
+ .corp-shell:has(.fs-personal-reports) :is(.corp-sidebar,.corp-topbar,.corp-workspace>.footer),
+ .fs-personal-tabs,.fs-personal-period,.fs-personal-actions button{display:none!important}
+ .corp-shell:has(.fs-personal-reports) .corp-workspace{margin:0!important}
+ .corp-shell:has(.fs-personal-reports) .corp-content{padding:0}
+ .fs-personal-print-context{display:block;margin:0}
+ .fs-personal-panel .fs-table{min-width:0}
+ .fs-personal-card{break-inside:avoid}
+}
+
+.fs-ledger-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-block:12px}
+.fs-ledger-controls select{max-width:100%}
+.fs-connected [data-statement-ready="trial-balance"] th button{white-space:normal;text-align:start}
+@media print{
+ .fs-ledger-controls,
+ .corp-shell:has(.fs-surface:is([data-screen="trial-balance"],[data-screen="general-ledger"])) :is(.corp-sidebar,.corp-topbar,.corp-workspace>.footer){display:none!important}
+ .corp-shell:has(.fs-surface:is([data-screen="trial-balance"],[data-screen="general-ledger"])) .corp-workspace{margin:0!important}
+ .fs-connected :is([data-statement-ready="trial-balance"],[data-statement-ready="general-ledger"]) .fs-card{break-inside:auto}
+ .fs-connected :is([data-statement-ready="trial-balance"],[data-statement-ready="general-ledger"]) .fs-table{min-width:0}
+}
