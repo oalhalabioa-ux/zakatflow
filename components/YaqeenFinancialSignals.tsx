@@ -1,4 +1,5 @@
 'use client';
+import {investmentWorkspaceQuery} from '../lib/investment-workspace-scope';
 import {dashboardFinancialSources,type DashboardDue} from '../lib/dashboard-financial-sources';
 import {useEffect,useState,type ReactNode} from 'react';
 import Link from 'next/link';
@@ -15,8 +16,9 @@ export default function YaqeenFinancialSignals({scope,organizationId,organizatio
  useEffect(()=>{
   if(!enabled)return;const controller=new AbortController();setRows([]);setUpcoming([]);setSources(null);setErrors([]);setLoading(true);
   const read=async(url:string)=>{const r=await fetch(url,{signal:controller.signal,cache:'no-store'});if(!r.ok)throw Error();return r.json()};
+  const investmentQuery=investmentWorkspaceQuery(scope==='ORGANIZATION'?'ORGANIZATION':'PERSONAL',organizationId,Boolean(group));
   const loanUrl=scope==='ORGANIZATION'&&organizationId?'/api/debt-contracts?kind=LOAN&organization_id='+encodeURIComponent(organizationId)+(group?'&group=1':''):null;
-  Promise.allSettled([read('/api/investments'),loanUrl?read(loanUrl):Promise.resolve(null),read('/api/debt-overview?view=dashboard&scope='+scope+(scope==='ORGANIZATION'?'&organization_id='+encodeURIComponent(organizationId??'')+(group?'&group=1':''):''))]).then(results=>{
+  Promise.allSettled([investmentQuery?read('/api/investments?'+investmentQuery):Promise.reject(Error('ORGANIZATION_ID_REQUIRED')),loanUrl?read(loanUrl):Promise.resolve(null),read('/api/debt-overview?view=dashboard&scope='+scope+(scope==='ORGANIZATION'?'&organization_id='+encodeURIComponent(organizationId??'')+(group?'&group=1':''):''))]).then(results=>{
    if(controller.signal.aborted)return;
    const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
    setRows(financialSignals({investments:results[0].status==='fulfilled'?results[0].value:null,loans:scope==='ORGANIZATION'&&results[1].status==='fulfilled'?results[1].value:null,personalDebts:scope==='PERSONAL'&&results[2].status==='fulfilled'?results[2].value?.debts:undefined,scope,organizationIds:ids?ids.split(','):[],today,ar,locale}));

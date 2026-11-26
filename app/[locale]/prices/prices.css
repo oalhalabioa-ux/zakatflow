@@ -23,7 +23,6 @@
 .prices-header h1 { margin: 7px 0; font-size: clamp(1.8rem, 3vw, 2.35rem); letter-spacing: -.035em; }
 .prices-header p, .prices-panel-heading p, .prices-section-heading p { margin: 0; color: var(--prices-muted); line-height: 1.65; }
 .prices-eyebrow { color: var(--prices-green); font-size: .72rem; font-weight: 800; letter-spacing: .12em; }
-.prices-organization-picker { display: grid; gap: 7px; min-width: min(300px, 100%); color: var(--prices-muted); font-size: .82rem; font-weight: 700; }
 .prices-page input, .prices-page select { width: 100%; min-height: 44px; border: 1px solid #d8e4df; border-radius: 10px; background: #fff; padding: 9px 12px; color: var(--prices-ink); font: inherit; outline: none; }
 .prices-page input:focus, .prices-page select:focus { border-color: #4c9b83; box-shadow: 0 0 0 3px rgb(8 116 92 / 12%); }
 .prices-page input:disabled, .prices-page select:disabled { opacity: .65; cursor: not-allowed; }
@@ -87,7 +86,6 @@
 @media (max-width: 600px) {
   .prices-page { padding-block: 22px 44px; }
   .prices-header { align-items: stretch; flex-direction: column; gap: 18px; }
-  .prices-organization-picker { min-width: 0; }
   .prices-summary-row { grid-template-columns: 1fr 1fr; gap: 9px; }
   .prices-summary-card, .prices-summary-context { min-height: 76px; padding: 12px; }
   .prices-summary-icon { width: 34px; height: 34px; }

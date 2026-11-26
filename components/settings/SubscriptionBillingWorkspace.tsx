@@ -20,7 +20,7 @@ export default function SubscriptionBillingWorkspace({locale}:{locale:string}){
  const [loading,setLoading]=useState(true),[error,setError]=useState(false),[recordsError,setRecordsError]=useState(false),[revision,setRevision]=useState(0);
  const version=useRef(0);
  useEffect(()=>{
-  const read=()=>{if(new URLSearchParams(location.search).get('section')==='builder')setArea('builder');setOrganization(new URLSearchParams(location.search).get('organization')??rememberedOrganization()??'');setRevision(v=>v+1);};
+  const read=()=>{if(new URLSearchParams(location.search).get('section')==='builder')setArea('builder');setOrganization(new URLSearchParams(location.search).get('organization')??new URLSearchParams(location.search).get('organization_id')??rememberedOrganization()??'');setRevision(v=>v+1);};
   read();window.addEventListener('zf-organization-selection',read);window.addEventListener('popstate',read);
   return()=>{window.removeEventListener('zf-organization-selection',read);window.removeEventListener('popstate',read);};
  },[]);

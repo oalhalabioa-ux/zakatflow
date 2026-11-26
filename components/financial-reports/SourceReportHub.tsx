@@ -10,7 +10,7 @@ import type {StatementSourceSnapshot} from '../../lib/financial-statement-source
 import {statementSummary,STATEMENT_HUB_TITLES,type StatementHubView,type StatementIndicator} from '../../lib/financial-statement-summary';
 
 const Money=Decimal.clone({precision:50});
-type HubView=Exclude<StatementHubView,'income'|'position'|'cash-flow'>;
+type HubView='overview'|'statements'|'kpis';
 export default function SourceReportHub({snapshot:s,en,view,navigate,comparison}:{snapshot:StatementSourceSnapshot;comparison?:StatementSourceSnapshot|null;en:boolean;view:HubView;navigate:(view:StatementHubView)=>void}){
  const t=(ar:string,english:string)=>en?english:ar,unit=s.statements.currency;
  const summary=useMemo(()=>statementSummary(s),[s]),prior=validStatementComparison(s,comparison),previous=prior?statementSummary(prior):null;

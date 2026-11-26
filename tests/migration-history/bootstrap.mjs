@@ -98,6 +98,7 @@ try{
    'personal-gold-receipt-remaining-schema-delta',
    'gold-receipt-assessment-components-schema-delta',
    'preserve-later-personal-gold-sale-schema-delta',
+   'personal-fx-rates-schema-delta',
    'atomic-chart-template-schema-delta',
    'fiscal-reversal-window-schema-delta',
   ];
@@ -154,6 +155,9 @@ try{
   const qa=sql(await load('tests/feasibility/organization-sharing-hosted.sql'));
   assert.match(qa,/PASS company subscription scope, read-only snapshot, 30-day cap/);
  });
+ await check('personal FX ownership, retry, and dated inverse quote for opening edits',async()=>{
+  sql(await load('tests/sql/personal-fx-rates.sql'));
+ });
  await check('personal sale correction balances, rollback and idempotent retries',async()=>{
   const qa=sql(await load('tests/sql/personal-sale-correction.sql'));
   assert.match(qa,/PASS personal sale correction/);
@@ -172,7 +176,7 @@ try{
  });
  await check('bootstrap contains no customer, owner, membership or subscription records',async()=>{
   assert.equal(sql('select (select count(*) from auth.users)+(select count(*) from organizations)+(select count(*) from organization_members)+(select count(*) from platform_admins)+(select count(*) from platform_subscriptions)'), '0');
-  assert.equal(sql('select count(*) from pg_policies where schemaname in (\'public\',\'private\',\'subscription_private\')'),'197');
+  assert.equal(sql('select count(*) from pg_policies where schemaname in (\'public\',\'private\',\'subscription_private\')'),'200');
   assert.equal(sql('select count(*) from subscription_private.guard_coverage'),'103');
  });
  const admin=createClient(status.API_URL,status.SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});

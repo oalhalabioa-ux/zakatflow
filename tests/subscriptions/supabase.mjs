@@ -665,9 +665,13 @@ try {
     assert.deepEqual(await page.locator('#corp-settings-nav a').evaluateAll(links=>links.map(a=>new URL(a.href).pathname.split('/').slice(2).join('/'))),['settings/financial/setup','settings','settings/regulatory','settings/financial','settings/team','settings/system','billing'],'All approved settings sections appear in order before subscriptions');
     assert.equal(await page.locator('#corp-settings-nav a[href*="/settings/financial"]').count(),2);
      assert.equal(await page.locator('#corp-settings-nav a[href*="/settings/financial/setup"]').count(),1);
-    assert.ok((await page.locator('#corp-settings-nav a[href*="/billing"]').getAttribute('href')).includes('organization='+secondOrg));
+    const initialBillingHref=new URL(await page.locator('#corp-settings-nav a[href*="/billing"]').getAttribute('href'),appUrl);
+    assert.equal(initialBillingHref.pathname,'/en/billing');
+    assert.deepEqual(Object.fromEntries(initialBillingHref.searchParams),{scope:'ORGANIZATION',organization:secondOrg,level:'COMPANY'});
     assert.equal(await page.locator('#corp-settings-nav a[href*="users"]').count(),0);
-    assert.equal(await page.locator('.corp-sidebar-foot a').getAttribute('href'),'/en/account');
+    const accountHref=new URL(await page.locator('.corp-sidebar-foot a').getAttribute('href'),appUrl);
+    assert.equal(accountHref.pathname,'/en/account');
+    assert.deepEqual(Object.fromEntries(accountHref.searchParams),{scope:'ORGANIZATION'},'Global account preferences preserve scope without any company selectors');
     assert.ok(await page.locator('#corp-primary-nav>a[href*="/users"]').count());
     await page.getByLabel('Selected organization',{exact:true}).selectOption(org);
     await page.waitForFunction(()=>document.querySelector('input[required]')?.value==='Trial Institution');
@@ -678,8 +682,16 @@ try {
     await page.getByText('Organization details saved.',{exact:true}).waitFor();
     await page.reload();await page.getByLabel('Legal name',{exact:true}).waitFor();assert.equal(await page.getByLabel('Legal name',{exact:true}).inputValue(),'Preserved legal organization');
     assert.equal(await page.locator('.settings-secondary-links').count(),0,'No duplicate billing navigation inside settings');
-    const billingNavigation=page.locator('#corp-settings-nav a[href*="/billing"]');assert.ok((await billingNavigation.getAttribute('href')).includes('organization='+org));await billingNavigation.click();
-    await page.waitForURL('**/en/billing?organization='+org);
+    const billingNavigation=page.locator('#corp-settings-nav a[href*="/billing"]');
+    const billingHref=new URL(await billingNavigation.getAttribute('href'),appUrl);
+    assert.equal(billingHref.pathname,'/en/billing');
+    assert.deepEqual(Object.fromEntries(billingHref.searchParams),{scope:'ORGANIZATION',organization:org,level:'COMPANY'});
+    await billingNavigation.click();
+    // Query ordering is not a navigation boundary; the exact tenant, scope
+    // and company level are. Do not accept another company or a personal URL.
+    await page.waitForURL(url=>url.origin===new URL(appUrl).origin&&url.pathname==='/en/billing'&&
+      url.searchParams.get('scope')==='ORGANIZATION'&&url.searchParams.get('organization')===org&&url.searchParams.get('level')==='COMPANY');
+    assert.deepEqual(Object.fromEntries(new URL(page.url()).searchParams),{scope:'ORGANIZATION',organization:org,level:'COMPANY'});
     await page.locator('.yb-billing').getByLabel('Subscription status',{exact:true}).waitFor();
     assert.equal(await page.locator('.settings-tabs').count(),0,'Billing must have an independent section');
     await page.getByRole('button',{name:'Invoices & payments',exact:true}).click();
@@ -757,7 +769,7 @@ try {
     await context.close();
   });
   await check(
-    "fresh account completes real organization onboarding with a five-seat trial",
+    "fresh account opens its personal dashboard and completes explicit organization onboarding with a five-seat trial",
     async () => {
       const newcomer = clients[7],
         jar = [];
@@ -786,7 +798,17 @@ try {
         jar.map((c) => ({ name: c.name, value: c.value, url: appUrl })),
       );
       const page = await context.newPage();
-      await page.goto(appUrl + "/en/dashboard");
+      const personalDashboard = await page.goto(appUrl + "/en/dashboard");
+      assert.ok(personalDashboard?.ok(), "A personal dashboard does not require an organization");
+      await page.locator(".platform-dashboard.platform-personal").filter({visible:true}).waitFor();
+      assert.equal(new URL(page.url()).pathname, "/en/dashboard");
+      assert.equal(
+        (await rpc(newcomer, "organization_onboarding_required", {})).data,
+        true,
+        "Opening the personal dashboard must not create an organization or trial",
+      );
+      // Starting an institution is an explicit corporate journey.
+      await page.goto(appUrl + "/en/dashboard?scope=ORGANIZATION");
       await page
         .getByRole("heading", {
           name: "Create your organization and start your trial",

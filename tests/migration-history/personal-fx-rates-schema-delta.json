@@ -1,0 +1,110 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "public.personal_fx_rates.from_currency",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_fx_rates.id",
+      "fingerprint": "14d922d5953a033bd73eb735b72efd58"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_fx_rates.rate",
+      "fingerprint": "07424ab98b2aeaafe9b25aad1fdf2cbc"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_fx_rates.source",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_fx_rates.to_currency",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_fx_rates.user_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_fx_rates.valuation_date",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_fx_rates.personal_fx_distinct_currencies",
+      "fingerprint": "7924b91798a85e88f3e75a001e831824"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_fx_rates.personal_fx_owner_pair_date_source",
+      "fingerprint": "0941ce9a238a4db7ca59af1e12fbf492"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_fx_rates.personal_fx_rates_from_currency_fkey",
+      "fingerprint": "b778ed6bc6db5a11113274384e57261b"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_fx_rates.personal_fx_rates_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_fx_rates.personal_fx_rates_rate_check",
+      "fingerprint": "c4ce70827135196c5e527737af2dd5c8"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_fx_rates.personal_fx_rates_to_currency_fkey",
+      "fingerprint": "dfa14daba7e3f7099d6ce4717b5fbd3f"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_fx_rates.personal_fx_rates_user_id_fkey",
+      "fingerprint": "f52ea365e97de6e8cafd675b03a940e4"
+    },
+    {
+      "category": "function",
+      "object_key": "private.manage_asset_opening(p_asset_id uuid, p_action text, p_expected_updated_at timestamp with time zone, p_changes jsonb)",
+      "fingerprint": "3aa9f41314ff3f8f602d221956aa0e33"
+    },
+    {
+      "category": "index",
+      "object_key": "public.personal_fx_rates.personal_fx_owner_pair_date_source",
+      "fingerprint": "7f9c50fc4c4b08761d01ee698ba5b905"
+    },
+    {
+      "category": "index",
+      "object_key": "public.personal_fx_rates.personal_fx_rates_pkey",
+      "fingerprint": "d075d94192c0ae70c5225210e7b6f00c"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.personal_fx_rates.personal_fx_insert",
+      "fingerprint": "e6d8cd19c6649dc065a0efe66e2fa234"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.personal_fx_rates.personal_fx_read",
+      "fingerprint": "be3918848528435934e70a883a26feff"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.personal_fx_rates.personal_fx_update",
+      "fingerprint": "0308f62ff94459088b036242040f3d05"
+    },
+    {
+      "category": "rls",
+      "object_key": "public.personal_fx_rates",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    }
+  ]
+}

@@ -2219,16 +2219,24 @@
       "validation_project": "Synthetic QA V2: same-date gold correction preserving subsequent FIFO, receipt and Hawl records"
     },
     {
-      "path": "supabase/migrations/20261125153000_atomic_chart_template.sql",
-      "version": "20261125153000",
+      "path": "supabase/migrations/20261125165000_personal_fx_rates.sql",
+      "version": "20261125165000",
+      "name": "personal_fx_rates",
+      "expected_md5": "328c12972ae77051e8ae56ef8200a121",
+      "file_sha256": "612a5eac3887598035183c33a801502735a2ade5df9231da384b1f8dfe288ce3",
+      "validation_project": "Isolated personal FX: row isolation, same-key updates and dated opening balance FX"
+    },
+    {
+      "path": "supabase/migrations/20261126124000_atomic_chart_template.sql",
+      "version": "20261126124000",
       "name": "atomic_chart_template",
       "expected_md5": "728b4fbc779ee558725493e6a911049b",
       "file_sha256": "845967671d68fe7a837d7bb9efa0919d34d07ef10ee3a84675b9f692ae8de902",
       "validation_project": "Disposable financial chart batch activation, conflict rollback, replay and audit"
     },
     {
-      "path": "supabase/migrations/20261125153100_fiscal_reversal_window.sql",
-      "version": "20261125153100",
+      "path": "supabase/migrations/20261126124100_fiscal_reversal_window.sql",
+      "version": "20261126124100",
       "name": "fiscal_reversal_window",
       "expected_md5": "e0328bba4326ae855a8feeaa2ebf1c54",
       "file_sha256": "32b98d13305114d6475cd4a9e65122d623f10c9f15834abf1cb8c7a85e3b03f8",

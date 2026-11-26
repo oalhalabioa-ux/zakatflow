@@ -26,6 +26,22 @@ export const readColors = elements => elements.map(el=>{
   return {fg:style.color,bg:getComputedStyle(surface).backgroundColor};
 });
 
+// This destination uses opaque white text over Modern's two-stop RGB gradient.
+// backgroundColor alone is transparent there; the painted stops determine contrast.
+export function workflowDestinationContrast({fg,bg,image}) {
+  if(image==='none')return contrast({fg,bg});
+  const channel='\\d+(?:\\.\\d+)?';
+  const color=`rgb\\(\\s*${channel}\\s*,\\s*${channel}\\s*,\\s*${channel}\\s*\\)`;
+  const gradient=new RegExp(`^linear-gradient\\(-?${channel}deg,\\s*(${color}),\\s*(${color})\\)$`).exec(image);
+  assert.ok(gradient,`Unsupported workflow destination background: ${image}`);
+  assert.equal(fg,'rgb(255, 255, 255)','Workflow gradient contrast supports opaque white text only');
+  const stops=gradient.slice(1);
+  assert.ok(stops.every(stop=>stop.match(/[0-9.]+/g).every(value=>Number(value)<=255)),'Workflow gradient RGB channels must be readable');
+  // For white text and opaque sRGB interpolation, the lightest endpoint has
+  // the lowest contrast. Do not accept images, transparency or extra layers.
+  return Math.min(...stops.map(bg=>contrast({fg,bg})));
+}
+
 const separateRouteFixtures = new Map([
   ['admin','redirects to the owner console'],
   ['assessments/[id]','requires a saved Zakat assessment'],
@@ -48,6 +64,7 @@ const separateRouteFixtures = new Map([
 ]);
 const routeTargets = new Map([
   ['dashboard',['dashboard','onboarding']],
+  ['enterprise',['assessments']],
   ['invoice-register',['vat']],
   ['qard-loans',['loans']],
 ]);
@@ -93,12 +110,23 @@ async function verifyVisualFixes({page,workspace,route,theme,locale,width,root})
     const ar=locale==='ar';
     const flow=workspace.locator('.review-workflow');
     await flow.getByRole('heading',{level:1,name:ar?'دورة المراجعة والاعتماد':'Review and approval workflow',exact:true}).waitFor();
-    const step=flow.locator('[aria-current=step]');
-    assert.equal(await step.innerText(),ar?'المراجعة المحاسبية':'Accounting review');
+    const status=flow.getByRole('status');
+    assert.equal(await status.innerText(),ar
+      ? 'لا توجد دورة اعتماد موحدة مفعّلة في هذه الصفحة. افتح الاحتسابات والدفعات لعرض سجلاتك وإدارة الإجراءات المتاحة في النطاق المختار.'
+      : 'A unified approval workflow is not active on this page. Open assessments and payments to view your saved records and manage the actions available in the selected workspace.');
+    assert.equal(await flow.locator('[aria-current=step]').count(),0,'Inactive workflow must not display a fabricated approval stage');
+    assert.equal(await flow.getByRole('button').count(),0,'Inactive workflow must not offer unpersisted approval transitions');
+    for(const [route,label] of [['assessments',ar?'فتح احتسابات الزكاة':'Open Zakat assessments'],['payments',ar?'فتح دفعات الزكاة':'Open Zakat payments']]) {
+      const link=flow.getByRole('link',{name:label,exact:true});
+      const target=new URL(await link.getAttribute('href'),page.url());
+      assert.equal(target.pathname,`/${locale}/${route}`);
+      assert.deepEqual(Object.fromEntries(target.searchParams),{scope:'PERSONAL'},'Workflow links must preserve the requested personal workspace without a remembered company');
+      const colors=(await link.evaluateAll(readColors))[0];
+      const image=await link.evaluate(element=>getComputedStyle(element).backgroundImage);
+      assert.ok(workflowDestinationContrast({...colors,image})>=4.5,'workflow destination contrast');
+    }
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'workflow page scroll');
-    assert.ok(contrast((await step.evaluateAll(readColors))[0])>=4.5,'active workflow step contrast');
-    await flow.getByRole('button',{name:ar?'انتقال إلى المراجعة الشرعية':'Move to Sharia review',exact:true}).click();
-    assert.equal(await step.innerText(),ar?'المراجعة الشرعية':'Sharia review');
+    assert.ok(contrast((await status.evaluateAll(readColors))[0])>=4.5,'inactive workflow notice contrast');
   }
   if(['organizations','workflow','reports','notifications'].includes(route)) {
     await page.screenshot({path:new URL(`tests/subscriptions/screenshots/after-${theme}-${route}-${locale}-${width}.png`,root).pathname});
@@ -136,6 +164,7 @@ async function verifyWorkspaceRoutes({page,theme,appUrl,root,org,modulePalette})
         assert.ok(response?.ok(),`HTTP ${response?.status()}`);
         const actual=new URL(page.url()).pathname;
         assert.ok((routeTargets.get(route)??[route]).some(target=>actual===`/${locale}/${target}`),`redirected to ${actual}`);
+        if(route==='enterprise')assert.deepEqual(Object.fromEntries(new URL(page.url()).searchParams),{scope:'PERSONAL',source:'register'},'Legacy consolidation must retain explicit personal ownership when redirecting to real assessments');
         const workspace=page.locator(`.corp-shell.theme-${theme} .corp-content`);
         const [selector,token,paletteKey]=moduleControls[route]??['','--brand-muted','muted'];
         const module=selector?workspace.locator(selector):workspace;
@@ -190,7 +219,11 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
   for(const locale of ['ar','en'])for(const width of [390,1440]) {
     await page.setViewportSize({width,height:1000});
     for(const section of ['settings','billing','settings/system','settings/regulatory']) {
-      await page.goto(`${appUrl}/${locale}/${section}?organization=${org}`);
+      // This fixture verifies the six institutional settings areas. Shared
+      // preferences keep that scope while remaining independent of a company.
+      const query=new URLSearchParams({scope:'ORGANIZATION'});
+      if(section!=='settings/system'){query.set('organization',org);query.set('level','COMPANY');}
+      await page.goto(`${appUrl}/${locale}/${section}?${query}`);
       await page.locator('.corp-shell.theme-'+theme).waitFor();
       const selectedTab=section==='billing'?'.yb-billing-tabs button[aria-pressed=true]':'.settings-tabs a[aria-current=page]';
       await page.locator(selectedTab).waitFor();
@@ -260,6 +293,6 @@ export async function verifySettingsTheme({page,theme,org,appUrl,root}) {
   }
   await verifyModulePalette({page,theme,appUrl,root,org});
   if(theme==='modern'||theme==='elegant')await verifyOwnerConsole({page,theme,appUrl,root});
-  await page.goto(`${appUrl}/en/settings?organization=${org}`);
+  await page.goto(`${appUrl}/en/settings?scope=ORGANIZATION&organization=${org}&level=COMPANY`);
   await page.getByLabel('Organization name',{exact:true}).waitFor();
 }

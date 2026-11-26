@@ -9,6 +9,7 @@ import TopbarOrganizationControls from '@/components/TopbarOrganizationControls'
 import {useWorkspaceScope} from '@/hooks/useWorkspaceScope';
 import {currentWorkspaceScope,type WorkspaceScope} from '@/lib/topbar-navigation';
 import {accountDraftsVisibleInScope} from '@/lib/feasibility/portfolio-scope';
+import {feasibilityOrganizationContext} from '@/lib/feasibility/workspace-organization';
 import {createStudy,evaluateStudy,type FeasibilityStudy,type Sector,type StudyStatus,type StudyTab,type Scenario} from '@/lib/feasibility/engine';
 import ProjectHandoffPanel from '@/components/feasibility/ProjectHandoffPanel';
 import CollaborationPanel from '@/components/feasibility/CollaborationPanel';
@@ -181,8 +182,10 @@ function FeasibilityWorkspaceContent({
  const organizationRequestRef=useRef(0);
  useEffect(()=>{
   const read=()=>{
-   const params=new URLSearchParams(window.location.search);
-   setOrganizationId(params.get('organization')||rememberedOrganization()||'');
+   const selection=feasibilityOrganizationContext(window.location.search,scope,organizations,rememberedOrganization());
+   setOrganizationId(selection.organizationId);
+   if(selection.canonicalQuery!==null)
+    window.history.replaceState(null,'',window.location.pathname+'?'+selection.canonicalQuery);
   };
   read();
   window.addEventListener('zf-organization-selection',read);
@@ -191,7 +194,7 @@ function FeasibilityWorkspaceContent({
    window.removeEventListener('zf-organization-selection',read);
    window.removeEventListener('popstate',read);
   };
- },[searchParams]);
+ },[searchParams,scope,organizations]);
  useEffect(()=>{
   const requestId=++organizationRequestRef.current;
   setOrganizationStudies([]);setOrganizationSelectedId('');

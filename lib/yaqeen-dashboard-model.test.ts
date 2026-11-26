@@ -8,3 +8,11 @@ it('includes classified investments in the corporate main dashboard distribution
  expect(model.allocation.reduce((n,a)=>n+a.value,0)).toBe(model.assets);
  expect(model.allocation.find(a=>a.label==='أخرى')?.value).toBe(5);
 });
+
+it('makes dashboard shortcuts carry their scope when opened in a fresh tab',()=>{
+ const personal=yaqeenDashboardModel({assets:{},financial:null,personal:true,ar:false,locale:'en'});
+ expect(new URL(personal.metrics[0].href,'https://app.invalid').searchParams.get('scope')).toBe('PERSONAL');
+ const business=yaqeenDashboardModel({assets:null,financial:{organization:{id:'company-a',base_currency:'SAR'},group:true},personal:false,ar:false,locale:'en'});
+ const target=new URL(business.metrics[4].href,'https://app.invalid');
+ expect(target.searchParams.get('scope')).toBe('ORGANIZATION');expect(target.searchParams.get('organization')).toBe('company-a');expect(target.searchParams.get('level')).toBe('GROUP');
+});
