@@ -142,10 +142,12 @@ async function verifySavedAssessmentMethod(browser) {
    assert.equal(assessment.method_id,savedMethod.id);
    assert.equal(Number(assessment.zakat_due),900);
 
+   await page.reload();
    page.once('dialog',dialog=>dialog.accept());
    const finalResponse=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/assessments/confirm'&&r.request().method()==='POST');
    await page.getByRole('button',{name:'Finalize assessment',exact:true}).click();
    const final=await finalResponse;
+   assert.equal(final.request().postDataJSON().id,assessment.id);
    assert.ok(final.ok(),await final.text());
    const closed=value(await owner.client.from('zakat_hawl_cycles').select('status,final_assessment_id').eq('id',cycle.id).single());
    assert.equal(closed.status,'CLOSED');
