@@ -101,6 +101,7 @@ try{
    'personal-fx-rates-schema-delta',
    'atomic-chart-template-schema-delta',
    'fiscal-reversal-window-schema-delta',
+   'personal-first-hawl-schema-delta',
   ];
   const deltas=await Promise.all(deltaNames.map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
   for(const delta of deltas){
