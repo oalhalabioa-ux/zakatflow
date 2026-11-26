@@ -15,6 +15,9 @@ const sql=input=>execFileSync('docker',['exec','-i','supabase_db_migration-histo
 const checks=[];const check=async(name,run)=>{await run();checks.push({name,status:'passed'});console.log('PASS '+name)};
 try{
  const manifest=await verifyFiles();
+ await check('personal income, evidence and collection stay owner-scoped and idempotent',async()=>{
+  sql(await load('tests/personal-income-documents.sql'));
+ });
  await check('atomic institutional chart template and tenant isolation',async()=>{
   assert.match(sql(await load('tests/sql/atomic-chart-template.sql')),/PASS atomic chart activation/);
  });
@@ -110,6 +113,7 @@ try{
    'atomic-chart-template-schema-delta',
    'fiscal-reversal-window-schema-delta',
    'personal-purchase-funding-schema-delta',
+   'personal-income-schema-delta',
   ];
   const deltas=await Promise.all(deltaNames.map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
   for(const delta of deltas){

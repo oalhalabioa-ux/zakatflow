@@ -1,9 +1,13 @@
 -- Run against a disposable database with two synthetic auth.users.
 begin;
-insert into auth.users(id) values ('00000000-0000-4000-8000-000000000001'), ('00000000-0000-4000-8000-000000000002');
+insert into auth.users(id,email,email_confirmed_at) values
+('00000000-0000-4000-8000-000000000001','personal-income-1@example.invalid',now()),
+('00000000-0000-4000-8000-000000000002','personal-income-2@example.invalid',now());
 insert into public.profiles(id) select id from auth.users where id in ('00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000002') on conflict do nothing;
 insert into public.personal_income_issuers(owner_id,vat_number,address,valid_from,valid_until)
 values ('00000000-0000-4000-8000-000000000001','300000000000003','Riyadh QA address','2025-01-01','2099-12-31');
+insert into public.asset_accounts(id,user_id,asset_type,name,currency,ownership_scope)
+values('00000000-0000-4000-8000-000000000003','00000000-0000-4000-8000-000000000001','BANK','Synthetic bank','SAR','PERSONAL');
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',true);
 insert into public.personal_income_profiles(seller_name,vat_number,effective_from)
@@ -31,7 +35,7 @@ begin
   invoice := public.record_personal_income_document(gen_random_uuid(),'EVIDENCE','2026-01-01','Client','Consultation','REF1',10000,1500);
   assert invoice.kind='EXTERNAL_EVIDENCE' and invoice.receivable_id is not null;
   insert into public.personal_income_evidence values(invoice.id,gen_random_uuid(),'proof','proof.pdf','JVBERi0xLjQ=');
-  insert into public.asset_accounts(user_id,asset_type,name,currency,ownership_scope) values(auth.uid(),'BANK','Test bank','SAR','PERSONAL') returning id into bank;
+  bank:='00000000-0000-4000-8000-000000000003';
   payload:=jsonb_build_object('action','COLLECT','source_id',invoice.receivable_id,'destination_id',bank,'request_id',gen_random_uuid(),'date','2026-01-02','amount',4000,'notes','Partial settlement');
   receipt:=public.transfer_personal_financial_account(payload);
   assert public.transfer_personal_financial_account(payload)=receipt;

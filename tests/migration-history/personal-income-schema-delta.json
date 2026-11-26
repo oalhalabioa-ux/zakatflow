@@ -1,0 +1,430 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "public.personal_income_documents.customer",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_documents.description",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_documents.document_date",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_documents.gross_amount",
+      "fingerprint": "d3d01f6f7ca07c03f85ec87b1c2ef4c5"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_documents.id",
+      "fingerprint": "14d922d5953a033bd73eb735b72efd58"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_documents.invoice_number",
+      "fingerprint": "fd81c6e988744d1c05e5d816fa56a1a9"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_documents.issued_at",
+      "fingerprint": "803d56e7cb1fe700c1ecc69062976206"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_documents.kind",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_documents.net_amount",
+      "fingerprint": "e959c418be6999c43b9036f91f654610"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_documents.owner_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_documents.receivable_id",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_documents.request_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_documents.seller_address",
+      "fingerprint": "61af1481f742db258e8a20ef797fd226"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_documents.seller_name",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_documents.seller_vat_number",
+      "fingerprint": "61af1481f742db258e8a20ef797fd226"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_documents.serial",
+      "fingerprint": "78296fb14ede1542b33f5b0c49405956"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_documents.source_reference",
+      "fingerprint": "61af1481f742db258e8a20ef797fd226"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_documents.tax_amount",
+      "fingerprint": "e959c418be6999c43b9036f91f654610"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_evidence.document_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_evidence.filename",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_evidence.pdf_base64",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_evidence.reference",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_evidence.request_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_issuers.address",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_issuers.owner_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_issuers.valid_from",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_issuers.valid_until",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_issuers.vat_number",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_profiles.effective_from",
+      "fingerprint": "aed943be412fde2bc082da6a2222596b"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_profiles.owner_id",
+      "fingerprint": "042dfb0f087d132ba6cd34172e4332c7"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_profiles.seller_name",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_profiles.vat_number",
+      "fingerprint": "61af1481f742db258e8a20ef797fd226"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_documents.personal_income_documents_check",
+      "fingerprint": "4879150ae6b3164c8708e80fb538975b"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_documents.personal_income_documents_check1",
+      "fingerprint": "f61c050f0f648c024925f1df82568573"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_documents.personal_income_documents_customer_check",
+      "fingerprint": "f29d2e460237bc865079b015f0d9d780"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_documents.personal_income_documents_description_check",
+      "fingerprint": "639d508defe3e3ab9b4b0b6dc13b762b"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_documents.personal_income_documents_kind_check",
+      "fingerprint": "58008af6b48ddbf7d8a115d5eaeee1f0"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_documents.personal_income_documents_net_amount_check",
+      "fingerprint": "f5126d1e7bcb4a43ac681a029ba5170d"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_documents.personal_income_documents_owner_id_fkey",
+      "fingerprint": "a29babec2ba68361c14144513470a194"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_documents.personal_income_documents_owner_id_invoice_number_key",
+      "fingerprint": "59f7d3d5b0a5ebcf4a70ccc00da85fdc"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_documents.personal_income_documents_owner_id_request_id_key",
+      "fingerprint": "563d5437a0f2f670963819a03ed1ab4e"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_documents.personal_income_documents_owner_id_serial_key",
+      "fingerprint": "7d875a9bddee58674e3bfb9c24307602"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_documents.personal_income_documents_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_documents.personal_income_documents_receivable_id_fkey",
+      "fingerprint": "c27406774422528d43d4cac2515b1acc"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_documents.personal_income_documents_receivable_id_key",
+      "fingerprint": "9450b21e9a141cc0aa73b3aae84a0b03"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_documents.personal_income_documents_source_reference_check",
+      "fingerprint": "95681c7011517024addc504dee98aa47"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_documents.personal_income_documents_tax_amount_check",
+      "fingerprint": "0af236d08ed9769afca33a9b22cab119"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_evidence.personal_income_evidence_document_id_fkey",
+      "fingerprint": "675b0a381e60947e2273cb5164be375a"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_evidence.personal_income_evidence_document_id_reference_key",
+      "fingerprint": "815d550294653ea55ee18cfd974d03e4"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_evidence.personal_income_evidence_filename_check",
+      "fingerprint": "43d196e3581aa4f283d86a53d8cfff7c"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_evidence.personal_income_evidence_pdf_base64_check",
+      "fingerprint": "4a1f21f2ed6f423cf7e7b40999d38c07"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_evidence.personal_income_evidence_pkey",
+      "fingerprint": "2f9fa37498948adf9e6eeb7df78691d4"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_evidence.personal_income_evidence_reference_check",
+      "fingerprint": "a405cb33c50525d4f661039b77d37adc"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_issuers.personal_income_issuers_address_check",
+      "fingerprint": "b138f293981531182dbd76af9a31634a"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_issuers.personal_income_issuers_check",
+      "fingerprint": "e7a2c2d118d64879cba52ff3387a5227"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_issuers.personal_income_issuers_owner_id_fkey",
+      "fingerprint": "a29babec2ba68361c14144513470a194"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_issuers.personal_income_issuers_pkey",
+      "fingerprint": "9aab00d33b03b16a1ea3d19bf92cb077"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_issuers.personal_income_issuers_vat_number_check",
+      "fingerprint": "1c065dac00fe1ed60532b911cfba5083"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_profiles.personal_income_profiles_check",
+      "fingerprint": "5249204b7cbb9daead7dae7f7b22774d"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_profiles.personal_income_profiles_owner_id_fkey",
+      "fingerprint": "a29babec2ba68361c14144513470a194"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_profiles.personal_income_profiles_pkey",
+      "fingerprint": "9aab00d33b03b16a1ea3d19bf92cb077"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_profiles.personal_income_profiles_seller_name_check",
+      "fingerprint": "2649fa7ba488d3d4750906495f12c4cb"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_profiles.personal_income_profiles_vat_number_check",
+      "fingerprint": "1c065dac00fe1ed60532b911cfba5083"
+    },
+    {
+      "category": "function",
+      "object_key": "public.personal_income_period(p_from date, p_to date)",
+      "fingerprint": "16a52987aed802ddcd759f4f836d41fe"
+    },
+    {
+      "category": "function",
+      "object_key": "public.personal_income_recognize()",
+      "fingerprint": "3d2b0b40293a0e262d34725f64c2121a"
+    },
+    {
+      "category": "function",
+      "object_key": "public.record_personal_income_document(p_request uuid, p_mode text, p_date date, p_customer text, p_description text, p_reference text, p_net numeric, p_tax numeric)",
+      "fingerprint": "b50621c4c9f290cf31f3110126f57163"
+    },
+    {
+      "category": "index",
+      "object_key": "public.personal_income_documents.personal_income_documents_owner_id_invoice_number_key",
+      "fingerprint": "9212189d7fed937df22c55723cf83378"
+    },
+    {
+      "category": "index",
+      "object_key": "public.personal_income_documents.personal_income_documents_owner_id_request_id_key",
+      "fingerprint": "01108686d20e52db17bd7c346ab25287"
+    },
+    {
+      "category": "index",
+      "object_key": "public.personal_income_documents.personal_income_documents_owner_id_serial_key",
+      "fingerprint": "0a4c3ec95f7d27f99542692d96f72d3c"
+    },
+    {
+      "category": "index",
+      "object_key": "public.personal_income_documents.personal_income_documents_pkey",
+      "fingerprint": "20a380cfe9c029821792b393f0219652"
+    },
+    {
+      "category": "index",
+      "object_key": "public.personal_income_documents.personal_income_documents_receivable_id_key",
+      "fingerprint": "4d7f4d36d4e31420db299df408fdb4b7"
+    },
+    {
+      "category": "index",
+      "object_key": "public.personal_income_documents.personal_income_external_ref",
+      "fingerprint": "a5b04b1e458f2a44ec20945cac4e5fae"
+    },
+    {
+      "category": "index",
+      "object_key": "public.personal_income_evidence.personal_income_evidence_document_id_reference_key",
+      "fingerprint": "33ece7ac69a98348f4c8774ce7b39241"
+    },
+    {
+      "category": "index",
+      "object_key": "public.personal_income_evidence.personal_income_evidence_pkey",
+      "fingerprint": "495853b4bc9a7bc4164496a1c831853d"
+    },
+    {
+      "category": "index",
+      "object_key": "public.personal_income_issuers.personal_income_issuers_pkey",
+      "fingerprint": "2823bacf877d2a7fc4313a4b8ab9212f"
+    },
+    {
+      "category": "index",
+      "object_key": "public.personal_income_profiles.personal_income_profiles_pkey",
+      "fingerprint": "f91c0644f9218269e9ce3ef09bbbb15b"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.personal_income_documents.personal_income_document_read",
+      "fingerprint": "108bcd017d075c55f235733dec179f50"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.personal_income_evidence.personal_income_evidence_owner",
+      "fingerprint": "4e61c1cc1bf753ac2fca267662172c06"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.personal_income_issuers.read_personal_issuer",
+      "fingerprint": "af25ce1cb2f8e20f79cfea9d24f813a4"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.personal_income_profiles.personal_income_profile_access",
+      "fingerprint": "0cffeef06d4d534287d9d77cb6e3fcda"
+    },
+    {
+      "category": "rls",
+      "object_key": "public.personal_income_documents",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "rls",
+      "object_key": "public.personal_income_evidence",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "rls",
+      "object_key": "public.personal_income_issuers",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "rls",
+      "object_key": "public.personal_income_profiles",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.personal_income_documents.recognize_personal_income",
+      "fingerprint": "54224a886cb637666e1b84dc84650bed"
+    }
+  ]
+}
