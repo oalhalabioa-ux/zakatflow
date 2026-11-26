@@ -244,10 +244,13 @@ export default function FeasibilityReport({study,locale,allowExport=true,titleIn
       {l('تعكس النسخة الحالية مدخلات الدراسة. سجّل القرار في قسم القرارات بعد التحقق من الافتراضات والأدلة.',
        'This version reflects the study inputs. Record the decision in the Decisions section after verifying the assumptions and evidence.')}
      </p>
+     <dl className="fs-royal-report-edition">
+      <div><dt>{l('تاريخ الدراسة','Study date')}</dt>
+       <dd>{study.studyDate?<time dateTime={study.studyDate}><bdi>{study.studyDate}</bdi></time>:'—'}</dd></div>
+      <div><dt>{l('حالة مراجعة النسخة','Revision review status')}</dt><dd>{reviewState}</dd></div>
+     </dl>
      <dl className="fs-royal-checks">{[
       [l('معدّ الدراسة','Prepared by'),study.preparedBy],
-      [l('تاريخ الدراسة','Study date'),study.studyDate],
-      [l('حالة مراجعة النسخة','Revision review status'),reviewState],
       [l('موقع المشروع','Project location'),[study.siteDescription,study.region,study.country].filter(Boolean).join(' · ')],
       [l('المالك القانوني المصرّح به','Declared legal owner'),study.legalOwner],
       [l('نوع الدراسة','Study type'),study.studyType?(locale==='ar'?studyTypeLabels[study.studyType].ar:studyTypeLabels[study.studyType].en):undefined],

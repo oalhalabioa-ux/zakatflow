@@ -609,6 +609,11 @@
 @media print { .fs-report-requirements-link { display: none; } }
 .fs-royal-report-detail .fs-royal-report-issuance { background: #E8F1EB; color: var(--fs-green); }
 .fs-royal-report-issuance .fs-royal-icon { color: var(--fs-green); }
+.fs-royal-report-edition { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin: 0; font-size: 12px; }
+.fs-royal-report-edition > div { display: grid; align-content: start; gap: 4px; padding: 7px 9px; border: 1px solid var(--fs-line); border-radius: 6px; }
+.fs-royal-report-edition dt { color: var(--fs-muted); }
+.fs-royal-report-edition dd { margin: 0; color: var(--fs-navy); font-weight: 700; overflow-wrap: anywhere; }
+@media print { .fs-royal-report-edition { break-inside: avoid; } }
 .fs-royal-report-summary-kpis .fs-metric strong { font-size: clamp(15px, 2vw, 23px); }
 .fs-royal-report-detail .fs-royal-checks dd { text-align: end; overflow-wrap: anywhere; }
 .fs-royal-sensitivity [data-base-case="true"] { box-shadow: inset 0 0 0 1px var(--fs-green); font-weight: 800; }
