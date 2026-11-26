@@ -33,12 +33,14 @@ const locked = JSON.parse(await readFile('package-lock.json', 'utf8')).packages[
 if (locked.version !== '0.7.1' || !locked.integrity || locked.dependencies) throw Error('PINNED_WASM_PACKAGE_REQUIRED');
 await writeFile(output + '/package-lock.json', JSON.stringify({ name: packageJson.name, version: packageJson.version, lockfileVersion: 3, requires: true,
   packages: { '': { name: packageJson.name, version: packageJson.version, dependencies: packageJson.dependencies, engines: packageJson.engines }, 'node_modules/libxml2-wasm': locked } }));
-await writeFile(output + '/vercel.json', JSON.stringify({ version: 2, buildCommand: '',
+await writeFile(output + '/vercel.json', JSON.stringify({ version: 2, buildCommand: '', outputDirectory: 'public',
   functions: { 'api/simulation.js': { maxDuration: 60, includeFiles: 'node_modules/libxml2-wasm/lib/**' } },
   headers: [{ source: '/(.*)', headers: [
     { key: 'Cache-Control', value: 'private, no-store' }, { key: 'X-Content-Type-Options', value: 'nosniff' },
     { key: 'Referrer-Policy', value: 'no-referrer' }, { key: 'X-Frame-Options', value: 'DENY' },
     { key: 'Content-Security-Policy', value: "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'" },
   ] }], git: { deploymentEnabled: { '**': false, main: true } } }));
-await writeFile(output + '/source.json', JSON.stringify({ sourceSha, diagnosticOnly: true, productionAllowed: false }));
+const source = JSON.stringify({ sourceSha, diagnosticOnly: true, productionAllowed: false });
+await writeFile(output + '/source.json', source);
+if (reporting) await writeFile(output + '/public/source.json', source);
 console.log(JSON.stringify({ output, sourceSha, deployed: false }));
