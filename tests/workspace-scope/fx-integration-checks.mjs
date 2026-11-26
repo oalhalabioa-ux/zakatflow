@@ -197,6 +197,52 @@ export async function fxIntegrationAcceptance({app,ownerContext,outsiderContext,
   assert.equal(Number(prior.base_value),500);
   assert.equal(prior.metadata.fx_rate_id,inverse.id);
  });
+ await check('Integrated FX UI: purchase distinguishes the reference, keeps the draft and uses a newly recorded rate',async()=>{
+  const date='2000-02-29';
+  await page.goto(app+'/en/assets?scope=PERSONAL');
+  await page.getByRole('button',{name:/Add asset/}).click();
+  await page.getByRole('radio',{name:/Purchase new asset/}).check();
+  await page.getByText('Currency & tax settings',{exact:true}).click();
+  await page.getByTestId('asset-entry-currency').selectOption('USD');
+  await page.getByTestId('asset-entry-date').fill(date);
+  const reference=page.getByTestId('asset-purchase-fx-reference');
+  const missing=reference.getByText('Record the actual rate for this purchase',{exact:true});
+  await missing.waitFor();
+  assert.match(await reference.innerText(),/reference for comparison.*1 USD = 3\.75 SAR/);
+  assert.equal(await page.getByText(/No saved exchange rate exists/).count(),0);
+  assert.equal(await page.getByRole('button',{name:'Save asset',exact:true}).isEnabled(),false);
+  const popup=ownerContext.waitForEvent('page');
+  await reference.getByRole('link',{name:/Record actual exchange rate/}).click();
+  const prices=await popup;
+  try {
+   const form=prices.locator('#record-fx');
+   await form.waitFor();
+   assert.equal(await form.getByRole('combobox',{name:/^From currency/}).inputValue(),'USD');
+   assert.equal(await form.getByRole('combobox',{name:/^To currency/}).inputValue(),'SAR');
+   assert.equal(await form.getByLabel('Rate date',{exact:true}).inputValue(),date);
+   const input=form.getByLabel('Exchange rate',{exact:true});
+   assert.equal(await input.inputValue(),'');
+   await input.fill('3.91');
+   await form.getByLabel('Rate source',{exact:true}).fill('Scope FX purchase actual');
+   const pending=prices.waitForResponse(response=>new URL(response.url()).pathname==='/api/fx'&&response.request().method()==='POST');
+   await form.getByRole('button',{name:'Save FX rate',exact:true}).click();
+   const response=await pending;
+   const rate=await json(response,201);
+   assert.equal(Number(rate.rate),3.91);
+   assert.equal(response.request().postDataJSON().scope,'PERSONAL');
+  } finally {
+   await prices.close();
+  }
+  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+  await reference.getByText('Saved rate to be used on this voucher',{exact:true}).waitFor();
+  assert.match(await reference.innerText(),/1 USD = 3\.91 SAR/);
+  assert.match(await reference.innerText(),/1 USD = 3\.75 SAR/);
+  assert.equal(await page.getByTestId('asset-entry-date').inputValue(),date);
+  assert.equal(await page.getByTestId('asset-entry-currency').inputValue(),'USD');
+  assert.equal(await page.getByRole('button',{name:'Save asset',exact:true}).isEnabled(),true);
+  await page.getByRole('radio',{name:/Existing asset \/ opening balance/}).check();
+  assert.equal(await reference.count(),0);
+ });
  await page.close();
  return {realAuth:true,privateRateOwner:owner.id,companies:[orgA,orgB],historicalInverseRate:4,openingValueBase:500};
 }
