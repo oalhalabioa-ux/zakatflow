@@ -12,5 +12,5 @@ export function transactionCashAccounts<T extends Asset>(assets:T[],selected:Ass
  if(!transactionAssetInWorkspace(selected,scope,organizationIds))return [];
  return assets.filter(asset=>['CASH','BANK'].includes(asset.asset_type??'')&&
   transactionAssetInWorkspace(asset,scope,organizationIds)&&
-  (asset.organization_id??null)===(selected?.organization_id??null)&&(allowForeignFunding||asset.currency===selected?.currency));
+  (asset.organization_id??null)===(selected?.organization_id??null)&&(scope==='PERSONAL'&&allowForeignFunding||asset.currency===selected?.currency));
 }
