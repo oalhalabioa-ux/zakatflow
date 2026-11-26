@@ -141,6 +141,9 @@ async function verifySavedAssessmentMethod(browser) {
    const {assessment}=await revised.json();
    assert.equal(assessment.method_id,savedMethod.id);
    assert.equal(Number(assessment.zakat_due),900);
+   if(savedMethod.code==='UNIFIED_HAWL') {
+    assert.match(assessment.calculation_snapshot.personalHawlWitness??'',/^[0-9a-f]{32}$/);
+   }
 
    await page.reload();
    page.once('dialog',dialog=>dialog.accept());

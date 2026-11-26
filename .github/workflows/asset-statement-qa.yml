@@ -50,6 +50,8 @@ jobs:
           psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -X -v ON_ERROR_STOP=1 \
             -f tests/assets-v2/gold-only-final-coverage.sql \
             -f tests/assets-v2/personal-first-hawl.sql
+      - name: Restore the full candidate schema after the legacy rollback rehearsal
+        run: npx --yes supabase@2.122.0 db reset --local --no-seed --workdir "$ASSET_QA_ROOT"
       - name: Verify receipt hawl provenance without changing the financial ledger
         run: NODE_PATH="$RUNNER_TEMP/assets-tools/node_modules" node tests/assets-v2/sale-hawl-baseline.cjs --capture-sources
       - name: Enable the canonical gold entry points on disposable QA
