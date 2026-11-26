@@ -69,13 +69,62 @@ async function waitSelected(id,label='Organization'){await page.waitForFunction(
    json={originals:[{...vatData(id,'2026-11').documents[0],document_number:holdNotes?'Stale original':'Current original',counterparty_contact_id:'70000000-0000-4000-8000-000000000001',recoverable_percent:100}]};
    if(holdNotes){noteReads.push(()=>route.fulfill({status:200,json}));return;}
   }
-  if(url.pathname==='/api/liquidity')json={accounts:[],flows:[]};
+  if(url.pathname==='/api/debt-catalog')json={organizations};
+  if(url.pathname==='/api/financial-register')json={asOf:'2026-11-26',baseCurrency:'SAR',organizations:[],organizationIds:[],entities:[],accounts:[],cashMovements:[],debts:[],debtMovements:[],assets:[],warnings:[]};
+  if(url.pathname==='/api/liquidity')json={organization:organizations.find(o=>o.id===id),organizations,organization_ids:[id],accounts:[],flows:[],entities:[],counterparties:[],counterparty_balances:[],open_items:[],categories:[],party_types:[],intercompany_transfers:[],fx_missing:[]};
   if(url.pathname==='/api/assessments/manual')json={rows:[]};
   const complete=()=>route.fulfill({status:200,json});
   if(holdCatalog&&url.pathname==='/api/organizations'||holdUsers===id&&url.pathname==='/api/organizations/users'||holdVat===id&&url.pathname==='/api/vat'){pending.push(complete);return;}
   return complete();
  });
  page=await context.newPage();page.setDefaultTimeout(20000);page.on('pageerror',error=>pageErrors.push(error.message));
+ await check('All six tax sidebar entries stay personal without reading a remembered company',async()=>{
+  const start=requests.length;
+  await page.goto(origin+'/ar/vat?scope=PERSONAL&organization='+orgB,{waitUntil:'domcontentloaded'});
+  const notice=page.getByText(/تتوفر الفوترة الضريبية للمؤسسات/);
+  await notice.waitFor();
+  const toggle=page.locator('.tax-module-toggle');
+  if(await toggle.getAttribute('aria-expanded')!=='true')await toggle.click();
+  for(const section of ['dashboard','aggregate','invoices','unified','reports','einvoicing']){
+   await page.locator('#corp-tax-nav a[href*="section='+section+'"]').click();
+   await page.waitForFunction(section=>{
+    const q=new URLSearchParams(location.search);
+    return q.get('section')===section&&q.get('scope')==='PERSONAL'&&!q.has('organization');
+   },section);
+   await notice.waitFor();
+   assert.equal(await page.getByRole('button',{name:'شخصي',exact:true}).getAttribute('aria-pressed'),'true');
+  }
+  await page.reload();await notice.waitFor();
+  assert.equal(requests.slice(start).filter(r=>r.path.startsWith('/api/vat')).length,0);
+  assert.equal(await selected('Company').count(),0);
+ });
+ await check('Seven liquidity sidebar entries keep personal scope until the banner switches',async()=>{
+  const start=requests.length;
+  await page.goto(origin+'/ar/liquidity?scope=PERSONAL&tab=forecast&organization='+orgA);
+  await page.waitForFunction(()=>!new URLSearchParams(location.search).has('organization'));
+  await page.getByText(/هذا القسم متاح في النطاق المؤسسي/).waitFor();
+  const toggle=page.locator('.liquidity-module-toggle');
+  if(await toggle.getAttribute('aria-expanded')!=='true')await toggle.click();
+  for(const tab of ['overview','position','transfers','counterparties','calendar','forecast','scenarios']){
+   await page.locator('#corp-liquidity-nav a[href*="tab='+tab+'"]').click();
+   await page.waitForFunction(tab=>{
+    const q=new URLSearchParams(location.search);
+    return q.get('scope')==='PERSONAL'&&q.get('tab')===tab&&!q.has('organization')&&!q.has('level');
+   },tab);
+   if(['calendar','forecast','scenarios'].includes(tab))await page.getByText(/هذا القسم متاح في النطاق المؤسسي/).waitFor();
+   else await page.locator('.finance-workspace').waitFor();
+   assert.equal(await page.getByRole('button',{name:'شخصي',exact:true}).getAttribute('aria-pressed'),'true');
+  }
+  await page.reload();await page.getByText(/هذا القسم متاح في النطاق المؤسسي/).waitFor();
+  const reads=requests.slice(start).filter(r=>r.path==='/api/financial-register');
+  assert.ok(reads.length>0&&reads.every(r=>new URLSearchParams(r.query).get('scope')==='PERSONAL'&&!r.query.includes('organization_id')));
+  assert.equal(requests.slice(start).filter(r=>r.path==='/api/liquidity').length,0);
+  const companyRead=page.waitForRequest(req=>new URL(req.url()).pathname==='/api/liquidity');
+  await page.getByRole('button',{name:'مؤسسي',exact:true}).click();
+  assert.equal(new URL((await companyRead).url()).searchParams.get('organization_id'),orgB);
+  await page.getByRole('button',{name:'شخصي',exact:true}).click();
+  await page.getByText(/هذا القسم متاح في النطاق المؤسسي/).waitFor();
+ });
  await check('Settings hook validates aliases, clears history transitions and rejects explicit unavailable companies',async()=>{
   for(const key of ['organization','organization_id']){
    await page.goto(`${origin}/en/settings/regulatory?scope=ORGANIZATION&${key}=${orgA}`,{waitUntil:'domcontentloaded',timeout:90000});await waitSelected(orgA);await page.getByText('Activity: Alpha activity',{exact:true}).waitFor();
