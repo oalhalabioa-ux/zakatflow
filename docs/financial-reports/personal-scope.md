@@ -44,3 +44,26 @@
 | Internal transfers | Two distinct personal cash account movements with the same `transfer_id` | Matching transaction date | Matching stored movement currency | Eliminated only from classified external activity when both recorded sides match. The cash statement still lists the original movements. |
 | Asset purchase funding | Linked purchase, FIFO withdrawal and reversal from released #531 | Purchase/withdrawal date and recorded reversal date | Payment in account currency, cost and FX in stored base currency | One cash movement at carrying value, one funding detail in the report and export. FX is shown separately from net cash flow. |
 | Historical net worth | All of the dated evidence above plus complete holdings and liabilities | Selected cutoff | By reconciled currency | Open in #398. An asset valuation subset and monetary totals cannot certify full historical net worth. |
+
+### Work 02 source contract integration
+
+The isolated integration branch also reads the draft V2 source contract from #535.
+The source classifications supplement the existing personal register and never
+replace purchase funding, transfer matching or the other dated movements.
+
+| Component | V2 record | Effective date | Currency | Isolated reconciliation |
+| --- | --- | --- | --- | --- |
+| General income and expenses | `personal_income_expense_documents` and its exact owner transaction; `read_personal_income_expense` supplies both identifiers | Original entry date or the reversal's own date | Transaction currency and stored base amount/currency | One classified 25 SAR receipt matched the register and appeared once in both export languages. The unclassified 28 SAR remained a cash receipt outside income. The SQL fixture preserved March when reversing the 25 SAR receipt later. |
+| Basic receivables | Owned receivables and posted register movements through `read_personal_debts_at_cutoff` | Dated opening, movement or reversal up to the cutoff | Stored receivable base currency | 80 SAR at 31 March. Export identifies the native source and record ID separately. |
+| Basic payables | `personal_payables`, dated payments and their source transactions | Dated obligation, payment or reversal up to the cutoff | Stored payable currency | 70 SAR at 31 March and 50 SAR after the 1 April payment in the native source. The earlier amount was retained in the report evidence. |
+| Assets and specialized contracts | Owner assets, statement journal, saved dated valuations, specialized contracts and investments | Statement cutoff and demonstrably effective valuation or contract record | Saved statement or contract currency | Asset valuation remains partial. Native basic debt coverage does not certify all investments, specialized contracts or historical changes to the original opening. Historical net worth remains incomplete. |
+
+Verification used the #535 synthetic ledger fixture over 309 canonical migrations in
+a disposable database, and passed the resulting ledger, document and debt snapshots
+to the existing report compilers. The scenario also used a registered two-company
+group with SAR functional currency. On 31 March the company's USD loan revaluation
+added 15 SAR to its debt and the group worksheet profit. After the exact 1 April
+reversal the result was zero, while group cash was unchanged. This proves a
+non-cash foreign-denominated item on a same-functional-currency worksheet.
+Translation of a foreign-functional-currency member and exact hosted browser
+acceptance remain pending.

@@ -35,8 +35,8 @@ export function personalFinancialExportRows(report:PersonalReport,view:PersonalE
  }
  if((view==='overview'||view==='position')&&report.cutoffSources?.rows.length){
   rows.push([],[t('أدلة ذمم V2 بتاريخ القطع · تغطية جزئية','V2 debt evidence at cutoff · partial coverage'),report.cutoffSources.asOf]);
-  rows.push([t('المصدر','Source'),t('الطبيعة','Side'),t('العملة','Currency'),t('الرصيد','Balance'),t('الفجوة','Gap')]);
-  for(const row of report.cutoffSources.rows)rows.push([row.id,row.side,row.currency,row.balance??'',row.gap??'']);
+  rows.push([t('المصدر','Source'),t('مرجع السجل','Record ID'),t('الطبيعة','Side'),t('العملة','Currency'),t('الرصيد','Balance'),t('الفجوة','Gap')]);
+  for(const row of report.cutoffSources.rows)rows.push([row.source,row.id,row.side,row.currency,row.balance??'',row.gap??'']);
  }
  if(view==='overview'||view==='cash'){
   rows.push([],[t('حركة الحسابات النقدية — ليست قائمة تدفقات نقدية معيارية','Cash-account activity — not a statutory cash-flow statement')]);

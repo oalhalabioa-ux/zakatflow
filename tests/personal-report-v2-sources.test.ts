@@ -41,5 +41,13 @@ it('keeps V2 cutoff debt evidence partial and never turns an explicit gap into z
    {id:original,source:'PERSONAL_RECEIVABLE',side:'RECEIVABLE',currency:'USD',balance:null,gap:'SPECIALIZED_CONTRACT_SOURCE'}],
   excludedSources:['SPECIALIZED_CONTRACTS']},cutoff);
  expect(result.rows[0].balance).toBe('70');expect(result.rows[1].balance).toBeNull();
+ const register:RegisterData={asOf:cutoff,baseCurrency:'SAR',organizations:[],organizationIds:[],entities:[],
+  assets:[],debts:[],debtMovements:[],warnings:[],accounts:[],cashMovements:[]};
+ const report={...personalFinancialReports(register,from,cutoff),cutoffSources:result};
+ for(const english of [false,true]){
+  const rows=personalFinancialExportRows(report,'position',english);
+  expect(rows).toContainEqual(['PERSONAL_PAYABLE',document,'PAYABLE','SAR','70','']);
+  expect(rows).toContainEqual(['PERSONAL_RECEIVABLE',original,'RECEIVABLE','USD','','SPECIALIZED_CONTRACT_SOURCE']);
+ }
  expect(()=>personalCutoffEvidence({...result,rows:[{...result.rows[1],balance:'0'}]},cutoff)).toThrow('PERSONAL_CUTOFF_SOURCE_INVALID');
 });
