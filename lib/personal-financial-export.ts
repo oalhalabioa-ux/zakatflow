@@ -33,6 +33,11 @@ export function personalFinancialExportRows(report:PersonalReport,view:PersonalE
   rows.push([t('الأصل','Asset'),t('العملة','Currency'),t('التكلفة الدفترية','Carrying cost'),t('قيمة التقييم المسجّلة','Recorded valuation'),t('المصدر','Source')]);
   for(const row of report.historicalAssetValuations)rows.push([row.name,row.currency,row.cost,row.market,row.source]);
  }
+ if((view==='overview'||view==='position')&&report.cutoffSources?.rows.length){
+  rows.push([],[t('أدلة ذمم V2 بتاريخ القطع · تغطية جزئية','V2 debt evidence at cutoff · partial coverage'),report.cutoffSources.asOf]);
+  rows.push([t('المصدر','Source'),t('مرجع السجل','Record ID'),t('الطبيعة','Side'),t('العملة','Currency'),t('الرصيد','Balance'),t('الفجوة','Gap')]);
+  for(const row of report.cutoffSources.rows)rows.push([row.source,row.id,row.side,row.currency,row.balance??'',row.gap??'']);
+ }
  if(view==='overview'||view==='cash'){
   rows.push([],[t('حركة الحسابات النقدية — ليست قائمة تدفقات نقدية معيارية','Cash-account activity — not a statutory cash-flow statement')]);
   rows.push([t('الحساب','Account'),t('العملة','Currency'),t('أول الفترة','Opening'),t('المقبوضات الإجمالية','Gross inflows'),t('المدفوعات الإجمالية','Gross outflows'),t('صافي الحركة','Net movement'),t('آخر الفترة','Closing')]);
@@ -49,10 +54,20 @@ export function personalFinancialExportRows(report:PersonalReport,view:PersonalE
  }
  if(view==='income'){
   const income=report.recognizedIncome??[];
-  if(!income.length)throw Error('PERSONAL_EXPORT_INCOME_EVIDENCE_REQUIRED');
-  rows.push([t('دخل وتكاليف العقود المسجلة · تغطية جزئية','Recognized contract income and costs · partial coverage')]);
-  rows.push([t('التاريخ','Date'),t('التصنيف','Category'),t('العملة','Currency'),t('المبلغ','Amount'),t('المصدر','Source')]);
-  for(const r of income)rows.push([r.date,personalIncomeLabel(r.category,en),r.currency,r.amount,r.id]);
+  const classified=report.classifiedActivity?.rows??[];
+  if(!income.length&&!classified.length)throw Error('PERSONAL_EXPORT_INCOME_EVIDENCE_REQUIRED');
+  if(income.length){
+   rows.push([t('دخل وتكاليف العقود المسجلة · تغطية جزئية','Recognized contract income and costs · partial coverage')]);
+   rows.push([t('التاريخ','Date'),t('التصنيف','Category'),t('العملة','Currency'),t('المبلغ','Amount'),t('المصدر','Source')]);
+   for(const r of income)rows.push([r.date,personalIncomeLabel(r.category,en),r.currency,r.amount,r.id]);
+  }
+  if(classified.length){
+   rows.push([],[t('الإيرادات والمصروفات المصنفة من المستندات · تغطية جزئية','Document-classified income and expenses · partial coverage')]);
+   rows.push([t('التاريخ','Date'),t('الطبيعة','Kind'),t('التصنيف','Category'),t('المبلغ','Amount'),t('العملة','Currency'),
+    t('المبلغ الأساسي','Base amount'),t('العملة الأساسية','Base currency'),t('المستند','Document'),t('حركة النقد','Cash transaction')]);
+   for(const r of classified)rows.push([r.entry_date,r.kind==='INCOME'?t('إيراد','Income'):t('مصروف','Expense'),
+    r.category_code,r.amount,r.currency,r.base_amount,r.base_currency,r.document_id,r.transaction_id]);
+  }
  }
  if(view==='accounts'){
   rows.push([t('تصنيفات عرض تلقائية — ليست حسابات ترحيل فعلية','Automatic display classifications — not posted ledger accounts')]);

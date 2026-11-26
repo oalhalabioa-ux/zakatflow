@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js';
 import type {PersonalCashClass,PersonalReportEvidence} from './personal-report-evidence';
+import type {personalCutoffEvidence,reconcilePersonalClassification} from './personal-report-v2-sources';
 import {cashStatement,registerPosition,type RegisterData} from './financial-register';
 
 /** Personal reports are a read-only register view, not corporate journal postings. */
@@ -29,6 +30,8 @@ export type PersonalReport={
  historicalPosition:Array<{currency:string;cash:string|null;receivables:string|null;liabilities:string|null;
   supplierAdvances:string|null;customerAdvances:string|null}>;
  historicalAssetValuations?:PersonalReportEvidence['assetValuations'];
+ classifiedActivity?:ReturnType<typeof reconcilePersonalClassification>;
+ cutoffSources?:ReturnType<typeof personalCutoffEvidence>;
  purchaseFunding?:Array<{id:string;date:string;currency:string;payment:string;baseCurrency:string;
    assetBasis:string;cashBasis:string;realizedFx:string;reversed:boolean}>;
  issues:string[];
@@ -123,7 +126,7 @@ export function personalFinancialReports(data:RegisterData,from:string,to:string
  }).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
  const cashByActivity:PersonalReport['cashByActivity']=[];
  const cashClass=(row:typeof activity[number]):PersonalCashClass=>{
-  return evidence.cash.get(row.reversalOfTransactionId??row.id)??'UNCLASSIFIED';
+  return evidence.cash.get(row.id)??evidence.cash.get(row.reversalOfTransactionId??'')??'UNCLASSIFIED';
  };
  const cashCurrencySet=[...new Set(activity.map(row=>row.currency))].sort();
  for(const currency of cashCurrencySet){

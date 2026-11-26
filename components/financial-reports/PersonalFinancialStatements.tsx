@@ -36,7 +36,7 @@ export default function PersonalFinancialStatements({english=false}:{english?:bo
  },[from,to]);
  function save(blob:Blob,name:string){const url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=name;document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
  async function download(kind:'csv'|'xlsx'|'print'){
-  if(busy||!report||tab==='income'&&!report.recognizedIncome?.length||exporting)return;
+  if(busy||!report||tab==='income'&&!incomeAvailable||exporting)return;
   const key=selection.current;setExporting(true);setExportError('');
   try{
    // Re-read with the authenticated user at export time. Never trust a cached
@@ -61,8 +61,9 @@ export default function PersonalFinancialStatements({english=false}:{english?:bo
  }
  const currencyAmount=(value:string|null,currency:string)=><bdi dir="ltr">{format(value)} {currency}</bdi>;
  const incomplete=report?.positions.some(p=>!p.complete)??false;
+ const incomeAvailable=Boolean(report?.recognizedIncome?.length||report?.classifiedActivity?.rows.length);
  return <main className="fs-root fs-connected fs-personal-reports" dir={english?'ltr':'rtl'} lang={english?'en':'ar'}>
-  <header className="fs-personal-head"><div><span className="fs-personal-eyebrow">{t('يقين الأعمال · النطاق الشخصي','Yaqeen Business · Personal')}</span><h1>{t('قوائمي المالية الشخصية','My personal financial reports')}</h1><p>{t('تُستمد هذه المعاينة من حساباتك وأصولك وذممك الشخصية فقط، دون بيانات أي مؤسسة.','This read-only view uses your personal accounts, assets and debts only — never an organization’s books.')}</p></div><div className="fs-personal-actions"><span className="fs-personal-scope">{t('شخصي','Personal')}</span><button type="button" disabled={busy||!report||tab==='income'&&!report.recognizedIncome?.length||exporting} onClick={()=>download('xlsx')}>{exporting?t('جارٍ التجهيز…','Preparing…'):t('Excel','Excel')}</button><button type="button" disabled={busy||!report||tab==='income'&&!report.recognizedIncome?.length||exporting} onClick={()=>download('csv')}>CSV</button><button type="button" disabled={busy||!report||tab==='income'&&!report.recognizedIncome?.length||exporting} onClick={()=>download('print')}>{t('طباعة / PDF','Print / PDF')}</button></div></header>
+  <header className="fs-personal-head"><div><span className="fs-personal-eyebrow">{t('يقين الأعمال · النطاق الشخصي','Yaqeen Business · Personal')}</span><h1>{t('قوائمي المالية الشخصية','My personal financial reports')}</h1><p>{t('تُستمد هذه المعاينة من حساباتك وأصولك وذممك الشخصية فقط، دون بيانات أي مؤسسة.','This read-only view uses your personal accounts, assets and debts only — never an organization’s books.')}</p></div><div className="fs-personal-actions"><span className="fs-personal-scope">{t('شخصي','Personal')}</span><button type="button" disabled={busy||!report||tab==='income'&&!incomeAvailable||exporting} onClick={()=>download('xlsx')}>{exporting?t('جارٍ التجهيز…','Preparing…'):t('Excel','Excel')}</button><button type="button" disabled={busy||!report||tab==='income'&&!incomeAvailable||exporting} onClick={()=>download('csv')}>CSV</button><button type="button" disabled={busy||!report||tab==='income'&&!incomeAvailable||exporting} onClick={()=>download('print')}>{t('طباعة / PDF','Print / PDF')}</button></div></header>
   <div className="fs-personal-tabs" role="tablist" aria-label={t('أنواع التقارير الشخصية','Personal report views')}>
    {tabs.map(([id,ar,en])=><button key={id} type="button" role="tab" aria-selected={tab===id} onClick={()=>setTab(id)}>{english?en:ar}</button>)}
   </div>
@@ -117,6 +118,21 @@ export default function PersonalFinancialStatements({english=false}:{english?:bo
      <tbody>{report.cashByActivity.map(r=><tr key={r.currency+r.activity}><td>{personalCashActivityLabel(r.activity,english)}</td><td>{r.currency}</td><td>{format(r.inflows)}</td><td>{format(r.outflows)}</td><td>{format(r.net)}</td></tr>)}</tbody>
     </table></div>
    </section>}
+   {tab==='income'&&Boolean(report.classifiedActivity?.rows.length)&&<section className="fs-personal-panel">
+    <h2>{t('الإيرادات والمصروفات المصنفة','Classified income and expenses')}</h2>
+    <p>{t('يشمل السطور التي طابقت المستند المصنّف بحركة النقد. التغطية جزئية.','Includes rows matched to the classified source document and cash movement. Coverage is partial.')}</p>
+    <div className="fs-table-scroll"><table className="fs-table"><thead><tr>
+     <th>{t('التاريخ','Date')}</th><th>{t('الطبيعة','Kind')}</th><th>{t('التصنيف','Category')}</th><th>{t('المبلغ','Amount')}</th>
+    </tr></thead><tbody>{report.classifiedActivity?.rows.map(row=><tr key={row.transaction_id}>
+     <td><bdi>{row.entry_date}</bdi></td><td>{row.kind==='INCOME'?t('إيراد','Income'):t('مصروف','Expense')}</td>
+     <td>{row.category_code}</td><td>{currencyAmount(row.amount,row.currency)}</td>
+    </tr>)}</tbody></table></div>
+   </section>}
+   {(tab==='overview'||tab==='position')&&report.cutoffSources&&<p className="fs-personal-source-note">
+    {t('مرجع الذمم من V2 بتاريخ القطع','V2 debt evidence at cutoff')} · <bdi>{report.cutoffSources.asOf}</bdi> ·
+    {' '}{report.cutoffSources.rows.filter(row=>row.balance!==null).length} {t('رصيد مثبت','verified balances')} ·
+    {' '}{report.cutoffSources.rows.filter(row=>row.balance===null).length} {t('رصيد يحتاج إثباتًا','balances need evidence')}.
+   </p>}
    {tab==='income'&&<section className="fs-personal-panel">
     <h2>{t('دخل وتكاليف العقود المسجلة','Recognized contract income and costs')}</h2>
     <p>{t('يغطي العرض عوائد التمويل وتكاليفه وحصص المشاركة المثبتة ودخل الاستثمار المقبوض. تحتاج الحركات العامة إلى تصنيف مسجّل.',

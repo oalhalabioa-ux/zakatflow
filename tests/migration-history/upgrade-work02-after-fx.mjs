@@ -20,7 +20,7 @@ const canonicalFx='20261125165000',installedFx='20261125201134';
 const manifest=await verifyFiles();
 const installed=()=>JSON.parse(sql("select jsonb_agg(version order by version) from supabase_migrations.schema_migrations"));
 const expectedBefore=manifest.entries.map(entry=>entry.version===canonicalFx?installedFx:entry.version)
- .filter(version=>!versions.includes(version)&&version!==fundingVersion).sort();
+ .filter(version=>!versions.includes(version)&&version<fundingVersion).sort();
 assert.deepEqual(installed(),expectedBefore);
 assert.equal(sql("select name from supabase_migrations.schema_migrations where version='"+installedFx+"'"),'personal_fx_rates');
 assert.equal(sql("select to_regprocedure('public.apply_financial_chart_template(uuid,text,jsonb)') is null"),'t');
