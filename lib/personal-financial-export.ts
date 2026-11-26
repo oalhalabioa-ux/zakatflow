@@ -37,6 +37,13 @@ export function personalFinancialExportRows(report:PersonalReport,view:PersonalE
   rows.push([t('الرمز','Code'),t('التصنيف','Category'),t('طبيعة الرصيد','Balance type'),t('العملة','Currency'),t('الرصيد','Balance')]);
   for(const c of report.categories)rows.push([c.code,en?c.en:c.ar,c.kind,c.currency,c.amount]);
  }
+ if((view==='overview'||view==='cash')&&report.purchaseFunding?.length){
+  rows.push([],[t('تمويل شراء الأصول وفرق الصرف','Asset purchase funding and FX difference')],
+   [t('التاريخ','Date'),t('الحركة','Movement'),t('مبلغ التمويل','Funding amount'),t('عملة التمويل','Funding currency'),
+    t('تكلفة الأصل','Asset cost'),t('تكلفة دفعات النقد','Cash lot cost'),t('فرق الصرف المحقق','Realized FX'),t('العملة الأساسية','Base currency')]);
+  for(const row of report.purchaseFunding)rows.push([row.date,row.reversed?t('عكس','Reversal'):t('شراء','Purchase'),
+   row.payment,row.currency,row.assetBasis,row.cashBasis,row.realizedFx,row.baseCurrency]);
+ }
  if(report.issues.length){rows.push([],[t('تنبيهات المصدر','Source cautions')]);for(const issue of report.issues)rows.push([issue]);}
  if(rows.length>25_000)throw Error('PERSONAL_EXPORT_TOO_LARGE');
  return rows;
