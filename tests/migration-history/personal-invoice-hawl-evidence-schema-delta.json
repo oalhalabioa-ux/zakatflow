@@ -1,0 +1,130 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "public.personal_invoice_hawl_events.classification",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_invoice_hawl_events.document_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_invoice_hawl_events.due_date",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_invoice_hawl_events.effective_date",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_invoice_hawl_events.id",
+      "fingerprint": "16c34874fe5ad3c78491598b0765f8da"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_invoice_hawl_events.recorded_at",
+      "fingerprint": "3eb8788b50fc316e6b0c1635d03f25b8"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_invoice_hawl_events.request_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_invoice_hawl_events.personal_invoice_hawl_events_classification_check",
+      "fingerprint": "0ecb83857a85b5cd979d47acacc9f7b2"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_invoice_hawl_events.personal_invoice_hawl_events_classification_not_null",
+      "fingerprint": "a9212f4977622997a5dec6e1272da1d3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_invoice_hawl_events.personal_invoice_hawl_events_document_id_fkey",
+      "fingerprint": "675b0a381e60947e2273cb5164be375a"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_invoice_hawl_events.personal_invoice_hawl_events_document_id_not_null",
+      "fingerprint": "9ff88cba5f8a6ea54a20fe6a4f58a8ee"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_invoice_hawl_events.personal_invoice_hawl_events_document_id_request_id_key",
+      "fingerprint": "e347b18236cfd56da0051c9f1437f4d1"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_invoice_hawl_events.personal_invoice_hawl_events_due_date_not_null",
+      "fingerprint": "b91ba131406101d0bf02aa60a281aa04"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_invoice_hawl_events.personal_invoice_hawl_events_effective_date_not_null",
+      "fingerprint": "1d275671622022d33fda413d41d3c1af"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_invoice_hawl_events.personal_invoice_hawl_events_id_not_null",
+      "fingerprint": "907e13ecdcdbd392cdd617ad837e567b"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_invoice_hawl_events.personal_invoice_hawl_events_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_invoice_hawl_events.personal_invoice_hawl_events_recorded_at_not_null",
+      "fingerprint": "1f0a2c50b521d227f1b8f6b71e384760"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_invoice_hawl_events.personal_invoice_hawl_events_request_id_not_null",
+      "fingerprint": "9ad06d2910d72fcf7e6bb4b8ae6f950e"
+    },
+    {
+      "category": "function",
+      "object_key": "public.read_personal_invoice_hawl_at_cutoff(p_document uuid, p_as_of date)",
+      "fingerprint": "71bb45298c6c9f2ca470b29b4ffe7981"
+    },
+    {
+      "category": "function",
+      "object_key": "public.record_personal_invoice_hawl_event(p_document uuid, p_request uuid, p_due_date date, p_classification text, p_effective_date date)",
+      "fingerprint": "ea0b4fb158a91678f1ed374d35d51a59"
+    },
+    {
+      "category": "index",
+      "object_key": "public.personal_invoice_hawl_events.personal_invoice_hawl_events_cutoff_idx",
+      "fingerprint": "163f526fa087bee9af367d34bcf6e8c9"
+    },
+    {
+      "category": "index",
+      "object_key": "public.personal_invoice_hawl_events.personal_invoice_hawl_events_document_id_request_id_key",
+      "fingerprint": "a432425310f7889d0107f8f9c07ff99e"
+    },
+    {
+      "category": "index",
+      "object_key": "public.personal_invoice_hawl_events.personal_invoice_hawl_events_pkey",
+      "fingerprint": "538bd6b200812d79ce21f3f314991d28"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.personal_invoice_hawl_events.personal_invoice_hawl_events_owner_read",
+      "fingerprint": "fb358da75a7fa772bc57dd0af337ecc8"
+    },
+    {
+      "category": "rls",
+      "object_key": "public.personal_invoice_hawl_events",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    }
+  ]
+}
