@@ -33,16 +33,23 @@ sql(`insert into auth.users(id,email,email_confirmed_at) values('${owner}','${ow
  values('${owner}','SAR','USD','2024-01-01',0.25,'Private opening quote');
  insert into public.liquidity_accounts(id,organization_id,name,account_type,currency,current_balance,current_balance_base,created_by,metadata)
  values('${bank}','${org}','Existing bank','BANK','SAR',100,100,'${owner}',
- '{"opening_date":"2023-12-31","opening_balance":100,"opening_fx_rate":1}');
+ '{"opening_date":"2024-01-01","opening_balance":100,"opening_fx_rate":1}');
  select public.save_financial_fiscal_calendar('${org}',1,1,'3300',0,'Existing fiscal calendar');
  select public.save_financial_chart_account('${org}','610081','6100','مصروف قائم','Existing expense','DEBIT',true,true,0,'Existing chart leaf');
  do $fixture$
- declare workspace jsonb; saved jsonb; policy jsonb;
+ declare workspace jsonb; saved jsonb; policy jsonb; entries jsonb;
  begin
+  perform public.assign_financial_opening_source('${org}','liquidity_accounts','${bank}','2024-01-01','2024-01-01','1000',100,'Identify opening bank');
   workspace:=public.financial_opening_workspace('${org}','2024-01-01');
-  saved:=public.save_financial_opening('${org}','2024-01-01',0,workspace->'source'->>'revision',
-   '{"equity:3100":{"amount":"100","side":"CREDIT"},"equity:3200":{"amount":"0","side":"CREDIT"},"equity:3300":{"amount":"0","side":"CREDIT"}}','Approve existing opening');
-  perform public.approve_financial_opening((saved->>'id')::uuid,(saved->>'version')::int);
+  select coalesce(jsonb_object_agg(row->>'id',jsonb_build_object('amount','0','side',row->>'normal')),'{}'::jsonb)
+   into entries from jsonb_array_elements(workspace->'source'->'rows') row
+   where jsonb_array_length(row->'vouchers')=0;
+  entries:=jsonb_set(entries,'{equity:3100}','{"amount":"100","side":"CREDIT"}');
+  saved:=public.save_financial_opening('${org}','2024-01-01',0,workspace->'source'->>'revision',entries,'Approve existing opening');
+  saved:=public.approve_financial_opening((saved->>'id')::uuid,(saved->>'version')::int);
+  if (select sum((row->>'debit')::numeric) from jsonb_array_elements(saved->'approved_opening') row) is distinct from 100::numeric then
+   raise exception 'Unexpected fixture opening amount';
+  end if;
   policy:=public.save_financial_reporting_policy('${org}','2024-01-01',0,'[]','Approve existing zero-activity policy');
   perform public.approve_financial_reporting_policy((policy->>'id')::uuid,(policy->>'version')::int);
  end $fixture$;`);
