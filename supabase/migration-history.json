@@ -2241,6 +2241,14 @@
       "expected_md5": "e0328bba4326ae855a8feeaa2ebf1c54",
       "file_sha256": "32b98d13305114d6475cd4a9e65122d623f10c9f15834abf1cb8c7a85e3b03f8",
       "validation_project": "Synthetic fiscal trial before and after foreign currency accrual reversal"
+    },
+    {
+      "path": "supabase/migrations/20261126175500_personal_first_hawl_start.sql",
+      "version": "20261126175500",
+      "name": "personal_first_hawl_start",
+      "expected_md5": "8dac70d4c5c0c380ac2ec45efc7a30c4",
+      "file_sha256": "b38995d5702213fc947899f27000c37de8f37abd0372e55d0a9e1bc7c81e6c0a",
+      "validation_project": "Isolated personal first-cycle upgrade, pre-traffic rollback and gold receipt projections"
     }
   ]
 }
