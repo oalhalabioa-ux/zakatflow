@@ -246,7 +246,7 @@ export async function POST(request: Request) {
         .eq('organization_id', draft.organization_id).eq('id', accountingDocumentId).maybeSingle();
       if (sourceError) throw sourceError;
       if (!source || source.document_type !== 'SALES' || source.document_kind !== draft.document_type
-        || source.document_number !== draft.invoice_number || source.counterparty_contact_id !== draft.buyer_contact_id
+        || source.document_number !== draft.invoice_number || source.counterparty_contact_id !== (draft.buyer_contact_id ?? null)
         || (source.source_currency || source.currency) !== draft.currency
         || source.transaction_date !== draft.issue_date || (source.due_date || source.transaction_date) !== (draft.due_date || draft.issue_date)
         || !new Decimal(source.source_net_amount ?? source.net_amount).eq(calculated.totals.tax_exclusive_amount)
