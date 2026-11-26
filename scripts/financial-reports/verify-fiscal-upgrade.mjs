@@ -42,7 +42,8 @@ const migrations=[
  '20261115122951_financial_group_acquisition_evidence.sql',
  '20261115223648_financial_group_document_coverage.sql',
  '20261126124000_atomic_chart_template.sql',
- '20261126124100_fiscal_reversal_window.sql'
+ '20261126124100_fiscal_reversal_window.sql',
+ '20261126150000_personal_purchase_funding.sql'
 ];
 const sql=input=>execFileSync('docker',['exec','-i','supabase_db_opening-workspace-qa','psql','-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-U','postgres','-d','postgres'],{input,encoding:'utf8',maxBuffer:8*1024*1024});
 const out='docs/financial-reports/evidence-opening-live';await mkdir(out,{recursive:true});

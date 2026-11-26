@@ -139,3 +139,33 @@ describe('independent read-only personal financial reports',()=>{
   expect(d.cashMovements.map(m=>m.id)).toEqual(originalOrder);
  });
 });
+
+it('reports asset funding cash basis and FX once, then reverses both at the original amounts',async()=>{
+ const {purchaseFundingFromCashMovement}=await import('../lib/personal-purchase-funding');
+ const {personalFinancialExportRows}=await import('../lib/personal-financial-export');
+ const d=personal();
+ const withdrawal='07872b27-39c1-4df2-88e9-19d2861df8ec';
+ const metadata={source:'ASSET_PURCHASE',purchase_funding:{
+  version:1,withdrawal_id:withdrawal,payment_amount:100,payment_currency:'USD',
+  base_currency:'SAR',asset_basis_base:375,cash_basis_base:400,realized_fx_base:-25,
+ }};
+ const original=purchaseFundingFromCashMovement({id:withdrawal,transaction_type:'WITHDRAWAL',metadata});
+ const reversal=purchaseFundingFromCashMovement({id:'reversal',transaction_type:'REVERSAL',
+  reversal_of_transaction_id:withdrawal,metadata});
+ expect(purchaseFundingFromCashMovement({id:'purchase',transaction_type:'PURCHASE',metadata})).toBeUndefined();
+ d.cashMovements=[
+  {id:withdrawal,accountId:'bank',date:'2026-10-01',currency:'SAR',amount:-400,source:'ASSETS',
+   description:'funded purchase',reference:'p1',purchaseFunding:original},
+  {id:'reversal',accountId:'bank',date:'2026-10-02',currency:'SAR',amount:400,source:'ASSETS',
+   description:'funding reversal',reference:'r1',purchaseFunding:reversal},
+ ];
+ const first=personalFinancialReports(d,'2026-10-01','2026-10-01');
+ expect(first.cashAccounts[0].outflows).toBe('400.00');
+ expect(first.purchaseFunding).toMatchObject([{payment:'100',currency:'USD',assetBasis:'375',
+  cashBasis:'400',realizedFx:'-25',baseCurrency:'SAR',reversed:false}]);
+ const full=personalFinancialReports(d,'2026-10-01','2026-11-06');
+ expect(full.cashAccounts[0]).toMatchObject({inflows:'400.00',outflows:'400.00',netMovement:'0.00'});
+ expect(full.purchaseFunding?.[1]).toMatchObject({payment:'-100',cashBasis:'-400',assetBasis:'-375',realizedFx:'25',reversed:true});
+ expect(personalFinancialExportRows(full,'cash',true)).toContainEqual(
+  ['2026-10-02','Reversal','-100','USD','-375','-400','25','SAR']);
+});

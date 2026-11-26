@@ -2243,6 +2243,14 @@
       "validation_project": "Synthetic fiscal trial before and after foreign currency accrual reversal"
     },
     {
+      "path": "supabase/migrations/20261126150000_personal_purchase_funding.sql",
+      "version": "20261126150000",
+      "name": "personal_purchase_funding",
+      "expected_md5": "bb867b72902910648957c0d8628c95e5",
+      "file_sha256": "f364457448da3f22255868990c73d99f36375860f9d6ded59be34a68fbb0603c",
+      "validation_project": "Disposable canonical schema, quantity-first purchase funding in both paths, historical upgrade, retries, rollback and exact reversal"
+    },
+    {
       "path": "supabase/migrations/20261126175500_personal_first_hawl_start.sql",
       "version": "20261126175500",
       "name": "personal_first_hawl_start",

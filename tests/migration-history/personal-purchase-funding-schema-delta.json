@@ -1,0 +1,30 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.fund_personal_asset_purchase(p_purchase_id uuid)",
+      "fingerprint": "9f4d18064a7a71188218a4ea04240940"
+    },
+    {
+      "category": "function",
+      "object_key": "private.reverse_personal_asset_purchase_funding(p_purchase_id uuid)",
+      "fingerprint": "b3df268f11dd55cc141ebd412f6e5ff7"
+    },
+    {
+      "category": "function",
+      "object_key": "public.create_asset_with_acquisition(p_asset jsonb, p_request_id uuid)",
+      "fingerprint": "861d2f352283b7420e160fcbc9ffbfbf"
+    },
+    {
+      "category": "function",
+      "object_key": "public.purchase_existing_asset(p_asset_id uuid, p_asset jsonb, p_request_id uuid)",
+      "fingerprint": "c48b2bf5a4844ad500d4e5ca8ab8c3e7"
+    },
+    {
+      "category": "function",
+      "object_key": "public.reverse_transaction(p_user_id uuid, p_transaction_id uuid)",
+      "fingerprint": "07f4168f484e42d8c80486488e805501"
+    }
+  ]
+}
