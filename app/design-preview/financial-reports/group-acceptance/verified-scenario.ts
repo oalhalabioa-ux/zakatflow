@@ -46,9 +46,9 @@ export function ownershipChangeFixture(){
  before.to='2026-06-30';
  before.relationships[0].effectiveTo=before.to;
  after.from='2026-07-01';
- after.relationships[0]={...after.relationships[0],
+ after.relationships=[{...after.relationships[0],
   effectiveFrom:after.from,controlAssessmentId:'83000000-0000-4000-8000-000000000001',
-  directEconomicInterestPercent:'90',directVotingInterestPercent:'90'};
+  directEconomicInterestPercent:'90',directVotingInterestPercent:'90'}];
  const input={subsidiaryOrganizationId:control.relationships[0].subsidiaryOrganizationId,currency:'SAR',
   method:'PROPORTIONATE_NET_ASSETS',consideration:'150',carryingNetAssets:'1250',openingNci:'200',
   beforeProfit:'250',afterProfit:'300',beforeOci:'0',afterOci:'0',sourceEvidence:'QA #392 synthetic retained-control transaction'};
