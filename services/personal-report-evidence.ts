@@ -1,6 +1,7 @@
 import {requireUser} from './auth';
-import {personalReportEvidence} from '../lib/personal-report-evidence';
+import {personalHistoricalValuation,personalReportEvidence,type PersonalHistoricalValuation} from '../lib/personal-report-evidence';
 import type {RegisterData} from '../lib/financial-register';
+import {readAssetStatement} from './asset-statement';
 
 export async function readPersonalReportEvidence(register:RegisterData,to:string){
  const {supabase,user}=await requireUser();
@@ -24,5 +25,26 @@ export async function readPersonalReportEvidence(register:RegisterData,to:string
   all((a,b)=>supabase.from('investment_operations').select('id,contract_id,organization_id,status,kind,account_id,operation_date,amount,exchange_rate')
    .eq('user_id',user.id).is('organization_id',null).eq('status','POSTED').lte('operation_date',to).order('id').range(a,b)),
  ]);
- return personalReportEvidence(register,{contracts,movements,funding,transactions,payables,investments});
+ const evidence=personalReportEvidence(register,{contracts,movements,funding,transactions,payables,investments});
+ if(to===register.asOf)return evidence;
+ const candidates=await all((a,b)=>supabase.from('asset_accounts').select('id,name,asset_type,currency,metadata')
+  .eq('user_id',user.id).eq('ownership_scope','PERSONAL').is('organization_id',null).eq('metadata->>market_valuation_date',to).order('id').range(a,b));
+ const assets=candidates.filter(a=>!['BANK','CASH','RECEIVABLE'].includes(a.asset_type)&&a.metadata?.market_price_currency===register.baseCurrency&&
+  !a.metadata.archived&&a.metadata.market_value_auto!==true&&a.metadata.market_price_source!=='ACQUISITION_COST'&&
+  !a.metadata.investment_id&&!a.metadata.personal_contract_id&&!a.metadata.register_source);
+ const assetValuations:PersonalHistoricalValuation[]=[];
+ for(let offset=0;offset<assets.length;offset+=6){
+  const values=await Promise.allSettled(assets.slice(offset,offset+6).map(async asset=>{
+   const statement=await readAssetStatement(asset.id,{asOf:to,offset:0,limit:1});
+   const current=await supabase.from('asset_accounts').select('id,name,asset_type,currency,metadata')
+    .eq('id',asset.id).eq('user_id',user.id).eq('ownership_scope','PERSONAL').is('organization_id',null).maybeSingle();
+   if(current.error||!current.data||JSON.stringify(current.data)!==JSON.stringify(asset))return null;
+   return personalHistoricalValuation(asset,statement,to);
+  }));
+  for(const row of values){
+   if(row.status==='fulfilled'&&row.value)assetValuations.push(row.value);
+   else evidence.issues.push('PERSONAL_HISTORICAL_ASSET_EVIDENCE_UNRECONCILED');
+  }
+ }
+ return {...evidence,assetValuations};
 }

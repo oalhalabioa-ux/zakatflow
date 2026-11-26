@@ -27,6 +27,11 @@ export function personalFinancialExportRows(report:PersonalReport,view:PersonalE
   rows.push([t('العملة','Currency'),t('النقد','Cash'),t('الذمم المدينة','Receivables'),t('الالتزامات','Liabilities')]);
   for(const p of report.historicalPosition)rows.push([p.currency,p.cash??'',p.receivables??'',p.liabilities??'']);
  }
+ if((view==='overview'||view==='position')&&report.historicalAssetValuations?.length){
+  rows.push([],[t('تقييمات أصول مثبتة بتاريخ القطع · تغطية جزئية','Asset valuations verified at the cutoff · partial coverage'),report.to]);
+  rows.push([t('الأصل','Asset'),t('العملة','Currency'),t('التكلفة الدفترية','Carrying cost'),t('قيمة التقييم المسجّلة','Recorded valuation'),t('المصدر','Source')]);
+  for(const row of report.historicalAssetValuations)rows.push([row.name,row.currency,row.cost,row.market,row.source]);
+ }
  if(view==='overview'||view==='cash'){
   rows.push([],[t('حركة الحسابات النقدية — ليست قائمة تدفقات نقدية معيارية','Cash-account activity — not a statutory cash-flow statement')]);
   rows.push([t('الحساب','Account'),t('العملة','Currency'),t('أول الفترة','Opening'),t('المقبوضات الإجمالية','Gross inflows'),t('المدفوعات الإجمالية','Gross outflows'),t('صافي الحركة','Net movement'),t('آخر الفترة','Closing')]);

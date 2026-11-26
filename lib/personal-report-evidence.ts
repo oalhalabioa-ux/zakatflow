@@ -1,11 +1,14 @@
 import Decimal from 'decimal.js';
 import type {RegisterData} from './financial-register';
+import {assetReportValuation} from './asset-reports';
 
 export type PersonalCashClass='OPERATING'|'INVESTING'|'FINANCING'|'UNCLASSIFIED';
 export type PersonalIncomeClass='FINANCE_INCOME'|'FINANCE_EXPENSE'|'PARTICIPATION_INCOME'|'PARTICIPATION_EXPENSE'|'INVESTMENT_INCOME';
+export type PersonalHistoricalValuation={id:string;name:string;date:string;currency:string;market:string;cost:string;source:string};
 export type PersonalReportEvidence={
  cash:Map<string,Exclude<PersonalCashClass,'UNCLASSIFIED'>>;
  investmentCashIds?:Set<string>;
+ assetValuations?:PersonalHistoricalValuation[];
  income:Array<{id:string;date:string;currency:string;amount:string;category:PersonalIncomeClass}>;
  issues:string[];
 };
@@ -23,6 +26,22 @@ const date=/^\d{4}-\d{2}-\d{2}$/;
 const currency=/^[A-Z]{3}$/;
 const actualContracts=new Set(['POSTED','CANCELLED']);
 const investmentCashType=new Map([['FUND','TRANSFER_OUT'],['REDEEM','TRANSFER_IN'],['INCOME','ADD']]);
+
+/** A dated asset quote and the independently reconciled asset statement at the same cutoff. */
+export function personalHistoricalValuation(
+ asset:{id:string;name:string;asset_type:string;currency:string;metadata:Record<string,unknown>|null},
+ statement:{asOf:string;complete:boolean;asset:{id:string;organizational:boolean};closing:{quantity:string|null;cost:string|null;currency:string}},
+ cutoff:string,
+):PersonalHistoricalValuation|null{
+ const metadata=asset.metadata;
+ const {quantity,cost,currency}=statement.closing;
+ if(!statement.complete||statement.asset.organizational||statement.asset.id!==asset.id||statement.asOf!==cutoff||!quantity||!cost||
+  !new Decimal(quantity).gt(0)||!metadata||metadata.archived||metadata.market_valuation_date!==cutoff||
+  metadata.market_price_currency!==currency||metadata.market_value_auto===true)return null;
+ const value=assetReportValuation({...asset,current_value_currency:currency,current_quantity:quantity,current_cost_value:cost},cutoff);
+ if(!value?.source)return null;
+ return{id:asset.id,name:asset.name,date:cutoff,currency,market:value.value,cost,source:value.source};
+}
 
 /** Joins owner-scoped records from existing commands using persisted IDs. */
 export function personalReportEvidence(data:RegisterData, source:{

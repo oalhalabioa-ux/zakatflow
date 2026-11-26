@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {personalReportEvidence} from '../lib/personal-report-evidence';
+import {personalHistoricalValuation,personalReportEvidence} from '../lib/personal-report-evidence';
 import {personalFinancialReports} from '../lib/personal-financial-reports';
 import {personalFinancialExportRows} from '../lib/personal-financial-export';
 import type {RegisterData,CashMovement} from '../lib/financial-register';
@@ -106,5 +106,23 @@ describe('personal statements read and reconcile source-linked evidence',()=>{
   const report=personalFinancialReports(data,'2026-10-01',cutoff,evidence);
   expect(report.cashTransferReconciliation[0].unverifiedLegs).toBe(3);
   expect(personalFinancialExportRows(report,'income',false)).toContainEqual(['2026-10-15','دخل استثمار','USD','10','income']);
+ });
+
+ it('uses a reconciled asset quantity and an explicit same-day quote for partial historical valuations',()=>{
+  const {data,source}=evidenceFixture();
+  const asset={id:'gold',name:'Gold fixture',asset_type:'GOLD',currency:'SAR',metadata:{market_price_per_unit:'412.50',
+   market_price_source:'USER_MANUAL',market_valuation_date:cutoff,market_price_currency:'SAR'}};
+  const statement={asOf:cutoff,complete:true,asset:{id:asset.id,organizational:false},closing:{quantity:'7',cost:'2470',currency:'SAR'}};
+  const mark=personalHistoricalValuation(asset,statement,cutoff);
+  expect(mark).toMatchObject({market:'2887.5',cost:'2470',date:cutoff});
+  expect(personalHistoricalValuation({...asset,metadata:{...asset.metadata,market_valuation_date:asOf}},statement,cutoff)).toBeNull();
+  expect(personalHistoricalValuation({...asset,metadata:{...asset.metadata,market_price_currency:'USD'}},statement,cutoff)).toBeNull();
+  expect(personalHistoricalValuation(asset,{...statement,complete:false},cutoff)).toBeNull();
+  expect(personalHistoricalValuation(asset,{...statement,asset:{...statement.asset,organizational:true}},cutoff)).toBeNull();
+  const evidence=personalReportEvidence(data,source);
+  const report=personalFinancialReports(data,'2026-10-01',cutoff,{...evidence,assetValuations:[mark!,{...mark!,date:asOf}]});
+  expect(report.historicalAssetValuations).toEqual([mark]);
+  expect(report.issues).toContain('PERSONAL_HISTORICAL_ASSET_VALUES_PARTIAL');
+  expect(personalFinancialExportRows(report,'position',true)).toContainEqual(['Gold fixture','SAR','2470','2887.5','USER_MANUAL']);
  });
 });

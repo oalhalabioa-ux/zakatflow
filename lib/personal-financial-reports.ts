@@ -27,6 +27,7 @@ export type PersonalReport={
  cashByActivity:Array<{currency:string;activity:PersonalCashClass;inflows:string;outflows:string;net:string}>;
  recognizedIncome:PersonalReportEvidence['income'];
  historicalPosition:Array<{currency:string;cash:string|null;receivables:string|null;liabilities:string|null}>;
+ historicalAssetValuations?:PersonalReportEvidence['assetValuations'];
  issues:string[];
 };
 
@@ -122,13 +123,14 @@ export function personalFinancialReports(data:RegisterData,from:string,to:string
  }
  const recognizedIncome=evidence.income.filter(row=>row.date>=from&&row.date<=to);
  const historicalPosition=to===data.asOf?[]:historicalMonetaryPosition(data,to);
+ const historicalAssetValuations=to===data.asOf?[]:(evidence.assetValuations??[]).filter(row=>row.date===to);
  const issues=[...data.warnings,...evidence.issues];
- if(to<data.asOf)issues.push('PERSONAL_HISTORICAL_ASSET_VALUES_UNAVAILABLE');
+ if(to<data.asOf)issues.push(historicalAssetValuations.length?'PERSONAL_HISTORICAL_ASSET_VALUES_PARTIAL':'PERSONAL_HISTORICAL_ASSET_VALUES_UNAVAILABLE');
  if(positions.some(p=>!p.complete))issues.push('PERSONAL_POSITION_RECONCILIATION_REQUIRED');
  if(positions.length>1)issues.push('PERSONAL_MULTI_CURRENCY_NOT_AGGREGATED');
  issues.push('PERSONAL_INCOME_EXPENSE_CLASSIFICATION_PENDING','PERSONAL_CASH_GROSS_INCLUDES_INTERNAL_TRANSFERS');
  if(hasUnverifiedTransfers)issues.push('PERSONAL_TRANSFER_PROVENANCE_INCOMPLETE');
- return{scope:'PERSONAL',basis:'CURRENT_PERSONAL_REGISTER_ESTIMATE',asOf:data.asOf,from,to,baseCurrency:data.baseCurrency,categories,positions,cashAccounts,cashTransferReconciliation,cashByActivity,recognizedIncome,historicalPosition,issues:[...new Set(issues)]};
+ return{scope:'PERSONAL',basis:'CURRENT_PERSONAL_REGISTER_ESTIMATE',asOf:data.asOf,from,to,baseCurrency:data.baseCurrency,categories,positions,cashAccounts,cashTransferReconciliation,cashByActivity,recognizedIncome,historicalPosition,historicalAssetValuations,issues:[...new Set(issues)]};
 }
 
 
