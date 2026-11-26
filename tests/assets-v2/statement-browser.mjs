@@ -586,7 +586,7 @@ try{
    await page.getByRole('row').filter({hasText:name}).getByRole('button',{name:'Details and actions',exact:true}).click();
   };
   const bank=value(await owner.client.from('asset_accounts').insert({user_id:owner.id,
-   name:'QA corrected proceeds',asset_type:'BANK',currency:'SAR',ownership_scope:'PERSONAL'}).select('id').single());
+   name:'QA corrected proceeds',asset_type:'BANK',unit:'SAR',currency:'SAR',ownership_scope:'PERSONAL'}).select('id').single());
   await page.goto(app+'/en/assets?scope=PERSONAL');
   await open('QA 18K Gold');
   const sourceDialog=page.getByRole('dialog');
@@ -599,7 +599,7 @@ try{
   await sourceDialog.getByRole('table').getByRole('button',{name:gold.payload.rows.find(r=>r.type==='SALE').voucher,exact:true}).click();
   await page.getByRole('button',{name:'Review sale correction'}).click();
   await page.getByLabel('Correction type').selectOption('structure');
-  await page.getByLabel('Sold asset').selectOption(asset);
+  await page.getByRole('combobox',{name:/^Sold asset/}).selectOption(asset);
   await page.getByLabel('Sale date').fill('2025-05-01');
   await page.getByRole('combobox',{name:/^Proceeds account/}).selectOption(bank.id);
   await page.getByLabel('Quantity',{exact:true}).fill('3');
