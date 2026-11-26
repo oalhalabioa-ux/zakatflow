@@ -2257,6 +2257,14 @@
       "expected_md5": "8dac70d4c5c0c380ac2ec45efc7a30c4",
       "file_sha256": "b38995d5702213fc947899f27000c37de8f37abd0372e55d0a9e1bc7c81e6c0a",
       "validation_project": "Isolated personal first-cycle upgrade, pre-traffic rollback and gold receipt projections"
+    },
+    {
+      "path": "supabase/migrations/20261126204500_personal_pooled_hawl.sql",
+      "version": "20261126204500",
+      "name": "personal_pooled_hawl",
+      "expected_md5": "68db6a3b6258bc7439711c0d76fdd2ab",
+      "file_sha256": "f3610b937e099b681078f44257aca81abeb691d56dfaa90ecf1348c6bcee0c7e",
+      "validation_project": "Disposable canonical schema: method-specific assessment periods, save, final coverage, ownership and duplicate prevention"
     }
   ]
 }

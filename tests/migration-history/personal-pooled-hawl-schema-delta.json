@@ -1,0 +1,25 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "public.close_zakat_cycle(p_cycle_id uuid, p_final_assessment_id uuid)",
+      "fingerprint": "d4b4400f81883bcc178e5b2c1948eae1"
+    },
+    {
+      "category": "function",
+      "object_key": "public.personal_zakat_assessment_periods(p_cycle uuid, p_method uuid)",
+      "fingerprint": "81c055fb598bb37e142dc80c5b66e624"
+    },
+    {
+      "category": "function",
+      "object_key": "public.save_zakat_assessment_snapshot(p_assessment jsonb, p_lines jsonb, p_revision_of uuid)",
+      "fingerprint": "c728ed82a352510d2c0ce1588ce6d0bb"
+    },
+    {
+      "category": "function",
+      "object_key": "public.zakat_lot_hawl_periods(p_calendar text)",
+      "fingerprint": "a8d6920761da5da83ee602d4950a69e9"
+    }
+  ]
+}
