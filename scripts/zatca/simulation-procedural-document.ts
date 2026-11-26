@@ -30,7 +30,7 @@ export async function prepareSimulationProceduralDocument(input: unknown, contex
   const issuerParts = cert.issuer.split('\n');
   if (options.purpose === 'REPORTING') {
     // Match the SDK serialization for simple DNs. Reject unfamiliar encodings.
-    if (issuerParts.some(part => !/^(CN|O|OU|C|L|ST)=[A-Za-z0-9 ._-]+$/.test(part)))
+    if (issuerParts.some(part => !/^(CN|O|OU|C|L|ST|DC)=[A-Za-z0-9 ._-]+$/.test(part)))
       throw Error('QA_PROCEDURAL_UNSUPPORTED_ISSUER');
   } else if (cert.issuer !== 'CN=eInvoicing') {
     throw Error('QA_PROCEDURAL_INTERIM_REQUIRED');

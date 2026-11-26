@@ -10,12 +10,18 @@ import { prepareSimulationProceduralDocument } from '../scripts/zatca/simulation
 import { prepareZatcaInvoiceHash } from '../lib/zatca-xml-hash';
 
 let directory: string, certificate: string, key: Buffer, fingerprint: string;
+let finalCertificate: string, finalFingerprint: string;
 beforeAll(() => {
   directory = mkdtempSync(join(tmpdir(), 'procedural-simulation-'));
   const command = (...args: string[]) => execFileSync('/usr/bin/openssl', args, { cwd: directory, stdio: 'pipe' });
   command('req','-new','-x509','-newkey','ec','-pkeyopt','ec_paramgen_curve:secp256k1','-nodes','-keyout','root.key','-out','root.pem','-days','2','-subj','/CN=eInvoicing','-addext','basicConstraints=critical,CA:TRUE');
   command('req','-new','-newkey','ec','-pkeyopt','ec_paramgen_curve:secp256k1','-nodes','-keyout','leaf.key','-out','leaf.csr','-subj','/CN=Synthetic EGS');
   command('x509','-req','-in','leaf.csr','-CA','root.pem','-CAkey','root.key','-set_serial','99331','-days','1','-out','leaf.pem');
+  command('req','-new','-x509','-newkey','ec','-pkeyopt','ec_paramgen_curve:secp256k1','-nodes','-keyout','final-root.key','-out','final-root.pem','-days','2','-subj','/DC=local/DC=gov/DC=synthetic/CN=Simulation Signing CA','-addext','basicConstraints=critical,CA:TRUE');
+  command('x509','-req','-in','leaf.csr','-CA','final-root.pem','-CAkey','final-root.key','-set_serial','99332','-days','1','-out','final-leaf.pem');
+  const final = new X509Certificate(readFileSync(join(directory, 'final-leaf.pem')));
+  finalCertificate = final.raw.toString('base64');
+  finalFingerprint = createHash('sha256').update(final.raw).digest('hex');
   const cert = new X509Certificate(readFileSync(join(directory, 'leaf.pem')));
   certificate = cert.raw.toString('base64'); fingerprint = createHash('sha256').update(cert.raw).digest('hex'); key = readFileSync(join(directory, 'leaf.key'));
 });
@@ -196,7 +202,7 @@ describe('one-shot simplified reporting', () => {
     const f = fixture();
     const transport = vi.fn<typeof fetch>();
     const api = createSimplifiedReportingQa({
-      load: async () => ({ ...f.ctx, finalResponseDigest: '4'.repeat(64), finalFingerprint: f.ctx.fingerprint, invoiceCounter: '8' }),
+      load: async () => ({ ...f.ctx, finalResponseDigest: '4'.repeat(64), certificate: finalCertificate, finalFingerprint, invoiceCounter: '8' }),
       read: async name => f.map.get(name) ?? null, create: f.create, sign: f.signer,
       assertCreateOnly: f.assertCreateOnly, transport,
     }, sample, 'd'.repeat(40));
@@ -221,6 +227,7 @@ describe('one-shot simplified reporting', () => {
     const xml = Buffer.from(payload.invoice, 'base64').toString('utf8');
     expect(xml).toContain(payload.uuid);
     expect(xml).toContain('SIMULATIONQA');
+    expect(xml).toContain('CN=Simulation Signing CA, DC=synthetic, DC=gov, DC=local');
     expect((await prepareZatcaInvoiceHash(xml)).invoiceHashBase64).toBe(payload.invoiceHash);
     expect(await f.api.submit(prepared.manifestDigest)).toMatchObject({
       state: 'REPORTED_WITH_WARNINGS', http: 202, warningCodes: ['BR-KSA-100'],
