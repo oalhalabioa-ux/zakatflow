@@ -95,6 +95,15 @@ export default function FinancialRegisterWorkspace({locale,view,initialScope='PE
  const filteredDebtMovements=(data?.debtMovements??[]).filter(m=>(!entity||m.entityId===entity)&&(!sourceFilter||m.source===sourceFilter)&&(!category||m.category===category)&&(!maturity||debtMaturity(m.due,data?.asOf??today)===maturity));
  const movementParties=[...new Map(filteredDebtMovements.filter(m=>(!currency||m.currency===currency)&&m.side===statementSide&&matches(m.partyName)).map(m=>[m.partyKey,m.partyName])).entries()];
  const partyCurrencies=[...new Set(filteredDebtMovements.filter(m=>m.partyKey===party&&m.side===statementSide).map(m=>m.currency))];
+ const openedCollection=useRef('');
+ useEffect(()=>{
+   if(view!=='debts'||scope!=='PERSONAL'||!data||!catalog)return;
+   const target=new URLSearchParams(window.location.search).get('collect');
+   if(!target||openedCollection.current===target)return;
+   if(data.debts.some(d=>d.id===target&&d.side==='RECEIVABLE'&&d.amount>0)){
+     openedCollection.current=target;openTransfer(target,true);
+   }
+ },[view,scope,data,catalog]);
  const incomingStatement=useRef(false);
  useEffect(()=>{if(incomingStatement.current||view!=='debts'||!data)return;const q=new URLSearchParams(window.location.search),key=q.get('party'),ccy=q.get('currency');if(key&&ccy&&movementParties.some(p=>p[0]===key)){incomingStatement.current=true;setParty(key);setCurrency(ccy);setTab('statement')}},[data,view,movementParties]);
  const documentNumber=documentRow?.row[documentRow.columns.indexOf('رقم السند')];
