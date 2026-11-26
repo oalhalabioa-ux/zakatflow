@@ -32,13 +32,13 @@ export function personalFinancialExportRows(report:PersonalReport,view:PersonalE
   rows.push([t('الحساب','Account'),t('العملة','Currency'),t('أول الفترة','Opening'),t('المقبوضات الإجمالية','Gross inflows'),t('المدفوعات الإجمالية','Gross outflows'),t('صافي الحركة','Net movement'),t('آخر الفترة','Closing')]);
   for(const a of report.cashAccounts)rows.push([a.name,a.currency,a.opening,a.inflows,a.outflows,a.netMovement,a.closing]);
   if(report.cashTransferReconciliation?.length){
-   rows.push([],[t('تسوية التحويلات بمعرّف المصدر — الباقي غير مصنّف','Source-ID transfer reconciliation — remainder unclassified')]);
-   rows.push([t('العملة','Currency'),t('التحويلات الداخلة المثبتة','Verified internal inflows'),t('التحويلات الخارجة المثبتة','Verified internal outflows'),t('الداخل غير المصنّف','Unclassified inflows'),t('الخارج غير المصنّف','Unclassified outflows'),t('الأزواج المثبتة','Verified pairs'),t('الأطراف غير المثبتة','Unverified legs')]);
+   rows.push([],[t('تسوية التحويلات المثبتة بمعرّف المصدر','Source-ID transfer reconciliation')]);
+   rows.push([t('العملة','Currency'),t('التحويلات الداخلة المثبتة','Verified internal inflows'),t('التحويلات الخارجة المثبتة','Verified internal outflows'),t('المقبوضات المتبقية','Remaining inflows'),t('المدفوعات المتبقية','Remaining outflows'),t('الأزواج المثبتة','Verified pairs'),t('الأطراف غير المثبتة','Unverified legs')]);
    for(const a of report.cashTransferReconciliation)rows.push([a.currency,a.verifiedInternalInflows,a.verifiedInternalOutflows,a.remainingUnclassifiedInflows,a.remainingUnclassifiedOutflows,String(a.verifiedPairs),String(a.unverifiedLegs)]);
   }
  }
  if((view==='overview'||view==='cash')&&report.cashByActivity?.length){
-  rows.push([],[t('التدفقات حسب مصدر الحركة','Cash activity by source')],[t('العملة','Currency'),t('النشاط','Activity'),t('المقبوضات','Inflows'),t('المدفوعات','Outflows'),t('الصافي','Net')]);
+  rows.push([],[t('التدفقات حسب النشاط','Cash flows by activity')],[t('العملة','Currency'),t('النشاط','Activity'),t('المقبوضات','Inflows'),t('المدفوعات','Outflows'),t('الصافي','Net')]);
   for(const r of report.cashByActivity)rows.push([r.currency,personalCashActivityLabel(r.activity,en),r.inflows,r.outflows,r.net]);
  }
  if(view==='income'){

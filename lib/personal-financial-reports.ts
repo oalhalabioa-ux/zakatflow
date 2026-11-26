@@ -22,7 +22,7 @@ export type PersonalReport={
  categories:Array<{id:PersonalCategory;code:string;ar:string;en:string;currency:string;amount:string;kind:'ASSET'|'LIABILITY'}>;
  positions:Array<{currency:string;cash:string;receivables:string;otherAssets:string;investments:string;liabilities:string;netWorth:string|null;complete:boolean;unreconciled:number;unallocated:string}>;
  cashAccounts:Array<{id:string;name:string;currency:string;opening:string;inflows:string;outflows:string;closing:string;netMovement:string;movementCount:number}>;
- /** A source-ID reconciliation only. Remaining cash activity is NOT classified as income, expense or statutory cash flow. */
+ /** Reconciles verified internal transfers. Remainders are gross movements after removing those transfers. */
  cashTransferReconciliation:Array<{currency:string;grossInflows:string;grossOutflows:string;verifiedInternalInflows:string;verifiedInternalOutflows:string;remainingUnclassifiedInflows:string;remainingUnclassifiedOutflows:string;verifiedPairs:number;unverifiedLegs:number;transferEvidenceComplete:boolean}>;
  cashByActivity:Array<{currency:string;activity:PersonalCashClass;inflows:string;outflows:string;net:string}>;
  recognizedIncome:PersonalReportEvidence['income'];
