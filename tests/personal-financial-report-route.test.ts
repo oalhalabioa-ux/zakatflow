@@ -4,6 +4,7 @@ vi.mock('../services/financial-register',()=>({financialRegister:async(...args:u
  state.calls.push(args);if(!state.authenticated)throw Error('UNAUTHORIZED');
  return{asOf:'2026-11-06',baseCurrency:'SAR',organizations:[],organizationIds:[],entities:[],accounts:[],cashMovements:[],debts:[],debtMovements:[],assets:[],warnings:[]};
 }}));
+vi.mock('../services/personal-report-evidence',()=>({readPersonalReportEvidence:async()=>({cash:new Map(),income:[],issues:[]})}));
 vi.mock('../lib/financial-register',async importOriginal=>{const actual=await importOriginal<typeof import('../lib/financial-register')>();return{...actual,riyadhToday:()=> '2026-11-06'};});
 vi.mock('../services/reporting-source-contracts',()=>({
  readClassifiedPersonalActivity:async(from:string,to:string)=>({from,to,basis:'EXPLICIT_PERSONAL_DOCUMENTS',coverage:'CLASSIFIED_SUBSET',rows:[],totals:[]}),
