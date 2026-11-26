@@ -1,0 +1,10 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "public.apply_financial_chart_template(p_org uuid, p_industry text, p_accounts jsonb)",
+      "fingerprint": "846ac062dac2cd54065e205c53bdc01f"
+    }
+  ]
+}

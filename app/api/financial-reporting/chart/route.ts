@@ -1,7 +1,7 @@
 import {NextResponse} from 'next/server';
 import {ZodError} from 'zod';
 import {isSameOriginRequest} from '../../../../lib/request-origin';
-import {financialChartWorkspace,saveFinancialChartAccount} from '../../../../services/financial-chart';
+import {applyFinancialChartTemplate,financialChartWorkspace,saveFinancialChartAccount} from '../../../../services/financial-chart';
 
 export const dynamic='force-dynamic';
 const headers={'Cache-Control':'private, no-store','Vary':'Cookie','X-Content-Type-Options':'nosniff'};
@@ -17,5 +17,8 @@ export async function POST(request:Request){try{
  if(!isSameOriginRequest(request))return NextResponse.json({error:'ORIGIN_REQUIRED'},{status:403,headers});
  if(!request.headers.get('content-type')?.startsWith('application/json'))throw Error('CHART_INPUT_INVALID');
  const payload=await request.text();if(payload.length>8000)throw Error('CHART_INPUT_INVALID');
- return NextResponse.json(await saveFinancialChartAccount(JSON.parse(payload)),{headers});
+ const input=JSON.parse(payload);
+ const result=input?.action==='apply-template'
+  ?await applyFinancialChartTemplate(input):await saveFinancialChartAccount(input);
+ return NextResponse.json(result,{headers});
 }catch(error){return fail(error)}}

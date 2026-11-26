@@ -1,3 +1,4 @@
+import {industryAccountTemplate,isFinancialIndustry} from '../lib/financial-chart-templates';
 import {z} from 'zod';
 import {requireUser} from './auth';
 import {assertOpeningWorkspace} from './financial-opening-workspace';
@@ -30,4 +31,17 @@ export async function saveFinancialChartAccount(input:unknown){
   p_is_postable:p.isPostable,p_is_active:p.isActive,
   p_expected_version:p.expectedVersion,p_reason:p.reason,
  }));
+}
+
+export async function applyFinancialChartTemplate(input:unknown){
+ assertOpeningWorkspace();
+ const {organization,industry}=z.object({
+  action:z.literal('apply-template'),organization:uuid,industry:z.string(),
+ }).strict().parse(input);
+ if(!isFinancialIndustry(industry))throw Error('CHART_INPUT_INVALID');
+ const {supabase}=await requireUser();
+ const added=unwrap(await supabase.rpc('apply_financial_chart_template',{
+  p_org:organization,p_industry:industry,p_accounts:industryAccountTemplate(industry),
+ }));
+ return {added};
 }

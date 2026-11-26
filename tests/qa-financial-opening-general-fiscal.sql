@@ -3,6 +3,7 @@ create temporary table fiscal_checks(name text primary key,passed boolean not nu
 create temporary table fiscal_snapshots(name text,payload jsonb);
 do $$
 declare owner uuid:=gen_random_uuid();outsider uuid:=gen_random_uuid();org uuid;other uuid;bank uuid;asset uuid;late_asset uuid;purchase uuid;revenue uuid;expense uuid;classification uuid;tax uuid;capex uuid;purchase_event uuid;purchase_tx uuid;current_asset uuid;opening_event uuid;late_event uuid;opening_class uuid;first_tx uuid;
+ accrual uuid; undo_accrual uuid;
  starts date;lastdate date;nextdate date;month integer;context jsonb;s jsonb;w jsonb;entries jsonb;rr jsonb;policy jsonb;rules jsonb;close jsonb;snap jsonb;trial jsonb;req uuid;source_revision text;res jsonb;
 begin
  insert into auth.users(id,email,email_confirmed_at) values(owner,'fiscal-'||owner||'@example.invalid',now()),(outsider,'fiscal-'||outsider||'@example.invalid',now());
@@ -67,14 +68,36 @@ begin
    values(purchase_tx,owner,org,current_asset,'PURCHASE',starts+120,1,'SAR','SAR',60,60,jsonb_build_object('financial_event_id',purchase_event));
   update public.financial_events set source_record_id=purchase_tx where id=purchase_event;
   rules:=jsonb_build_array(jsonb_build_object('eventType','REVENUE','sourceModule','FISCAL_QA','classificationId',classification||':BASE','cashDirection','INFLOW','debitAccountId','1000','creditAccountId','4100','cashActivity','OPERATING'),jsonb_build_object('eventType','EXPENSE','sourceModule','FISCAL_QA','classificationId',tax||':BASE','cashDirection','OUTFLOW','debitAccountId','6100','creditAccountId','1000','cashActivity','OPERATING'),jsonb_build_object('eventType','ASSET_PURCHASE','sourceModule','FISCAL_QA','classificationId',capex||':BASE','cashDirection','OUTFLOW','debitAccountId','1500','creditAccountId','1000','cashActivity','INVESTING'));
-  if jsonb_array_length(private.financial_policy_postable_events(org,starts,lastdate))<>3
-   or jsonb_array_length(public.financial_reporting_policy_workspace(org,starts)->'events')<>3
+  -- Accrue USD 10, then reverse the same source in this company's fiscal year.
+  accrual:=gen_random_uuid(); undo_accrual:=gen_random_uuid();
+  insert into public.financial_events(id,organization_id,event_type,source_module,source_event_key,event_date,status,base_currency,created_by)
+   values(accrual,org,'EXPENSE','FISCAL_QA','accrual',starts+130,'DRAFT','SAR',owner),
+         (undo_accrual,org,'REVERSAL','FISCAL_QA','undo-accrual',starts+140,'DRAFT','SAR',owner);
+  insert into public.financial_event_lines(event_id,organization_id,line_number,classification_id,amount,currency,exchange_rate,base_amount,cash_direction)
+   values(accrual,org,1,tax,10,'USD',3.75,37.50,'NON_CASH'),
+         (undo_accrual,org,1,tax,10,'USD',3.75,37.50,'NON_CASH');
+  insert into public.financial_event_links(event_id,organization_id,link_type,related_event_id)
+   values(undo_accrual,org,'REVERSAL_OF',accrual);
+  update public.financial_events set status='ACTUAL',posted_by=owner,posted_at=now() where id in(accrual,undo_accrual);
+  update public.financial_events set status='REVERSED' where id=accrual;
+  rules:=rules||jsonb_build_array(jsonb_build_object('eventType','EXPENSE','sourceModule','FISCAL_QA',
+    'classificationId',tax||':BASE','cashDirection','NON_CASH','debitAccountId','6100','creditAccountId','2100'));
+  if jsonb_array_length(private.financial_policy_postable_events(org,starts,lastdate))<>5
+   or jsonb_array_length(public.financial_reporting_policy_workspace(org,starts)->'events')<>5
   then raise exception 'Policy coverage counted opening imports as current-year postings';end if;
   if exists(select 1 from jsonb_array_elements(public.financial_opening_candidates(org,starts)) candidate where candidate->>'sourceId'=purchase_tx::text) then raise exception 'current purchase offered as an opening source';end if;
   policy:=public.save_financial_reporting_policy(org,starts,0,rules,'Annual current operations posting rules');policy:=public.approve_financial_reporting_policy((policy->>'id')::uuid,1);
+  trial:=private.financial_fiscal_trial(public.financial_statement_live_snapshot(org,starts,starts+135),'3300');
+  if (trial->>'profit')::numeric is distinct from 32.50 then raise exception 'FX accrual before reversal: %',trial; end if;
   snap:=public.financial_statement_live_snapshot(org,starts,lastdate);
-  if jsonb_array_length(snap->'events')<>3 then raise exception 'opening entered current journals %',snap->'events';end if;
+  if jsonb_array_length(snap->'events')<>5 then raise exception 'opening entered current journals %',snap->'events';end if;
   trial:=private.financial_fiscal_trial(snap,'3300');
+  -- A reversal inside the window must still offset every original account.
+  res:=jsonb_set(snap,'{events}',(select jsonb_agg(case when ev->>'id'=undo_accrual::text
+    then jsonb_set(ev,'{lines,0,baseAmount}','"37.49"') else ev end)
+    from jsonb_array_elements(snap->'events') ev));
+  begin perform private.financial_fiscal_trial(res,'3300'); raise exception 'mismatched reversal accepted';
+  exception when others then if sqlerrm<>'FISCAL_REVERSAL_AMOUNT_INVALID' then raise;end if;end;
   if trial->>'profit'<>'70.0000' then raise exception 'profit mismatch %',trial;end if;
   if (select x->>'closing' from jsonb_array_elements(trial->'trialBalance') x where x->>'accountId'='1000')<>'510.0000' then raise exception 'cash closing';end if;
 
