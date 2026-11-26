@@ -76,6 +76,57 @@ function today(){
  return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 }
 
+async function verifyFirstNisabCycle(browser) {
+ const owner=await user();
+ const client=owner.client;
+ const method=value(await client.from('zakat_methods').select('id').eq('code','INDEPENDENT_LOTS').single());
+ value(await admin.from('profiles').update({base_currency:'SAR',zakat_method_id:method.id}).eq('id',owner.id));
+ const gold=value(await client.from('asset_accounts').insert({user_id:owner.id,name:'QA Nisab evidence',
+   metadata:{karat:24},asset_type:'GOLD',unit:'g',currency:'SAR',ownership_scope:'PERSONAL',is_zakatable:true}).select('id').single());
+ for(const [date,quantity] of [['2023-02-01',40],['2023-02-03',50]]){
+   const tx=value(await client.from('transactions').insert({user_id:owner.id,asset_account_id:gold.id,transaction_type:'PURCHASE',
+     transaction_date:date,quantity,currency:'SAR',base_currency:'SAR',base_value:quantity*350}).select('id').single());
+   value(await client.from('lots').insert({user_id:owner.id,asset_account_id:gold.id,source_transaction_id:tx.id,
+     acquisition_date:date,hawl_start_date:date,original_quantity:quantity,remaining_quantity:quantity,
+     original_value_base:quantity*350,remaining_value_base:quantity*350}));
+ }
+ value(await admin.from('market_prices').insert({asset_type:'GOLD',instrument_code:'XAU',currency:'SAR',price_per_unit:425,valuation_date:'2023-02-03',source:'QA_NISAB'}));
+ const ctx=await context(browser,owner,{width:1280,height:900});
+ try {
+   const page=await ctx.newPage();
+   await page.goto(app+'/en/assessments?scope=PERSONAL');
+   const panel=page.locator('section').filter({has:page.getByRole('heading',{name:'Nisab & Hawl start method'})});
+   await panel.getByLabel('Nisab standard').selectOption('GOLD');
+   await panel.getByRole('button',{name:'Verify first Nisab date'}).click();
+   await panel.getByText(/QA_NISAB 425/).waitFor();
+   assert.equal(await panel.locator('input[type=date]').inputValue(),'2023-02-03');
+   const post=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/zakat-cycles/start');
+   await panel.getByRole('button',{name:'Start cycle',exact:true}).click();
+   const response=await post;
+   assert.ok(response.ok(),await response.text());
+   await page.reload();
+   await page.getByRole('heading',{name:'Current cycle #1'}).waitFor();
+   const cycle=value(await client.from('zakat_hawl_cycles').select('*').eq('user_id',owner.id).single());
+   assert.equal(cycle.hawl_start_date,'2023-02-03');
+   assert.equal(cycle.snapshot.nisabEvidence.value,'38250');
+   assert.equal(cycle.snapshot.nisabEvidence.movementIds.length,2);
+   const periods=value(await client.rpc('zakat_lot_hawl_periods',{p_calendar:'GREGORIAN'}));
+   assert.deepEqual(periods.map(p=>p.hawl_due_date),['2024-02-03','2024-02-03']);
+   const pageAr=await ctx.newPage();
+   await pageAr.goto(app+'/ar/assessments?scope=PERSONAL');
+   await pageAr.getByLabel('تاريخ الاحتساب',{exact:true}).fill('2023-02-04');
+   await pageAr.getByLabel('سعر الذهب الخالص / g',{exact:true}).fill('425');
+   await pageAr.getByLabel('سعر الفضة الخالصة / g',{exact:true}).fill('5');
+   const preview=pageAr.waitForResponse(r=>new URL(r.url()).pathname==='/api/assessments' && r.request().method()==='POST');
+   await pageAr.getByRole('button',{name:'إجراء احتساب جديد',exact:true}).click();
+   const saved=await preview;
+   assert.ok(saved.ok(),await saved.text());
+   const {assessment}=await saved.json();
+   assert.equal(Number(assessment.zakat_due),0);
+   assert.equal(assessment.hawl_cycle_id,cycle.id);
+ }finally{await ctx.close();}
+}
+
 async function verifyJuneZakatPayment(browser) {
  const owner = await user();
  const client = owner.client;
@@ -787,6 +838,7 @@ try{
   await ctx.close();
  }
  console.log('PASS scoped opening and FIFO statement; 9 units / 2840 as of first sale, 6 / 1920 today, corporate 10 / 90000, denied cross-user and organization, AR mobile and EN desktop');
+ await verifyFirstNisabCycle(browser);
  await verifyJuneZakatPayment(browser);
 }finally{
  await browser?.close();

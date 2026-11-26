@@ -1,4 +1,5 @@
 import {invalidateZakatViews} from '@/lib/zakat-view-refresh';
+import {nisabEvidence} from './nisab-evidence';
 import Decimal from 'decimal.js';
 import {requireUser} from './auth';
 import {calculateHawl} from '@/engine/hawl';
@@ -12,6 +13,7 @@ const rows=plan.cycles.map((c:any)=>{const choice=c.historical?(input.selections
 export async function startFirstCycle(input: {
  method: 'MANUAL' | 'SETTLED_OPENING' | 'HISTORICAL_RECORDED';
  settlement_confirmed?: boolean;
+ use_evidence?: boolean;
  manual_date?: string;
  nisab_standard: 'GOLD' | 'SILVER';
  gold_price?: number;
@@ -28,7 +30,10 @@ export async function startFirstCycle(input: {
      start > new Date().toLocaleDateString('en-CA', {timeZone:'Asia/Riyadh'})) throw new Error('INVALID_CYCLE_START_DATE');
  if (!['GOLD','SILVER'].includes(input.nisab_standard)) throw new Error('INVALID_NISAB_STANDARD');
  const gold = input.nisab_standard === 'GOLD';
- const price = Number(gold ? input.gold_price : input.silver_price);
+ const evidence = input.use_evidence && !settled ? await nisabEvidence(input.nisab_standard) : null;
+ if (evidence && (evidence.status !== 'PROVEN' || evidence.day !== start)) throw new Error('NISAB_EVIDENCE_CHANGED');
+ const quote = evidence?.status === 'PROVEN' ? evidence.sources.find(q=>q.asset===input.nisab_standard) : null;
+ const price = Number(quote?.price ?? (gold ? input.gold_price : input.silver_price));
  if (!Number.isFinite(price) || price <= 0) throw new Error('NISAB_PRICE_REQUIRED');
 
  const {supabase,user} = await requireUser();
@@ -52,8 +57,8 @@ export async function startFirstCycle(input: {
  const {data,error} = await supabase.from('zakat_hawl_cycles').insert({
    user_id:user.id, cycle_no:1, nisab_standard:input.nisab_standard, nisab_value_base:new Decimal(gold ? 85 : 595).mul(price).toString(),
    nisab_reached_date:start, hawl_start_date:start, hawl_due_date:due, status:'ACTIVE', price_mode:'MANUAL',
-   price_source:'CYCLE_START_CONTROL', gold_price:input.gold_price || null, silver_price:input.silver_price || null,
-   snapshot:{cycle_anchor_source:settled ? 'USER_CONFIRMED_SETTLED_OPENING' : 'USER_CONFIRMED_PORTFOLIO_NISAB_DATE',
+   price_source:quote?.source ?? 'CYCLE_START_CONTROL', gold_price:gold ? price : input.gold_price || null, silver_price:gold ? input.silver_price || null : price,
+   snapshot:{...(evidence?{nisabEvidence:evidence}:{}),cycle_anchor_source:quote?'DATED_LEDGER_AND_PRICES':settled ? 'USER_CONFIRMED_SETTLED_OPENING' : 'USER_CONFIRMED_PORTFOLIO_NISAB_DATE',
      personal_start_policy:policy, confirmed_start_date:start, confirmed_at:new Date().toISOString(), calendarType:method.calendar_type}
  }).select().single();
  if (error?.code === '23505') {
