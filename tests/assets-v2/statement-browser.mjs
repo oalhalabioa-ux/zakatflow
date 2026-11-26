@@ -114,6 +114,8 @@ async function verifyFirstNisabCycle(browser) {
    assert.deepEqual(periods.map(p=>p.hawl_due_date),['2024-02-03','2024-02-03']);
    const pageAr=await ctx.newPage();
    await pageAr.goto(app+'/ar/assessments?scope=PERSONAL');
+   await pageAr.getByLabel('تاريخ بلوغ المحفظة للنصاب',{exact:true}).waitFor({state:'hidden'});
+   await pageAr.locator('label').filter({hasText:/^المنهج/}).locator('select').selectOption(method.id);
    await pageAr.getByLabel('تاريخ الاحتساب',{exact:true}).fill('2023-02-04');
    await pageAr.getByLabel('سعر الذهب الخالص / g',{exact:true}).fill('425');
    await pageAr.getByLabel('سعر الفضة الخالصة / g',{exact:true}).fill('5');
