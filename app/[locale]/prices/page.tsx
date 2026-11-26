@@ -4,6 +4,7 @@ import {Money,CurrencyScope} from '@/components/DisplayCurrency';
 import { Suspense, use, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import './prices.css';
+import { samaFixedFxReference, samaReferenceToday, SAMA_FX_SOURCE_URL } from '@/lib/official-fx-reference';
 import { organizationDisplayName } from '@/lib/organization-display';
 import { useWorkspaceScope } from '@/hooks/useWorkspaceScope';
 import { currentWorkspaceScope } from '@/lib/topbar-navigation';
@@ -120,7 +121,7 @@ function ScopedPrices({ locale, personal }: { locale: string; personal: boolean 
     from_currency: 'USD',
     to_currency: 'SAR',
     rate: '',
-    valuation_date: today(),
+    valuation_date: personal ? samaReferenceToday() : today(),
     source: 'Manual',
   });
   const [currencyDraft, setCurrencyDraft] = useState({
@@ -130,6 +131,10 @@ function ScopedPrices({ locale, personal }: { locale: string; personal: boolean 
     symbol: '',
     decimals: '2',
   });
+
+  const officialReference = personal
+    ? samaFixedFxReference(fxDraft.from_currency, fxDraft.to_currency, fxDraft.valuation_date)
+    : null;
 
   const selectedOrganization = organizations.find((item) => item.id === organizationId);
   const baseCurrency = personal ? personalBase : selectedOrganization?.base_currency || 'SAR';
@@ -197,10 +202,10 @@ function ScopedPrices({ locale, personal }: { locale: string; personal: boolean 
       from_currency: baseCurrency === 'USD' ? 'SAR' : 'USD',
       to_currency: baseCurrency,
       rate: '',
-      valuation_date: today(),
+      valuation_date: personal ? samaReferenceToday() : today(),
       source: 'Manual',
     });
-  }, [baseCurrency, organizationId]);
+  }, [baseCurrency, organizationId, personal]);
 
   async function savePrice(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -518,6 +523,18 @@ function ScopedPrices({ locale, personal }: { locale: string; personal: boolean 
                   value={fxDraft.valuation_date}
                   onChange={(value) => setFxDraft({ ...fxDraft, valuation_date: value })}
                 />
+                {personal && (
+                  <div className="prices-fx-reference" data-testid="personal-fx-reference" aria-live="polite">
+                    <strong>{ar ? 'السعر المرجعي الرسمي' : 'Official reference rate'}</strong>
+                    {officialReference ? (
+                      <p>
+                        <bdi>1 {fxDraft.from_currency} = {new Intl.NumberFormat(locale, { maximumSignificantDigits: 12 }).format(officialReference.rate)} {fxDraft.to_currency}</bdi>
+                        {' · '}<bdi>{officialReference.date}</bdi>
+                        {' · '}<a href={SAMA_FX_SOURCE_URL} target="_blank" rel="noreferrer">{ar ? 'البنك المركزي السعودي' : 'Saudi Central Bank'}</a>
+                      </p>
+                    ) : <p>{ar ? 'يتوفر مرجع الدولار والريال للتواريخ المدعومة حتى اليوم.' : 'The USD/SAR reference is available for covered dates through today.'}</p>}
+                  </div>
+                )}
                 <TextField
                   label={ar ? 'مصدر سعر الصرف' : 'Rate source'}
                   required

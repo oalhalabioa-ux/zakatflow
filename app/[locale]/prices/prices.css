@@ -49,6 +49,9 @@
 .prices-panel-heading h2, .prices-section-heading h2 { margin: 0 0 5px; font-size: 1.12rem; }
 .prices-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: end; }
 .prices-fields > label { display: grid; gap: 7px; min-width: 0; color: #4d625b; font-size: .82rem; font-weight: 700; }
+.prices-fx-reference { grid-column: 1 / -1; padding: 12px 14px; border: 1px solid var(--prices-line); border-radius: 10px; }
+.prices-fx-reference p { margin: 5px 0 0; font-size: .85rem; }
+.prices-fx-reference a { text-decoration: underline; }
 .prices-form-action { grid-column: 1 / -1; justify-self: start; min-width: 160px; }
 .prices-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 43px; padding: 10px 16px; border: 1px solid transparent; border-radius: 10px; cursor: pointer; font: inherit; font-size: .88rem; font-weight: 750; text-decoration: none; transition: transform .15s ease, background .15s ease, border-color .15s ease; }
 .prices-button:hover:not(:disabled) { transform: translateY(-1px); }

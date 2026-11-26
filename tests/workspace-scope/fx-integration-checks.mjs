@@ -120,12 +120,22 @@ export async function fxIntegrationAcceptance({app,ownerContext,outsiderContext,
   await page.goto(app+`/en/prices?scope=PERSONAL&organization=${orgB}&level=GROUP`);
   await page.getByRole('heading',{name:'Record an FX rate',exact:true}).waitFor();
   await page.waitForFunction(()=>!new URL(location.href).searchParams.has('organization'));
+  const reference=page.getByTestId('personal-fx-reference');
+  await page.getByLabel('Rate date',{exact:true}).fill('2024-02-29');
+  assert.match(await reference.innerText(),/1 USD = 3\.75 SAR.*2024-02-29.*Saudi Central Bank/s);
+  await page.getByRole('combobox',{name:/^From currency(?:\s|$)/}).selectOption('SAR');
+  await page.getByRole('combobox',{name:/^To currency(?:\s|$)/}).selectOption('USD');
+  assert.match(await reference.innerText(),/1 SAR = 0\.266666666667 USD/);
+  await page.getByLabel('Rate date',{exact:true}).fill('2099-01-01');
+  assert.equal(await reference.getByRole('link').count(),0);
+  assert.equal(await page.getByLabel('Exchange rate',{exact:true}).inputValue(),'');
   assert.equal(await pickerFor(page).count(),0);
   await save(sources.personal,4.01,null);
   await scopeButtons(page).filter({hasText:'Business'}).click();
   const picker=pickerFor(page);await picker.waitFor();await picker.selectOption(orgA);await waitCompany(page,orgA);
   await page.getByRole('cell',{name:'Scope FX fixture',exact:true}).waitFor();
   assert.equal(await page.getByRole('cell',{name:sources.personal,exact:true}).count(),0);
+  assert.equal(await reference.count(),0);
   await save(sources.a,3.81,orgA);
   await pickerFor(page).selectOption(orgB);await waitCompany(page,orgB);
   await page.getByRole('cell',{name:'Scope FX fixture',exact:true}).waitFor();
@@ -148,6 +158,44 @@ export async function fxIntegrationAcceptance({app,ownerContext,outsiderContext,
   await waitCompany(page,orgA);await page.getByRole('cell',{name:sources.a,exact:true}).waitFor();
   assert.ok(reads.length>0);assert.ok(reads.every(url=>url.searchParams.get('organization_id')===orgA));
   assert.equal(await page.getByRole('cell',{name:sources.b,exact:true}).count(),0);
+ });
+ await check('Integrated FX UI: personal additions can use the official quote or an actual rate without changing the earlier opening',async()=>{
+  const asset=value(await owner.client.from('asset_accounts').select('id').eq('name','Scope FX personal opening').single());
+  await page.goto(app+'/en/transactions?scope=PERSONAL');
+  const open=()=>page.getByRole('button',{name:'Add transaction',exact:true}).click();
+  const form=page.locator('#transaction-entry');
+  const reference=form.getByTestId('apply-personal-fx-reference');
+  const rate=form.getByLabel('سعر الصرف',{exact:true});
+  const date=form.getByLabel('التاريخ',{exact:true});
+  async function enter(){
+   await open();
+   await form.getByLabel('الأصل',{exact:true}).selectOption(asset.id);
+   await form.getByLabel('النوع',{exact:true}).selectOption('ADD');
+   await date.fill('2026-11-09');
+   await form.getByLabel('سعر الوحدة',{exact:true}).fill('100');
+   await reference.click();
+   assert.equal(await rate.inputValue(),'3.75');
+  }
+  async function save(expectedRate,expectedBase){
+   const pending=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/transactions'&&response.request().method()==='POST');
+   await form.getByRole('button',{name:'Save transaction',exact:true}).click();
+   const response=await pending;
+   assert.ok(response.ok(),await response.text());
+   assert.equal(Number(response.request().postDataJSON().fx_rate),expectedRate);
+   const id=(await response.json()).id;
+   const stored=value(await owner.client.from('transactions').select('currency,gross_value,base_value,metadata').eq('id',id).single());
+   assert.deepEqual([stored.currency,Number(stored.gross_value),Number(stored.base_value)],['USD',100,expectedBase]);
+   assert.equal(Number(stored.metadata.fx_rate),expectedRate);
+   await form.waitFor({state:'hidden'});
+  }
+  await enter();await date.fill('2099-01-01');
+  assert.equal(await reference.count(),0);
+  assert.equal(await rate.inputValue(),'');
+  await date.fill('2026-11-09');await reference.click();await save(3.75,375);
+  await enter();await rate.fill('3.92');await save(3.92,392);
+  const prior=value(await owner.client.from('transactions').select('base_value,metadata').eq('asset_account_id',asset.id).eq('transaction_type','OPENING_BALANCE').single());
+  assert.equal(Number(prior.base_value),500);
+  assert.equal(prior.metadata.fx_rate_id,inverse.id);
  });
  await page.close();
  return {realAuth:true,privateRateOwner:owner.id,companies:[orgA,orgB],historicalInverseRate:4,openingValueBase:500};

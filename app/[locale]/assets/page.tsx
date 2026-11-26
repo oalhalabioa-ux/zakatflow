@@ -3,6 +3,7 @@ import "./asset-entry.css";
 import "./asset-card.css";
 import AssetEntrySettings from '@/components/assets/AssetEntrySettings';
 import {assetEntryTaxSettings} from '@/lib/asset-entry-tax';
+import {samaFixedFxReference} from '@/lib/official-fx-reference';
 import {assetEntryAmount} from '@/lib/asset-entry';
 import {categoryOptions} from '@/lib/debt-categories';
 import DebtPartyManager from '@/components/DebtPartyManager';
@@ -541,6 +542,9 @@ export default function Assets({
   useEffect(()=>{if(!formOpen||!form.purchase_date||!form.currency)return;const controller=new AbortController();setFxQuote({key:fxKey,rate:null,error:'',loading:true});const params=new URLSearchParams({currency:form.currency,date:form.purchase_date});if(form.ownership_scope==='ORGANIZATION'&&form.organization_id)params.set('organization_id',form.organization_id);void fetch('/api/assets/fx?'+params,{signal:controller.signal,cache:'no-store'}).then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error);if(!controller.signal.aborted)setFxQuote({key:fxKey,rate:d.rate,error:'',loading:false});}).catch(e=>{if(!controller.signal.aborted)setFxQuote({key:fxKey,rate:null,error:e.message,loading:false});});return()=>controller.abort();},[fxKey,formOpen]);
   const refreshEntryCatalog=async()=>{const r=await fetch('/api/assets/catalog',{cache:'no-store'});if(r.ok)setCatalog(await r.json());};
   const financialOpening=['CASH','BANK','RECEIVABLE'].includes(form.asset_type);
+  const purchaseReference = form.ownership_scope === 'PERSONAL' && form.acquisition_mode === 'PURCHASE'
+    ? samaFixedFxReference(form.currency, baseCurrency, form.purchase_date)
+    : null;
   const closeAssetForm=()=>{setEditAsset(null);setRequestId("");setFormOpen(false);setForm({...empty});setMsg("");setSubmitted(false);};
   const entryAmount=(value:number)=>assetEntryAmount(value,form.currency);
   let entryTax:ReturnType<typeof assetPurchaseAmounts>|null=null;
@@ -743,6 +747,11 @@ export default function Assets({
 {form.acquisition_mode==='PURCHASE'&&form.ownership_scope==='ORGANIZATION'&&<label>{ar?'رقم فاتورة المورد *':'Supplier invoice number *'}<input data-testid="asset-entry-invoice" required pattern={'.*\\S.*'} maxLength={120} value={form.invoice_reference} onChange={e=>setForm({...form,invoice_reference:e.target.value})}/><small>{ar?'يُحفظ رقم المورد منفصلًا؛ يُخصّص رقم داخلي تلقائي من تسلسل مشتريات الشركة عند الحفظ.':'Supplier reference is separate; an internal company purchase number is assigned on save.'}</small></label>}
 </div>
 {(fxQuote.key!==fxKey||fxQuote.loading)?<p className="asset-entry-hint" role="status">{ar?'جار التحقق من سعر الصرف المسجل…':'Checking saved exchange rate…'}</p>:fxQuote.error&&<p role="alert" className="asset-entry-fx-warning">{entryFxError(fxQuote.error)}</p>}
+{purchaseReference && <p className="asset-entry-hint" data-testid="asset-purchase-fx-reference">
+  {ar ? 'مرجع البنك المركزي السعودي' : 'Saudi Central Bank reference'}{' · '}
+  <bdi>1 {form.currency} = {new Intl.NumberFormat(locale, { maximumSignificantDigits: 12 }).format(purchaseReference.rate)} {baseCurrency}</bdi>{' · '}
+  <Link href={`/${locale}/prices`}>{ar ? 'تسجيل سعر الصرف الفعلي' : 'Record actual exchange rate'}</Link>
+</p>}
 <div className="form-grid asset-entry-unit-row">
 {qty?<>
 <label>{metal?(ar?'الوزن بالغرام *':'Weight g *'):(ar?'الكمية *':'Quantity *')}<input data-testid="asset-entry-quantity" type="number" required min="0.00000001" step="any" value={form.quantity} onChange={e=>setForm({...form,quantity:e.target.value})}/></label>

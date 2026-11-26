@@ -1,4 +1,5 @@
 "use client";
+import { samaFixedFxReference, samaReferenceToday } from '@/lib/official-fx-reference';
 import {useWorkspaceScope} from '@/hooks/useWorkspaceScope';
 import {organizationScopeIds} from '@/lib/workspace-organization';
 import {currentWorkspaceScope,rememberedWorkspaceScope} from '@/lib/topbar-navigation';
@@ -65,7 +66,7 @@ export default function Transactions() {
   const emptyForm=()=>({
     asset_account_id: "",
     transaction_type: "ADD",
-    transaction_date: new Date().toISOString().slice(0, 10),
+    transaction_date: scope === 'PERSONAL' ? samaReferenceToday() : new Date().toISOString().slice(0, 10),
     quantity: 1,
     currency: "SAR",
     unit_price: "",
@@ -79,6 +80,7 @@ export default function Transactions() {
     disposal_zero_value: false,
   });
   const [form, setForm] = useState<any>(emptyForm);
+  const [referenceApplied, setReferenceApplied] = useState(false);
   const [catalog,setCatalog]=useState<any>({});
   const [requestId,setRequestId]=useState(()=>crypto.randomUUID());
   const organizationIds=useMemo(()=>organizationScopeIds(catalog.organizations??[],org,group),[catalog.organizations,org,group]);
@@ -88,6 +90,10 @@ export default function Transactions() {
   const workspaceKey=transactionWorkspaceKey(scope,org,group),workspaceRef=useRef({key:workspaceKey,generation:0}),previousWorkspace=useRef<string|null>(null);
   if(workspaceRef.current.key!==workspaceKey)workspaceRef.current={key:workspaceKey,generation:workspaceRef.current.generation+1};
   const ownerBase=selectedAsset?.ownership_scope==="ORGANIZATION"?catalog.organizations?.find((o:any)=>o.id===selectedAsset.organization_id)?.base_currency:catalog.base_currency;
+  const additionReference = scope === 'PERSONAL' && selectedAsset?.ownership_scope === 'PERSONAL' &&
+    form.transaction_type === 'ADD' && ownerBase
+    ? samaFixedFxReference(selectedAsset.currency, ownerBase, form.transaction_date)
+    : null;
   const [entryOpen, setEntryOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -98,7 +104,7 @@ export default function Transactions() {
     if(previousWorkspace.current===null){previousWorkspace.current=workspaceKey;return;}
     if(previousWorkspace.current===workspaceKey)return;
     previousWorkspace.current=workspaceKey;
-    setForm(emptyForm());setEntryOpen(false);setSelectedOperation(null);setSourceTransactionId('');setMsg('');setSaving(false);setRequestId(crypto.randomUUID());
+    setReferenceApplied(false);setForm(emptyForm());setEntryOpen(false);setSelectedOperation(null);setSourceTransactionId('');setMsg('');setSaving(false);setRequestId(crypto.randomUUID());
     const url=new URL(window.location.href);if(url.searchParams.has('transaction_id')){url.searchParams.delete('transaction_id');window.history.replaceState(window.history.state,'',url);}
   },[workspaceKey,scope,org]);
 
@@ -152,6 +158,15 @@ export default function Transactions() {
       setMsg("تم حذف العملية غير المرتبطة وحفظ سجلها للمراجعة.");await load();
     }catch(error:any){setMsg(error.message);}finally{setDeletingId(null);}
   }
+  function changeReferenceContext(changes: Record<string, string>) {
+    setForm({
+      ...form,
+      ...(referenceApplied ? { fx_rate: '', base_value: '' } : {}),
+      ...changes,
+    });
+    setReferenceApplied(false);
+  }
+
   async function save() {
     if (saving || !selectedAsset) return;
     if(form.transaction_type==="SALE"&&!cashAccounts.some(account=>account.id===form.proceeds_account_id))return;
@@ -176,7 +191,7 @@ export default function Transactions() {
         ? selectedAsset?.ownership_scope==="ORGANIZATION"?"تم حفظ مسودة الشراء. أكمل الاعتماد والترحيل من التفاصيل والإجراءات.":"تم حفظ المعاملة وتحديث رصيد الأصل."
         : (await r.json()).error || "خطأ",
     );
-    if (r.ok) {setRequestId(crypto.randomUUID());setEntryOpen(false);setForm((x:any)=>({...x,asset_account_id:"",quantity:1,unit_price:"",gross_value:"",base_value:"",proceeds_account_id:"",funding_account_id:"",counterparty_id:"",vat_amount:"",notes:""}));await load();}
+    if (r.ok) {setReferenceApplied(false);setRequestId(crypto.randomUUID());setEntryOpen(false);setForm((x:any)=>({...x,asset_account_id:"",quantity:1,unit_price:"",gross_value:"",base_value:"",...(referenceApplied?{fx_rate:1}:{}),proceeds_account_id:"",funding_account_id:"",counterparty_id:"",vat_amount:"",notes:""}));await load();}
     } catch { if(workspaceRef.current.generation===submittedGeneration)setMsg("تعذر حفظ المعاملة. حاول مرة أخرى."); } finally { if(workspaceRef.current.generation===submittedGeneration)setSaving(false); }
   }
   const filteredRows = useMemo(() => {
@@ -299,7 +314,7 @@ export default function Transactions() {
           <Field label="الأصل">
             <select
               value={form.asset_account_id}
-              onChange={(e) => { const selected = visibleAssets.find((a) => a.id === e.target.value); setForm({ ...form, asset_account_id: e.target.value, proceeds_account_id:"",funding_account_id:"",counterparty_id:"",currency: selected?.currency || form.currency,base_currency:selected?.ownership_scope==="ORGANIZATION"?catalog.organizations?.find((o:any)=>o.id===selected.organization_id)?.base_currency:catalog.base_currency }); }}
+              onChange={(e) => { const selected = visibleAssets.find((a) => a.id === e.target.value); changeReferenceContext({ asset_account_id: e.target.value, proceeds_account_id:"",funding_account_id:"",counterparty_id:"",currency: selected?.currency || form.currency,base_currency:selected?.ownership_scope==="ORGANIZATION"?catalog.organizations?.find((o:any)=>o.id===selected.organization_id)?.base_currency:catalog.base_currency }); }}
             >
               <option value="">اختر الأصل</option>
               {visibleAssets.map((a) => (
@@ -314,7 +329,7 @@ export default function Transactions() {
             <select
               value={form.transaction_type}
               onChange={(e) =>
-                setForm({ ...form, transaction_type: e.target.value })
+                changeReferenceContext({ transaction_type: e.target.value })
               }
             >
               {TRANSACTION_TYPES.map(([value, label]) => (
@@ -348,7 +363,7 @@ export default function Transactions() {
               type="date"
               value={form.transaction_date}
               onChange={(e) =>
-                setForm({ ...form, transaction_date: e.target.value })
+                changeReferenceContext({ transaction_date: e.target.value })
               }
             />
           </Field>
@@ -395,6 +410,7 @@ export default function Transactions() {
               disabled={form.currency === form.base_currency}
               onChange={(e) => {
                 const fxRate = e.target.value;
+                setReferenceApplied(false);
                 setForm({ ...form, fx_rate: fxRate, base_value: (Number(form.gross_value) || 0) * (Number(fxRate) || 0) });
               }}
             />
@@ -402,6 +418,18 @@ export default function Transactions() {
           <Field label="القيمة بالعملة الأساسية">
             <input type="number" step="any" value={form.base_value} readOnly />
           </Field>
+          {additionReference && (
+            <button type="button" className="btn" data-testid="apply-personal-fx-reference" onClick={() => {
+              setReferenceApplied(true);
+              setForm({
+                ...form, fx_rate: additionReference.rate,
+                base_value: (Number(form.gross_value) || 0) * additionReference.rate,
+              });
+            }}>
+              {t('استخدم السعر المرجعي للبنك المركزي السعودي', 'Use Saudi Central Bank reference')}{' · '}
+              <bdi>{new Intl.NumberFormat(ar ? 'ar' : 'en', { maximumSignificantDigits: 12 }).format(additionReference.rate)}</bdi>
+            </button>
+          )}
           <label className="transaction-form-notes">ملاحظات المعاملة<textarea value={form.notes} rows={2} onChange={e=>setForm({...form,notes:e.target.value})} placeholder="مرجع أو تفاصيل إضافية (اختياري)"/></label>
         </div>
         <ActionButton icon="save" label={saving?t("جار الحفظ","Saving"):t("حفظ المعاملة","Save transaction")} showLabel onClick={save} disabled={saving||!selectedAsset||(selectedAsset?.ownership_scope==="ORGANIZATION"&&form.transaction_type!=="PURCHASE")||(form.transaction_type==="SALE"&&!form.proceeds_account_id)}/>
