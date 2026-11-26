@@ -92,6 +92,7 @@
 .asset-entry .asset-entry-plus:hover:not(:disabled){background:var(--brand-primary);color:#fff}
 .asset-entry .asset-entry-plus:focus-visible{outline:2px solid var(--brand-primary);outline-offset:3px}
 .asset-entry .asset-entry-manage-link{align-self:flex-start;border:0;padding:0;background:transparent;font:inherit;font-size:11px;color:var(--brand-primary);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.asset-entry-fx-link{text-decoration:underline;font-weight:700}
 .asset-entry-fx-warning{padding:10px 12px;border:1px solid #e4c58e;border-radius:8px;background:#fffbf2;color:#805719;font-size:12px;line-height:1.8}
 .assets-page .assets-add-button{border-radius:10px;min-height:40px;background:var(--brand-primary);border:1px solid var(--brand-primary);color:#fff;box-shadow:0 2px 5px #0000000d}
 .asset-entry-quick-add{width:min(650px,calc(100vw - 48px));min-width:0;background:var(--brand-surface);color:var(--brand-text);padding:0!important;border-radius:14px;overflow:hidden}

@@ -62,3 +62,36 @@ export function reviewGroupOwnershipChange(before:GroupControlPreflight,after:Gr
   profitToNciBefore:previous.profit.nci,profitToNciAfter:subsequent.profit.nci,
   closingNci:subsequent.closingNci};
 }
+
+const disposalEvidence=z.object({
+ subsidiaryOrganizationId:z.string().uuid(),currency:z.string().regex(/^[A-Z]{3}$/),
+ effectiveDate:z.string().date(),approvalId:z.string().uuid(),
+ sourceEvidence:z.string().trim().min(8),status:z.literal('APPROVED'),
+ proceeds:signed,subsidiaryCashDisposed:signed,retainedFairValue:signed,
+ assetsIncludingGoodwill:signed,liabilities:signed,carryingNci:signed,
+ recyclableParentOci:signed,retainedEarningsTransfer:signed,
+}).strict();
+
+/** Dated worksheet for a single approved disposal. The signed carrying and
+ * valuation evidence must be attested by the caller before it is supplied.
+ */
+export function reviewGroupLossOfControl(before:GroupControlPreflight,after:GroupControlPreflight,input:unknown){
+ const p=disposalEvidence.parse(input);
+ const prior=validateGroupControlScope(before),next=validateGroupControlScope(after);
+ const relationship=before.relationships.find(r=>r.subsidiaryOrganizationId===p.subsidiaryOrganizationId);
+ const nextDay=new Date(Date.parse(prior.to)+86400000).toISOString().slice(0,10);
+ if(prior.rootOrganizationId!==next.rootOrganizationId||prior.members.length!==2||next.members.length!==1||
+  relationship?.parentOrganizationId!==prior.rootOrganizationId||!prior.members.some(m=>m.organizationId===p.subsidiaryOrganizationId)||
+  relationship.effectiveTo!==prior.to||nextDay!==next.from||p.effectiveDate!==next.from)
+  throw Error('GROUP_DISPOSAL_CONTROL_EVIDENCE_MISMATCH');
+ const consideration=new Money(p.proceeds),cash=new Money(p.subsidiaryCashDisposed),retained=new Money(p.retainedFairValue);
+ const assets=new Money(p.assetsIncludingGoodwill),liabilities=new Money(p.liabilities),nci=new Money(p.carryingNci);
+ const recycled=new Money(p.recyclableParentOci);
+ if([consideration,cash,retained,assets,liabilities].some(x=>x.lt(0))||cash.gt(assets))throw Error('GROUP_DISPOSAL_CARRYING_BASIS_INVALID');
+ const gain=consideration.plus(retained).plus(nci).minus(assets).plus(liabilities);
+ return {status:'GROUP_LOSS_OF_CONTROL_PREVIEW_ONLY' as const,currency:p.currency,effectiveDate:p.effectiveDate,
+  assetsDerecognized:assets.toFixed(4),liabilitiesDerecognized:liabilities.toFixed(4),nciDerecognized:nci.toFixed(4),
+  closingNci:'0.0000',retainedInterest:retained.toFixed(4),netCashProceeds:consideration.minus(cash).toFixed(4),
+  gainBeforeOci:gain.toFixed(4),reclassifiedParentOci:recycled.toFixed(4),
+  gainInParentProfit:gain.plus(recycled).toFixed(4),transferredToRetainedEarnings:new Money(p.retainedEarningsTransfer).toFixed(4)};
+}

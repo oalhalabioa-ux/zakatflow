@@ -15,7 +15,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{lang?:s
  const en=(await searchParams).lang==='en';
  const t=(ar:string,english:string)=>en?english:ar;
  const r=groupAcceptanceScenario();
- const {trade,translation,equity}=verifiedGroupScenario();
+ const {trade,translation,equity,cash,disposal}=verifiedGroupScenario();
  const row=(rows:{key:string;before:string;after:string;adjustment:string}[],key:string)=>rows.find(item=>item.key===key)!;
  const sections=[
   {title:t('الإلغاءات البينية','Intercompany eliminations'),rows:[
@@ -36,9 +36,17 @@ export default async function Page({searchParams}:{searchParams:Promise<{lang?:s
    ['fx-payable',t('الذمم الدائنة المستبعدة عند الإقفال','Payable eliminated at closing'),trade.payableEliminated],
    ['fx-revenue',t('الإيراد البيني المستبعد','Internal revenue eliminated'),trade.revenueEliminated],
    ['fx-expense',t('المصروف البيني المستبعد','Internal expense eliminated'),trade.expenseEliminated],
+   ['fx-link',t('ربط إعادة التقييم بالذمة والمستند وتاريخ القطع','Remeasurement linked to the obligation, document and cutoff'),trade.remeasurementBindings[0].cutoff],
    ['fx-profit',t('فرق الصرف المتبقي في نتيجة المجموعة','Exchange loss retained in group profit'),trade.profitAfterElimination],
    ['translation-difference',t('فرق ترجمة صافي أصول التابعة','Subsidiary net asset translation difference'),translation.position.translationDifference],
    ['cash-rate-effect',t('أثر الصرف على النقد','Exchange-rate effect on cash'),translation.cash.exchangeRateEffect],
+  ]},
+  {title:t('إلغاء التدفقات النقدية بين عملتين','Intercompany cash elimination across currencies'),rows:[
+   ['fx-cash-amount',t('استبعاد كل طرف بالريال','Amount eliminated from each leg in SAR'),cash.eliminated],
+   ['fx-cash-investing',t('الاستثمار بعد الإلغاء','Investing after elimination'),cash.rows[1].after],
+   ['fx-cash-financing',t('التمويل بعد الإلغاء','Financing after elimination'),cash.rows[2].after],
+   ['fx-cash-exchange',t('أثر الصرف بعد الإلغاء','Exchange effect after elimination'),cash.exchangeRateEffect],
+   ['fx-cash-closing',t('النقد الختامي بعد الإلغاء','Closing cash after elimination'),cash.closing],
   ]},
   {title:t('تغيّر الملكية مع بقاء السيطرة','Ownership change with control retained'),rows:[
    ['parent-before',t('حصة الأم قبل التغيّر','Parent interest before the change'),equity.parentBefore+'%'],
@@ -54,10 +62,22 @@ export default async function Page({searchParams}:{searchParams:Promise<{lang?:s
    ['goodwill-impact',t('أثر العملية على الشهرة','Transaction effect on goodwill'),equity.goodwillImpact],
    ['nci-closing',t('حقوق الأقلية في نهاية الفترة','Closing non-controlling interests'),equity.closingNci],
   ]},
+  {title:t('فقدان السيطرة','Loss of control'),rows:[
+   ['disposal-date',t('تاريخ فقدان السيطرة','Loss of control date'),disposal.effectiveDate],
+   ['disposal-nci',t('حقوق الأقلية المستبعدة','NCI derecognized'),disposal.nciDerecognized],
+   ['disposal-closing-nci',t('حقوق الأقلية بعد الاستبعاد','NCI after derecognition'),disposal.closingNci],
+   ['disposal-investment',t('القيمة العادلة للحصة المحتفظ بها','Fair value of the retained interest'),disposal.retainedInterest],
+   ['disposal-cash',t('صافي المقبوضات من الاستبعاد','Net disposal cash proceeds'),disposal.netCashProceeds],
+   ['disposal-profit',t('أثر فقدان السيطرة في ربح الأم','Loss of control effect on parent profit'),disposal.gainInParentProfit],
+  ]},
  ];
  return <main className="fs-page" dir={en?'ltr':'rtl'} data-group-acceptance="synthetic">
   <h1>{t('قبول التجميع المالي على QA V2','QA V2 financial consolidation acceptance')}</h1>
   <p>{t('القيود والمستندات اصطناعية. أسعار نهاية الفترة من جدول ٢ب المنشور للبنك المركزي السعودي. المبالغ بالريال السعودي.','Journals and documents are synthetic. Period-end rates come from the published Saudi Central Bank table 2b. Amounts are in SAR.')}</p>
+  <p data-group-rate-coverage>{t(
+   'التغطية المعروضة: الدولار واليورو والجنيه الإسترليني مقابل الريال في نهايات الأشهر من ديسمبر 2025 إلى سبتمبر 2026. يُوقف الحساب عند غياب سعر التاريخ أو موافقة المؤسسة.',
+   'Rates cover USD, EUR and GBP against SAR at month-end from December 2025 to September 2026. Missing rates or company approval block calculation.',
+  )}</p>
   <p><a href={samaGroupRatePublication.sourceUrl}>{t('نشرة سبتمبر 2026، جدول ٢ب','September 2026 bulletin, table 2b')}</a></p>
   <p><a href="?lang=ar" lang="ar">العربية</a> · <a href="?lang=en" lang="en">English</a></p>
   {sections.map(section=><section className="fs-source-statements" key={section.title}>

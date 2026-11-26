@@ -5,6 +5,7 @@
  */
 export const FINANCIAL_INDUSTRIES = [
   {id:'GENERAL',ar:'تجاري',en:'Trading'},
+  {id:'MANUFACTURING',ar:'صناعي',en:'Manufacturing'},
   {id:'SERVICES',ar:'خدمي',en:'Services'},
   {id:'REAL_ESTATE',ar:'عقاري',en:'Real estate'},
   {id:'INVESTMENTS',ar:'استثمارات',en:'Investments'},
@@ -44,6 +45,15 @@ const specialized:Record<FinancialIndustry,readonly (readonly [string,string,str
     ['410011','مبيعات بضائع','Merchandise sales','CREDIT'],
     ['510011','تكلفة البضائع المباعة','Cost of merchandise sold','DEBIT'],
     ['610011','مصاريف التوزيع والبيع','Sales & distribution expenses','DEBIT'],
+  ],
+  MANUFACTURING:[
+    ['170031','مواد خام','Raw materials','DEBIT'],
+    ['170032','إنتاج تحت التشغيل','Work in progress','DEBIT'],
+    ['170033','منتجات تامة الصنع','Finished goods','DEBIT'],
+    ['150031','آلات ومعدات المصنع','Plant and machinery','DEBIT'],
+    ['159031','مجمع إهلاك آلات المصنع','Accumulated depreciation – plant','CREDIT'],
+    ['410031','مبيعات المنتجات المصنعة','Manufactured goods sales','CREDIT'],
+    ['510031','تكلفة المنتجات المصنعة المباعة','Cost of manufactured goods sold','DEBIT'],
   ],
   SERVICES:[
     ['410021','إيرادات الخدمات المهنية','Professional service revenue','CREDIT'],

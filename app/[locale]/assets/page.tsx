@@ -3,6 +3,7 @@ import "./asset-entry.css";
 import "./asset-card.css";
 import AssetEntrySettings from '@/components/assets/AssetEntrySettings';
 import {assetEntryTaxSettings} from '@/lib/asset-entry-tax';
+import {samaFixedFxReference} from '@/lib/official-fx-reference';
 import {assetEntryAmount} from '@/lib/asset-entry';
 import {categoryOptions} from '@/lib/debt-categories';
 import DebtPartyManager from '@/components/DebtPartyManager';
@@ -535,12 +536,53 @@ export default function Assets({
   const [submitted,setSubmitted]=useState(false);
   const [quickAdd,setQuickAdd]=useState(false);
   const [manageSuppliers,setManageSuppliers]=useState(false);
-  const [fxQuote,setFxQuote]=useState<{key:string;rate:number|null;error:string;loading:boolean}>({key:'',rate:null,error:'',loading:false});
-  const fxKey=JSON.stringify([form.currency,form.purchase_date,form.ownership_scope==='ORGANIZATION'?form.organization_id:null]);
-  const entryFxError=(code:string)=>code==='ASSET_CURRENCY_NOT_REGISTERED'?(ar?'هذه العملة غير مسجلة أو غير مفعلة في النظام.':'This currency is not registered or active.'):(ar?'لا يوجد سعر صرف مسجل لهذه العملة إلى عملة الأساس بتاريخ السند. أضفه في الأسعار والعملات قبل الحفظ.':'No saved exchange rate exists for this currency and entry date. Add it in Prices & FX before saving.');
-  useEffect(()=>{if(!formOpen||!form.purchase_date||!form.currency)return;const controller=new AbortController();setFxQuote({key:fxKey,rate:null,error:'',loading:true});const params=new URLSearchParams({currency:form.currency,date:form.purchase_date});if(form.ownership_scope==='ORGANIZATION'&&form.organization_id)params.set('organization_id',form.organization_id);void fetch('/api/assets/fx?'+params,{signal:controller.signal,cache:'no-store'}).then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error);if(!controller.signal.aborted)setFxQuote({key:fxKey,rate:d.rate,error:'',loading:false});}).catch(e=>{if(!controller.signal.aborted)setFxQuote({key:fxKey,rate:null,error:e.message,loading:false});});return()=>controller.abort();},[fxKey,formOpen]);
+  const [fxQuote, setFxQuote] = useState<{ key: string; rate: number | null; error: string; loading: boolean }>({
+    key: '', rate: null, error: '', loading: false,
+  });
+  const [fxRevision, setFxRevision] = useState(0);
+  const fxKey = JSON.stringify([form.currency, form.purchase_date, form.ownership_scope === 'ORGANIZATION' ? form.organization_id : null]);
+  const fxPending = fxQuote.key !== fxKey || fxQuote.loading;
+  const purchaseReference = form.ownership_scope === 'PERSONAL' && form.acquisition_mode === 'PURCHASE'
+    ? samaFixedFxReference(form.currency, baseCurrency, form.purchase_date)
+    : null;
+  const missingPurchaseRate = Boolean(purchaseReference && !fxPending && fxQuote.error === 'ASSET_SAVED_FX_RATE_MISSING');
+  const entryFxError = (code: string) => {
+    if (missingPurchaseRate) return ar
+      ? 'سجّل سعر الصرف الفعلي لهذا الشراء قبل الحفظ.'
+      : 'Record the actual exchange rate for this purchase before saving.';
+    if (code === 'ASSET_CURRENCY_NOT_REGISTERED') return ar
+      ? 'هذه العملة غير مسجلة أو غير مفعلة في النظام.'
+      : 'This currency is not registered or active.';
+    if (code === 'ASSET_SAVED_FX_RATE_MISSING') return ar
+      ? 'لا يوجد سعر صرف مسجل لهذه العملة إلى عملة الأساس بتاريخ السند. أضفه في الأسعار والعملات قبل الحفظ.'
+      : 'No saved exchange rate exists for this currency and entry date. Add it in Prices & FX before saving.';
+    return ar ? 'تعذّر التحقق من سعر الصرف. حاول مرة أخرى.' : 'Could not check the exchange rate. Try again.';
+  };
+  useEffect(() => {
+    if (!formOpen || !form.purchase_date || !form.currency) return;
+    const controller = new AbortController();
+    setFxQuote({ key: fxKey, rate: null, error: '', loading: true });
+    const params = new URLSearchParams({ currency: form.currency, date: form.purchase_date });
+    if (form.ownership_scope === 'ORGANIZATION' && form.organization_id) params.set('organization_id', form.organization_id);
+    void fetch('/api/assets/fx?' + params, { signal: controller.signal, cache: 'no-store' }).then(async response => {
+      const quote = await response.json();
+      if (!response.ok) throw Error(quote.error);
+      if (!controller.signal.aborted) setFxQuote({ key: fxKey, rate: quote.rate, error: '', loading: false });
+    }).catch(error => {
+      if (!controller.signal.aborted) setFxQuote({ key: fxKey, rate: null, error: error.message, loading: false });
+    });
+    return () => controller.abort();
+  }, [fxKey, formOpen, fxRevision]);
+  useEffect(() => {
+    if (!formOpen || !missingPurchaseRate) return;
+    const refresh = () => setFxRevision(revision => revision + 1);
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
+  }, [formOpen, missingPurchaseRate]);
+
   const refreshEntryCatalog=async()=>{const r=await fetch('/api/assets/catalog',{cache:'no-store'});if(r.ok)setCatalog(await r.json());};
   const financialOpening=['CASH','BANK','RECEIVABLE'].includes(form.asset_type);
+  const formatFx = (rate: number) => `1 ${form.currency} = ${new Intl.NumberFormat(locale, { maximumSignificantDigits: 12 }).format(rate)} ${baseCurrency}`;
   const closeAssetForm=()=>{setEditAsset(null);setRequestId("");setFormOpen(false);setForm({...empty});setMsg("");setSubmitted(false);};
   const entryAmount=(value:number)=>assetEntryAmount(value,form.currency);
   let entryTax:ReturnType<typeof assetPurchaseAmounts>|null=null;
@@ -579,7 +621,7 @@ export default function Assets({
     if(['CASH','BANK'].includes(compatibleLegacyType)&&(!Number.isFinite(pc)||pc<=0)){setMsg(ar?'إضافة النقد أو البنك من الأصول تتطلب رصيدًا افتتاحيًا موجبًا. لإنشاء حساب بلا رصيد، استخدم السيولة.':'Cash or bank entry through Assets requires a positive opening. Create empty accounts in Liquidity.');return;}
     const nextRequestId=requestId||crypto.randomUUID();if(!requestId)setRequestId(nextRequestId);
     let taxSettings:ReturnType<typeof assetEntryTaxSettings>;try{taxSettings=assetEntryTaxSettings(form,pc);}catch{setMsg(ar?"تحقق من إعدادات الضريبة والتصنيف وسبب المعاملة الضريبية.":"Check tax settings, category and treatment reason.");return;}
-    if(fxQuote.key!==fxKey||fxQuote.loading||!fxQuote.rate){setMsg(fxQuote.loading?(ar?'جار التحقق من سعر الصرف المسجل…':'Checking saved exchange rate…'):entryFxError(fxQuote.error));return;}
+    if(fxPending||!fxQuote.rate){setMsg(fxPending?(ar?'جار التحقق من سعر الصرف المسجل…':'Checking saved exchange rate…'):entryFxError(fxQuote.error));return;}
     setSaving(true);
     const metadata: any = {
       fx_rate:fxQuote.rate,debt_category:form.debt_category||undefined,hawl_start_date:form.hawl_start_date||form.purchase_date,counterparty_id:form.counterparty_id||null,invoice_reference:form.invoice_reference||null,due_date:form.due_date||null,
@@ -742,7 +784,23 @@ export default function Assets({
 {form.acquisition_mode==='PURCHASE'&&form.ownership_scope==='ORGANIZATION'&&<label>{ar?"تاريخ استحقاق السداد *":"Payment due date *"}<input data-testid="asset-entry-due" type="date" required min={form.purchase_date} value={form.due_date} onChange={e=>setForm({...form,due_date:e.target.value})}/></label>}
 {form.acquisition_mode==='PURCHASE'&&form.ownership_scope==='ORGANIZATION'&&<label>{ar?'رقم فاتورة المورد *':'Supplier invoice number *'}<input data-testid="asset-entry-invoice" required pattern={'.*\\S.*'} maxLength={120} value={form.invoice_reference} onChange={e=>setForm({...form,invoice_reference:e.target.value})}/><small>{ar?'يُحفظ رقم المورد منفصلًا؛ يُخصّص رقم داخلي تلقائي من تسلسل مشتريات الشركة عند الحفظ.':'Supplier reference is separate; an internal company purchase number is assigned on save.'}</small></label>}
 </div>
-{(fxQuote.key!==fxKey||fxQuote.loading)?<p className="asset-entry-hint" role="status">{ar?'جار التحقق من سعر الصرف المسجل…':'Checking saved exchange rate…'}</p>:fxQuote.error&&<p role="alert" className="asset-entry-fx-warning">{entryFxError(fxQuote.error)}</p>}
+{fxPending ? (
+  <p className="asset-entry-hint" role="status">{ar ? 'جار التحقق من سعر الصرف المسجل…' : 'Checking saved exchange rate…'}</p>
+) : purchaseReference && (missingPurchaseRate || fxQuote.rate) ? (
+  <div data-testid="asset-purchase-fx-reference" role={missingPurchaseRate ? 'alert' : 'status'}
+       className={missingPurchaseRate ? 'asset-entry-fx-warning' : 'asset-entry-hint'}>
+    {missingPurchaseRate
+      ? <strong>{ar ? 'يلزم تسجيل سعر الصرف الفعلي لهذا الشراء' : 'Record the actual rate for this purchase'}</strong>
+      : fxQuote.rate !== null && <div><strong>{ar ? 'السعر المسجّل الذي سيُستخدم في السند' : 'Saved rate to be used on this voucher'}</strong>{' · '}<bdi>{formatFx(fxQuote.rate)}</bdi></div>}
+    <div>{ar ? 'مرجع البنك المركزي السعودي للمراجعة' : 'Saudi Central Bank reference for comparison'}{' · '}<bdi>{formatFx(purchaseReference.rate)}</bdi></div>
+    {missingPurchaseRate && (
+      <Link className="asset-entry-fx-link" target="_blank" rel="noopener"
+        href={`/${locale}/prices?${new URLSearchParams({ scope: 'PERSONAL', fx_from: form.currency, fx_to: baseCurrency, fx_date: purchaseReference.date })}#record-fx`}>
+        {ar ? 'تسجيل سعر الصرف الفعلي (يفتح في تبويب جديد)' : 'Record actual exchange rate (opens in a new tab)'}
+      </Link>
+    )}
+  </div>
+) : fxQuote.error && <p role="alert" className="asset-entry-fx-warning">{entryFxError(fxQuote.error)}</p>}
 <div className="form-grid asset-entry-unit-row">
 {qty?<>
 <label>{metal?(ar?'الوزن بالغرام *':'Weight g *'):(ar?'الكمية *':'Quantity *')}<input data-testid="asset-entry-quantity" type="number" required min="0.00000001" step="any" value={form.quantity} onChange={e=>setForm({...form,quantity:e.target.value})}/></label>
@@ -793,7 +851,7 @@ export default function Assets({
             <p>{form.acquisition_mode==='PURCHASE'?(form.ownership_scope==='ORGANIZATION'?(ar?"يُحفظ الشراء كمسودة للمراجعة والترحيل. السداد إجراء مستقل.":"The purchase is saved as a draft for review and posting. Payment is separate."):(ar?"يُسجّل الشراء على حساب الدفع الشخصي المحدد.":"The purchase is recorded against the selected personal payment account.")):(ar?"رصيد افتتاحي لأصل موجود؛ لا يمثل شراءً جديداً.":"An opening balance for an existing asset, without a new purchase.")}</p>
           </div></details></aside>
           {msg&&<p role="alert" className="asset-entry-error">{msg}</p>}
-          <div className="asset-entry-footer"><ActionButton type="submit" icon="save" label={saving?(ar?"جار الحفظ…":"Saving…"):(ar?"حفظ الأصل":"Save asset")} showLabel disabled={saving}/><ActionButton icon="close" label={ar?"إلغاء":"Cancel"} showLabel disabled={saving} onClick={closeAssetForm}/><span>{ar?"راجع المالك وطريقة الاقتناء والقيمة قبل الحفظ.":"Check ownership, acquisition method and value before saving."}</span></div>
+          <div className="asset-entry-footer"><ActionButton type="submit" icon="save" label={saving?(ar?"جار الحفظ…":"Saving…"):(ar?"حفظ الأصل":"Save asset")} showLabel disabled={saving || missingPurchaseRate}/><ActionButton icon="close" label={ar?"إلغاء":"Cancel"} showLabel disabled={saving} onClick={closeAssetForm}/><span>{ar?"راجع المالك وطريقة الاقتناء والقيمة قبل الحفظ.":"Check ownership, acquisition method and value before saving."}</span></div>
         </form>
         {<p className="asset-entry-links">{ar?"تريد إضافة حساب أو ذمة؟":"Adding an account or receivable?"} <Link href={`/${locale}/cash-and-banks`}>{ar?"النقد والبنوك":"Cash & banks"}</Link> · <Link href={`/${locale}/receivables`}>{ar?"الذمم":"Receivables"}</Link></p>}
       </section>}

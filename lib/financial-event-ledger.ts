@@ -20,13 +20,17 @@ export function compileEventLedger(input:EventLedgerInput){
  const sameScope=(org:string,currency:string)=>{if(org!==input.organizationId||currency!==input.currency)throw Error('LEDGER_SCOPE_MISMATCH')};
  sameScope(policy.organizationId,policy.currency);
  const accounts=new Map(input.accounts.map(a=>[a.id,a]));
+ function validPostingAccounts(debit:string,credit:string,direction:RecognitionLine['cashDirection']){
+  if(!accounts.has(debit)||!accounts.has(credit))return false;
+  return debit!==credit||(direction!=='NON_CASH'&&accounts.get(debit)?.cash===true);
+ }
  const ruleIds=new Set<string>(),ruleIndex=new Map<string,PostingRule[]>();
  const ruleKey=(r:{eventType:string;sourceModule:string;classificationId:string;cashDirection:string})=>JSON.stringify([r.eventType,r.sourceModule,r.classificationId,r.cashDirection]);
  for(const r of policy.rules){
   sameScope(r.organizationId,r.currency);
   if(!r.id||ruleIds.has(r.id))throw Error('DUPLICATE_POSTING_RULE');ruleIds.add(r.id);
   if(!validDate(r.from)||!validDate(r.to)||r.from>r.to)throw Error('INVALID_POSTING_RULE_PERIOD');
-  if(!accounts.has(r.debitAccountId)||!accounts.has(r.creditAccountId)||r.debitAccountId===r.creditAccountId&&(!accounts.get(r.debitAccountId)?.cash||r.cashDirection==='NON_CASH'))throw Error('INVALID_POSTING_ACCOUNTS');
+  if(!validPostingAccounts(r.debitAccountId,r.creditAccountId,r.cashDirection))throw Error('INVALID_POSTING_ACCOUNTS');
   if(r.cashActivity&&!['OPERATING','INVESTING','FINANCING'].includes(r.cashActivity))throw Error('INVALID_CASH_ACTIVITY');
   const key=ruleKey(r);ruleIndex.set(key,[...(ruleIndex.get(key)??[]),r]);
  }
@@ -54,7 +58,7 @@ export function compileEventLedger(input:EventLedgerInput){
    const matches=(ruleIndex.get(ruleKey({...e,...l}))??[]).filter(r=>r.from<=e.date&&r.to>=e.date);
    if(!l.resolvedPosting&&matches.length!==1)throw Error(matches.length?'AMBIGUOUS_POSTING_RULE':'POSTING_RULE_REQUIRED');
    const r=l.resolvedPosting??matches[0],n=new Money(l.baseAmount).toFixed(4);
-   if(!accounts.has(r.debitAccountId)||!accounts.has(r.creditAccountId))throw Error('INVALID_POSTING_ACCOUNTS');
+   if(!validPostingAccounts(r.debitAccountId,r.creditAccountId,l.cashDirection))throw Error('INVALID_POSTING_ACCOUNTS');
    const debit=l.recognitionSign===1?r.debitAccountId:r.creditAccountId,credit=l.recognitionSign===1?r.creditAccountId:r.debitAccountId;
    const cashDebit=Boolean(accounts.get(debit)?.cash),cashCredit=Boolean(accounts.get(credit)?.cash);
    if(l.cashDirection==='NON_CASH'&&(cashDebit||cashCredit)||l.cashDirection!=='NON_CASH'&&!cashDebit&&!cashCredit)throw Error('POSTING_CASH_DIRECTION_MISMATCH');

@@ -3,12 +3,20 @@ import {z} from 'zod';
 import {compileEventLedger} from './financial-event-ledger';
 import {validateGroupControlScope,type GroupControlPreflight} from './financial-group-control';
 import {verifyGroupDocumentMatches} from './financial-group-document-matches';
-import {groupReportingRate} from './financial-group-reporting-rates';
+import {approvedGroupReportingRate,type GroupRatePolicy} from './financial-group-reporting-rates';
 import {sourceBoundAdjustmentSchema} from './financial-group-source-bound-adjustments';
 import {normalizeStatementSource,statementSourceEnvelope} from './financial-statement-source';
 
 const Money=Decimal.clone({precision:50,rounding:Decimal.ROUND_HALF_UP});
 const leg=sourceBoundAdjustmentSchema.shape.debitSource.extend({remeasurementEventId:z.string().uuid().optional()});
+const remeasurementEvidence=z.object({
+ organizationId:z.string().uuid(),documentMatchId:z.string().uuid(),obligationId:z.string().uuid(),
+ tradeEventId:z.string().uuid(),tradeLineId:z.string().min(1),accountId:z.string().min(1),
+ adjustmentEventId:z.string().uuid(),cutoff:z.string().date(),
+}).strict();
+const tradeObligationEvidence=remeasurementEvidence.pick({
+ organizationId:true,documentMatchId:true,obligationId:true,tradeEventId:true,tradeLineId:true,accountId:true,
+});
 const request=z.object({
  id:z.string().uuid(),documentMatchId:z.string().uuid(),debitSource:leg,creditSource:leg,
  presentationCurrency:z.literal('SAR'),
@@ -18,9 +26,14 @@ const request=z.object({
  * supply current independently authorized source and documentary evidence.
  * Each selected receivable/payable leaf must be dedicated to this obligation.
  */
-export function reviewCrossCurrencyTrade(control:GroupControlPreflight,raw:readonly unknown[],input:unknown,documents:unknown){
+export function reviewCrossCurrencyTrade(control:GroupControlPreflight,raw:readonly unknown[],input:unknown,documents:unknown,links:unknown,obligations:unknown,policies:readonly GroupRatePolicy[]){
  const query=request.parse(input);
  const scope=validateGroupControlScope(control);
+ const evidence=z.array(remeasurementEvidence).max(2).parse(links);
+ const obligationRows=z.array(tradeObligationEvidence).max(2).parse(obligations);
+ if(new Set(obligationRows.map(row=>row.obligationId)).size!==obligationRows.length)
+  throw Error('GROUP_FX_REMEASUREMENT_LINK_REQUIRED');
+ if(evidence.length!==[query.debitSource,query.creditSource].filter(leg=>leg.remeasurementEventId).length)throw Error('GROUP_FX_REMEASUREMENT_LINK_REQUIRED');
  const sources=raw.map(source=>statementSourceEnvelope.parse(source));
  const pair=[query.creditSource.organizationId,query.debitSource.organizationId];
  if(sources.length!==2||scope.members.length!==2||new Set(pair).size!==2||
@@ -47,7 +60,7 @@ export function reviewCrossCurrencyTrade(control:GroupControlPreflight,raw:reado
 
   const event=source.events.find(e=>e.id===ref.eventId);
   const journal=compiled.source.journals.find(j=>j.id===ref.eventId);
-  if(!event||event.status!=='ACTUAL'||event.eventType!==(seller?'REVENUE':'EXPENSE')||event.reversesEventId||
+  if(!event||source.events.some(e=>e.reversesEventId===event.id&&e.date<=control.to)||event.eventType!==(seller?'REVENUE':'EXPENSE')||event.reversesEventId||
    event.lines.length!==1||event.lines[0].id!==ref.lineId||event.lines[0].cashDirection!=='NON_CASH'||
    event.lines[0].recognitionSign!==1||!journal||journal.lines.length!==2)
    throw Error('GROUP_FX_TRADE_SOURCE_INVALID');
@@ -60,19 +73,26 @@ export function reviewCrossCurrencyTrade(control:GroupControlPreflight,raw:reado
   const subsequent=ledger.entries.filter(line=>line.journalId!==ref.eventId);
   let exchangeProfit=new Money(0);
   if(ref.remeasurementEventId){
+   const matches=evidence.filter(link=>link.organizationId===ref.organizationId&&
+    link.documentMatchId===query.documentMatchId&&link.tradeEventId===ref.eventId&&link.tradeLineId===ref.lineId&&
+    link.accountId===ref.accountId&&link.adjustmentEventId===ref.remeasurementEventId&&link.cutoff===control.to);
+   if(matches.length!==1||!obligationRows.some(row=>row.obligationId===matches[0].obligationId&&
+    row.organizationId===ref.organizationId&&row.documentMatchId===query.documentMatchId&&
+    row.tradeEventId===ref.eventId&&row.tradeLineId===ref.lineId&&row.accountId===ref.accountId))
+    throw Error('GROUP_FX_REMEASUREMENT_LINK_REQUIRED');
    const adjustment=source.events.find(e=>e.id===ref.remeasurementEventId);
    const posted=compiled.source.journals.find(j=>j.id===ref.remeasurementEventId);
    const profitLeg=posted?.lines.find(l=>l.accountId!==ref.accountId);
    if(subsequent.length!==1||subsequent[0].journalId!==ref.remeasurementEventId||
     adjustment?.eventType!=='FX_REMEASUREMENT'||adjustment.date!==control.to||adjustment.date<=event.date||
-    adjustment.status!=='ACTUAL'||adjustment.reversesEventId||posted?.lines.length!==2||
+    adjustment.reversesEventId||source.events.some(e=>e.reversesEventId===adjustment.id&&e.date<=control.to)||posted?.lines.length!==2||
     !profitLeg||metadata.get(profitLeg.accountId)?.kind!=='FINANCE')
     throw Error('GROUP_FX_REMEASUREMENT_SOURCE_INVALID');
    exchangeProfit=new Money(profitLeg.credit).minus(profitLeg.debit);
   }else if(subsequent.length)throw Error('GROUP_FX_TRADE_SOURCE_INVALID');
 
-  const transactionRate=groupReportingRate(source.currency,query.presentationCurrency,event.date);
-  const closingRate=groupReportingRate(source.currency,query.presentationCurrency,control.to);
+  const transactionRate=approvedGroupReportingRate(policies,source.organizationId,source.currency,query.presentationCurrency,event.date);
+  const closingRate=approvedGroupReportingRate(policies,source.organizationId,source.currency,query.presentationCurrency,control.to);
   return {date:event.date,currency:source.currency,original:original.times(transactionRate.rate),
    closing:new Money(ledger.closing).times(seller?1:-1).times(closingRate.rate),
    exchangeProfit:exchangeProfit.times(closingRate.rate),transactionRate,closingRate};
@@ -86,7 +106,7 @@ export function reviewCrossCurrencyTrade(control:GroupControlPreflight,raw:reado
   throw Error('GROUP_FX_CLOSING_BALANCES_UNRECONCILED');
  const exchangeProfit=receivable.exchangeProfit.plus(payable.exchangeProfit);
  return {status:'GROUP_FX_MATCHED_TRADE_REVIEW_ONLY' as const,currency:query.presentationCurrency,
-  documentMatchId:query.documentMatchId,transactionDate:receivable.date,closingDate:control.to,
+  documentMatchId:query.documentMatchId,remeasurementBindings:evidence,transactionDate:receivable.date,closingDate:control.to,
   receivableEliminated:format(receivable.closing),payableEliminated:format(payable.closing),
   revenueEliminated:format(receivable.original),expenseEliminated:format(payable.original),
   profitBeforeElimination:format(exchangeProfit),profitAfterElimination:format(exchangeProfit),
