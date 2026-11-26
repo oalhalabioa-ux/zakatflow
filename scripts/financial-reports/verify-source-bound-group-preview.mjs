@@ -931,7 +931,8 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
 
 
  const eurChild=randomUUID(),aedChild=randomUUID();
- sql(`insert into public.organizations(id,owner_user_id,name,parent_organization_id,base_currency) values
+ sql(`select set_config('request.jwt.claim.sub','${actor.id}',false);
+  insert into public.organizations(id,owner_user_id,name,parent_organization_id,base_currency) values
   ('${eurChild}','${actor.id}','FX coverage test subsidiary EUR','${parent}','EUR'),
   ('${aedChild}','${actor.id}','FX coverage test subsidiary AED','${parent}','AED');
   insert into public.organization_members(organization_id,user_id,role,status) values
