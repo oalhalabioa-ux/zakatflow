@@ -2249,6 +2249,14 @@
       "expected_md5": "bb867b72902910648957c0d8628c95e5",
       "file_sha256": "f364457448da3f22255868990c73d99f36375860f9d6ded59be34a68fbb0603c",
       "validation_project": "Disposable canonical schema, quantity-first purchase funding in both paths, historical upgrade, retries, rollback and exact reversal"
+    },
+    {
+      "path": "supabase/migrations/20261126190000_v2_reporting_source_contracts.sql",
+      "version": "20261126190000",
+      "name": "v2_reporting_source_contracts",
+      "expected_md5": "c41c02441557e3d975a4014918166b3a",
+      "file_sha256": "690c322c4391b3c422c0a4f5e5cb404c165ef6424faac87833bbb8bf9df2c078",
+      "validation_project": "Disposable canonical history, authorized V2 revaluation lineage, approved FX policy, personal sources and cutoff"
     }
   ]
 }

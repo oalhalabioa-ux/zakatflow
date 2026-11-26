@@ -5,6 +5,9 @@ vi.mock('../services/financial-register',()=>({financialRegister:async(...args:u
  return{asOf:'2026-11-06',baseCurrency:'SAR',organizations:[],organizationIds:[],entities:[],accounts:[],cashMovements:[],debts:[],debtMovements:[],assets:[],warnings:[]};
 }}));
 vi.mock('../lib/financial-register',async importOriginal=>{const actual=await importOriginal<typeof import('../lib/financial-register')>();return{...actual,riyadhToday:()=> '2026-11-06'};});
+vi.mock('../services/reporting-source-contracts',()=>({
+ readClassifiedPersonalActivity:async(from:string,to:string)=>({from,to,basis:'EXPLICIT_PERSONAL_DOCUMENTS',coverage:'CLASSIFIED_SUBSET',rows:[],totals:[]}),
+}));
 import {GET} from '../app/api/financial-reporting/personal/route';
 const url=(q='')=>'http://localhost/api/financial-reporting/personal'+q;
 beforeEach(()=>{state.calls=[];state.authenticated=true});
@@ -14,7 +17,7 @@ describe('personal financial reporting access and query validation',()=>{
   expect(response.status).toBe(200);
   expect(response.headers.get('Cache-Control')).toBe('private, no-store');
   expect(state.calls).toEqual([['PERSONAL',null,false]]);
-  expect(await response.json()).toMatchObject({scope:'PERSONAL',positions:[],cashAccounts:[]});
+  expect(await response.json()).toMatchObject({scope:'PERSONAL',positions:[],cashAccounts:[],classifiedActivity:{basis:'EXPLICIT_PERSONAL_DOCUMENTS',from:'2026-01-01',to:'2026-11-06'}});
   for(const invalid of ['?organization=abc','?group=1','?scope=ORGANIZATION','?from=2026-01-01&from=2026-02-01']){
    expect((await GET(new Request(url(invalid)))).status).toBe(400);
   }
