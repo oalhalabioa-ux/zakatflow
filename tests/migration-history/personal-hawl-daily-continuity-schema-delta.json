@@ -1,0 +1,35 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.personal_hawl_continuity(p_cycle uuid, p_method uuid, p_cutoff date)",
+      "fingerprint": "b1387b443040aa752e9a1b358316401c"
+    },
+    {
+      "category": "function",
+      "object_key": "private.personal_hawl_periods_at_cutoff(p_cycle uuid, p_method uuid, p_context jsonb)",
+      "fingerprint": "e50fdd8f047a7dd426810608474e865e"
+    },
+    {
+      "category": "function",
+      "object_key": "private.personal_pooled_hawl_witness(p_cycle uuid, p_method uuid, p_cutoff date)",
+      "fingerprint": "13384ec6a9fbfa13a00dbdd4756a6816"
+    },
+    {
+      "category": "function",
+      "object_key": "public.close_zakat_cycle(p_cycle_id uuid, p_final_assessment_id uuid)",
+      "fingerprint": "96323f63d3e65c2174e86d3d60127f3f"
+    },
+    {
+      "category": "function",
+      "object_key": "public.personal_zakat_assessment_context(p_cycle uuid, p_method uuid, p_cutoff date)",
+      "fingerprint": "403b714c85cf33c6466d2c29339bf0cd"
+    },
+    {
+      "category": "function",
+      "object_key": "public.save_zakat_assessment_snapshot(p_assessment jsonb, p_lines jsonb, p_revision_of uuid)",
+      "fingerprint": "41628166a21ed13bede57f8bf52dacab"
+    }
+  ]
+}

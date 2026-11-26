@@ -2265,6 +2265,14 @@
       "expected_md5": "878813c6544e35508dd30ebe86ecb202",
       "file_sha256": "52ae37700c401c1c0b1402361df1ffb6e04f738506e210c1eed18e82a527de88",
       "validation_project": "Disposable canonical schema: method-specific assessment periods, save, final coverage, ownership and duplicate prevention"
+    },
+    {
+      "path": "supabase/migrations/20261126211500_personal_hawl_daily_continuity.sql",
+      "version": "20261126211500",
+      "name": "personal_hawl_daily_continuity",
+      "expected_md5": "3d282a08d2bcffc84fe7e14242d77816",
+      "file_sha256": "906d4e2e76366737d8124e24f2fe7b778b34e50795291cba4b3ca900822d6d83",
+      "validation_project": "Disposable canonical schema: dated closing evidence, same-day and cross-day qualification, cutoff save and finalization"
     }
   ]
 }
