@@ -1,0 +1,20 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "public.zakat_lot_hawl_periods(p_calendar text)",
+      "fingerprint": "0621d7906e832f53e43c0155c239b82b"
+    },
+    {
+      "category": "function",
+      "object_key": "private.gold_receipt_component_periods(p_receipt uuid, p_calendar text)",
+      "fingerprint": "4285936b846b7432c6c62781c8e07725"
+    },
+    {
+      "category": "function",
+      "object_key": "public.personal_first_hawl_start()",
+      "fingerprint": "fc035ffece2e0c8e0d0e862a87a6932c"
+    }
+  ]
+}

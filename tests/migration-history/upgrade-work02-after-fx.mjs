@@ -20,7 +20,7 @@ const canonicalFx='20261125165000',installedFx='20261125201134';
 const manifest=await verifyFiles();
 const installed=()=>JSON.parse(sql("select jsonb_agg(version order by version) from supabase_migrations.schema_migrations"));
 const expectedBefore=manifest.entries.map(entry=>entry.version===canonicalFx?installedFx:entry.version)
- .filter(version=>!versions.includes(version)&&version!==fundingVersion).sort();
+ .filter(version=>version<=versions.at(-1)&&!versions.includes(version)).sort();
 assert.deepEqual(installed(),expectedBefore);
 assert.equal(sql("select name from supabase_migrations.schema_migrations where version='"+installedFx+"'"),'personal_fx_rates');
 assert.equal(sql("select to_regprocedure('public.apply_financial_chart_template(uuid,text,jsonb)') is null"),'t');
@@ -108,6 +108,19 @@ for(let pass=0;pass<2;pass++){
  assert.deepEqual(installed(),[...expectedAfter,fundingVersion].sort());
  assert.deepEqual(historicalFunding(),legacy,'The funding upgrade altered a previously posted purchase or its lots');
  assert.deepEqual(evidence(),before,'The funding upgrade altered the previously released financial scope');
+}
+const hawlFile='20261126175500_personal_first_hawl_start.sql';
+const cycles=()=>sql("select coalesce(jsonb_agg(to_jsonb(c) order by c.id),'[]') from zakat_hawl_cycles c");
+sql(`insert into zakat_hawl_cycles(user_id,cycle_no,nisab_standard,nisab_reached_date,hawl_start_date,hawl_due_date,status)
+ values('${personal}',1,'GOLD','2024-03-01','2024-03-01','2025-03-01','ACTIVE')`);
+const priorCycles=cycles();
+await copyFile(join('supabase/migrations',hawlFile),join(dir,'supabase/migrations',hawlFile));
+for(let pass=0;pass<2;pass++){
+ console.log(supabase('migration','up','--local'));
+ assert.deepEqual(installed(),[...expectedAfter,fundingVersion,hawlFile.slice(0,14)].sort());
+ assert.deepEqual(historicalFunding(),legacy);
+ assert.deepEqual(evidence(),before);
+ assert.equal(cycles(),priorCycles);
 }
 await writeFile('tests/migration-history/work02-upgrade-result.json',JSON.stringify({
  baselineFxVersion:installedFx,appliedVersions:[...versions,fundingVersion],secondApplyAddedNoMigrations:true,

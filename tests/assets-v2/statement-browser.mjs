@@ -76,6 +76,176 @@ function today(){
  return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 }
 
+async function verifySavedAssessmentMethod(browser) {
+ const methods=value(await admin.from('zakat_methods').select('id,code,calendar_type')
+   .in('code',['INDEPENDENT_LOTS','UNIFIED_HAWL']).order('code'));
+ assert.equal(methods.length,2);
+ for(const savedMethod of methods) {
+  const owner=await user();
+  const otherMethod=methods.find(method=>method.id!==savedMethod.id);
+  value(await admin.from('profiles').update({base_currency:'SAR',nisab_standard:'GOLD',zakat_method_id:savedMethod.id}).eq('id',owner.id));
+  const start='2025-03-01';
+  const due=value(await owner.client.rpc('zakat_next_hawl_date',{p_start:start,p_calendar:savedMethod.calendar_type}));
+  const cycle=value(await owner.client.from('zakat_hawl_cycles').insert({
+   user_id:owner.id,cycle_no:1,nisab_standard:'GOLD',nisab_value_base:34000,nisab_reached_date:start,
+   hawl_start_date:start,hawl_due_date:due,status:'ACTIVE',snapshot:{personal_start_policy:'SETTLED_OPENING_V1'},
+  }).select('id').single());
+  const gold=value(await owner.client.from('asset_accounts').insert({
+   user_id:owner.id,name:'QA saved assessment method',asset_type:'GOLD',unit:'g',currency:'SAR',
+   ownership_scope:'PERSONAL',is_zakatable:true,metadata:{karat:24},
+  }).select('id').single());
+  const tx=value(await owner.client.from('transactions').insert({
+   user_id:owner.id,asset_account_id:gold.id,transaction_type:'PURCHASE',transaction_date:start,
+   quantity:90,currency:'SAR',base_currency:'SAR',base_value:36000,
+  }).select('id').single());
+  value(await owner.client.from('lots').insert({
+   user_id:owner.id,asset_account_id:gold.id,source_transaction_id:tx.id,acquisition_date:start,hawl_start_date:start,
+   original_quantity:90,remaining_quantity:90,original_value_base:36000,remaining_value_base:36000,
+  }));
+  const ctx=await context(browser,owner,{width:1280,height:900});
+  try {
+   const page=await ctx.newPage();
+   for(const locale of ['ar','en']) {
+    const method=page.getByRole('combobox',{name:locale==='ar'?'المنهج':'Method',exact:true});
+    const waitForMethods=()=>method.locator('option').filter({hasText:/UNIFIED_HAWL/}).waitFor({state:'attached'});
+    await page.goto(app+'/'+locale+'/assessments?scope=PERSONAL');
+    await waitForMethods();
+    assert.equal(await method.inputValue(),savedMethod.id,locale+' initial '+savedMethod.code);
+    await page.reload();
+    await waitForMethods();
+    assert.equal(await method.inputValue(),savedMethod.id,locale+' reload '+savedMethod.code);
+   }
+   const method=page.getByRole('combobox',{name:'Method',exact:true});
+   await page.getByLabel('Assessment date',{exact:true}).fill(due);
+   await page.getByRole('combobox',{name:'Nisab standard',exact:true}).selectOption('GOLD');
+   await page.getByLabel('Pure gold / g',{exact:true}).fill('400');
+   await page.getByLabel('Pure silver / g',{exact:true}).fill('5');
+   await method.selectOption(otherMethod.id);
+   const manualResponse=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/assessments'&&r.request().method()==='POST');
+   await page.getByRole('button',{name:'New assessment',exact:true}).click();
+   const manual=await manualResponse;
+   assert.ok(manual.ok(),await manual.text());
+   const {assessment:original}=await manual.json();
+   assert.equal(original.method_id,otherMethod.id);
+
+   await page.reload();
+   await method.locator('option').filter({hasText:/UNIFIED_HAWL/}).waitFor({state:'attached'});
+   assert.equal(await method.inputValue(),savedMethod.id);
+   await page.getByRole('button',{name:'Recalculate',exact:true}).click();
+   assert.equal(await method.inputValue(),otherMethod.id);
+   await method.selectOption(savedMethod.id);
+   const finalize=page.getByRole('button',{name:'Finalize assessment',exact:true});
+   assert.equal(await finalize.isEnabled(),true);
+   const cycleRoute='**/api/zakat-cycles';
+   const releaseCycleRefresh=Promise.withResolvers();
+   const failFirstRefresh=savedMethod.code==='UNIFIED_HAWL';
+   const confirmRequests=[];
+   page.on('request',request=>{
+    if(request.method()==='POST'&&new URL(request.url()).pathname==='/api/assessments/confirm'){
+     confirmRequests.push(request.postDataJSON().id);
+    }
+   });
+   await page.route(cycleRoute,async route=>{
+    await releaseCycleRefresh.promise;
+    if(failFirstRefresh)await route.fulfill({status:503,json:{error:'QA_CYCLE_REFRESH_UNAVAILABLE'}});
+    else await route.continue();
+   },{times:1});
+   const cycleRefreshStarted=page.waitForRequest(cycleRoute);
+   const revisedResponse=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/assessments/'+original.id&&r.request().method()==='PATCH');
+   let revised;
+   try {
+    await page.getByRole('button',{name:'Save recalculation',exact:true}).click();
+    [revised]=await Promise.all([revisedResponse,cycleRefreshStarted]);
+    assert.ok(revised.ok(),await revised.text());
+    await page.getByText(/Saved a new assessment version/).waitFor();
+    assert.equal(await finalize.isDisabled(),true,'A pending cycle refresh must block the stale assessment');
+    await finalize.click({force:true});
+    assert.deepEqual(confirmRequests,[]);
+   } finally {
+    releaseCycleRefresh.resolve();
+   }
+   const {assessment}=await revised.json();
+   assert.equal(assessment.method_id,savedMethod.id);
+   assert.equal(Number(assessment.zakat_due),900);
+   if(savedMethod.code==='UNIFIED_HAWL') {
+    assert.match(assessment.calculation_snapshot.personalHawlWitness??'',/^[0-9a-f]{32}$/);
+   }
+
+   if(failFirstRefresh){
+    const retryRefresh=page.getByRole('button',{name:'Retry cycle refresh',exact:true});
+    await retryRefresh.waitFor();
+    assert.equal(await finalize.isDisabled(),true,'A failed cycle refresh must keep the stale assessment blocked');
+    await retryRefresh.click();
+   }
+   page.once('dialog',dialog=>dialog.accept());
+   const finalResponse=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/assessments/confirm'&&r.request().method()==='POST');
+   await finalize.click();
+   const final=await finalResponse;
+   assert.deepEqual(confirmRequests,[assessment.id]);
+   assert.ok(final.ok(),await final.text());
+   const closed=value(await owner.client.from('zakat_hawl_cycles').select('status,final_assessment_id').eq('id',cycle.id).single());
+   assert.equal(closed.status,'CLOSED');
+   assert.equal(closed.final_assessment_id,assessment.id);
+   const finalized=value(await owner.client.from('zakat_assessments').select('method_id,assessment_kind').eq('id',assessment.id).single());
+   assert.deepEqual(finalized,{method_id:savedMethod.id,assessment_kind:'FINAL'});
+   console.log('PASS stored methods, manual override and same-page finalization after delayed cycle refresh',savedMethod.code);
+  }finally{await ctx.close();}
+ }
+}
+
+async function verifyFirstNisabCycle(browser) {
+ const owner=await user();
+ const client=owner.client;
+ const method=value(await client.from('zakat_methods').select('id').eq('code','INDEPENDENT_LOTS').single());
+ value(await admin.from('profiles').update({base_currency:'SAR',zakat_method_id:method.id}).eq('id',owner.id));
+ const gold=value(await client.from('asset_accounts').insert({user_id:owner.id,name:'QA Nisab evidence',
+   metadata:{karat:24},asset_type:'GOLD',unit:'g',currency:'SAR',ownership_scope:'PERSONAL',is_zakatable:true}).select('id').single());
+ for(const [date,quantity] of [['2023-02-01',40],['2023-02-03',50]]){
+   const tx=value(await client.from('transactions').insert({user_id:owner.id,asset_account_id:gold.id,transaction_type:'PURCHASE',
+     transaction_date:date,quantity,currency:'SAR',base_currency:'SAR',base_value:quantity*350}).select('id').single());
+   value(await client.from('lots').insert({user_id:owner.id,asset_account_id:gold.id,source_transaction_id:tx.id,
+     acquisition_date:date,hawl_start_date:date,original_quantity:quantity,remaining_quantity:quantity,
+     original_value_base:quantity*350,remaining_value_base:quantity*350}));
+ }
+ value(await admin.from('market_prices').insert({asset_type:'GOLD',instrument_code:'XAU',currency:'SAR',price_per_unit:425,valuation_date:'2023-02-03',source:'QA_NISAB'}));
+ const ctx=await context(browser,owner,{width:1280,height:900});
+ try {
+   const page=await ctx.newPage();
+   await page.goto(app+'/en/assessments?scope=PERSONAL');
+   const panel=page.locator('section').filter({has:page.getByRole('heading',{name:'Nisab & Hawl start method'})});
+   await panel.getByLabel('Nisab standard').selectOption('GOLD');
+   await panel.getByRole('button',{name:'Verify first Nisab date'}).click();
+   await panel.getByText(/QA_NISAB 425/).waitFor();
+   assert.equal(await panel.locator('input[type=date]').inputValue(),'2023-02-03');
+   const post=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/zakat-cycles/start');
+   await panel.getByRole('button',{name:'Start cycle',exact:true}).click();
+   const response=await post;
+   assert.ok(response.ok(),await response.text());
+   await page.reload();
+   await page.getByRole('heading',{name:'Current cycle #1'}).waitFor();
+   const cycle=value(await client.from('zakat_hawl_cycles').select('*').eq('user_id',owner.id).single());
+   assert.equal(cycle.hawl_start_date,'2023-02-03');
+   assert.equal(cycle.snapshot.nisabEvidence.value,'38250');
+   assert.equal(cycle.snapshot.nisabEvidence.movementIds.length,2);
+   const periods=value(await client.rpc('zakat_lot_hawl_periods',{p_calendar:'GREGORIAN'}));
+   assert.deepEqual(periods.map(p=>p.hawl_due_date),['2024-02-03','2024-02-03']);
+   const pageAr=await ctx.newPage();
+   await pageAr.goto(app+'/ar/assessments?scope=PERSONAL');
+   await pageAr.getByLabel('تاريخ بلوغ المحفظة للنصاب',{exact:true}).waitFor({state:'hidden'});
+   await pageAr.locator('label').filter({hasText:/^المنهج/}).locator('select').selectOption(method.id);
+   await pageAr.getByLabel('تاريخ الاحتساب',{exact:true}).fill('2023-02-04');
+   await pageAr.getByLabel('سعر الذهب الخالص / g',{exact:true}).fill('425');
+   await pageAr.getByLabel('سعر الفضة الخالصة / g',{exact:true}).fill('5');
+   const preview=pageAr.waitForResponse(r=>new URL(r.url()).pathname==='/api/assessments' && r.request().method()==='POST');
+   await pageAr.getByRole('button',{name:'إجراء احتساب جديد',exact:true}).click();
+   const saved=await preview;
+   assert.ok(saved.ok(),await saved.text());
+   const {assessment}=await saved.json();
+   assert.equal(Number(assessment.zakat_due),0);
+   assert.equal(assessment.hawl_cycle_id,cycle.id);
+ }finally{await ctx.close();}
+}
+
 async function verifyJuneZakatPayment(browser) {
  const owner = await user();
  const client = owner.client;
@@ -586,7 +756,7 @@ try{
    await page.getByRole('row').filter({hasText:name}).getByRole('button',{name:'Details and actions',exact:true}).click();
   };
   const bank=value(await owner.client.from('asset_accounts').insert({user_id:owner.id,
-   name:'QA corrected proceeds',asset_type:'BANK',currency:'SAR',ownership_scope:'PERSONAL'}).select('id').single());
+   name:'QA corrected proceeds',asset_type:'BANK',unit:'SAR',currency:'SAR',ownership_scope:'PERSONAL'}).select('id').single());
   await page.goto(app+'/en/assets?scope=PERSONAL');
   await open('QA 18K Gold');
   const sourceDialog=page.getByRole('dialog');
@@ -599,7 +769,7 @@ try{
   await sourceDialog.getByRole('table').getByRole('button',{name:gold.payload.rows.find(r=>r.type==='SALE').voucher,exact:true}).click();
   await page.getByRole('button',{name:'Review sale correction'}).click();
   await page.getByLabel('Correction type').selectOption('structure');
-  await page.getByLabel('Sold asset').selectOption(asset);
+  await page.getByRole('combobox',{name:/^Sold asset/}).selectOption(asset);
   await page.getByLabel('Sale date').fill('2025-05-01');
   await page.getByRole('combobox',{name:/^Proceeds account/}).selectOption(bank.id);
   await page.getByLabel('Quantity',{exact:true}).fill('3');
@@ -787,6 +957,8 @@ try{
   await ctx.close();
  }
  console.log('PASS scoped opening and FIFO statement; 9 units / 2840 as of first sale, 6 / 1920 today, corporate 10 / 90000, denied cross-user and organization, AR mobile and EN desktop');
+ await verifySavedAssessmentMethod(browser);
+ await verifyFirstNisabCycle(browser);
  await verifyJuneZakatPayment(browser);
 }finally{
  await browser?.close();
