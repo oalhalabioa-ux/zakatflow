@@ -228,18 +228,8 @@
     },
     {
       "category": "constraint",
-      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_bound_at_not_null",
-      "fingerprint": "f6ae0f8a9f444d3816fda9b660546ba4"
-    },
-    {
-      "category": "constraint",
       "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_bound_by_fkey",
       "fingerprint": "6486ace1d86421a7e71ae141dd3669b6"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_bound_by_not_null",
-      "fingerprint": "c9f7d97648453ed4697d312697872631"
     },
     {
       "category": "constraint",
@@ -248,48 +238,8 @@
     },
     {
       "category": "constraint",
-      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_cutoff_not_null",
-      "fingerprint": "a5de72385e571f798acfe6e24e4a425f"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_debt_account_id_not_null",
-      "fingerprint": "aee58f0d2988725c64ce832fc797ae87"
-    },
-    {
-      "category": "constraint",
       "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_debt_side_check",
       "fingerprint": "4f51ab7c819ca3d3c6db9f61aceaa19c"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_debt_side_not_null",
-      "fingerprint": "17ad2394e2c08c6700726d4dabc89b5a"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_document_id_not_null",
-      "fingerprint": "9ff88cba5f8a6ea54a20fe6a4f58a8ee"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_document_module_not_null",
-      "fingerprint": "c319a57103f74018b8cbb3a1ac8d6c03"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_id_not_null",
-      "fingerprint": "907e13ecdcdbd392cdd617ad837e567b"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_journal_id_not_null",
-      "fingerprint": "137f5ce0d0ce95c26b3a8fc91872748d"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_line_id_not_null",
-      "fingerprint": "0bfd428326fb503f751400fdc388c765"
     },
     {
       "category": "constraint",
@@ -298,23 +248,8 @@
     },
     {
       "category": "constraint",
-      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_obligation_id_not_null",
-      "fingerprint": "cf92c8f22f2b9e87d69aa16ab772951a"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_offset_account_id_not_null",
-      "fingerprint": "73cf356b3cf2caea7117c0ce919b4739"
-    },
-    {
-      "category": "constraint",
       "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_organization_id_line_id_key",
       "fingerprint": "cb78c468fb600e3646cd2d0e5346820f"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_organization_id_not_null",
-      "fingerprint": "b1c5f3cc0ae886c86bc2354d85385e3c"
     },
     {
       "category": "constraint",
@@ -328,43 +263,13 @@
     },
     {
       "category": "constraint",
-      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_posted_base_amount_not_null",
-      "fingerprint": "14c05722e9e7fddd85696679a56886fd"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_posting_rule_id_not_null",
-      "fingerprint": "b915a092802f0092722d27cbdcaf68f5"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_quote_evidence_not_null",
-      "fingerprint": "21ed299698cd25224f92731219187267"
-    },
-    {
-      "category": "constraint",
       "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_pol_organization_id_from_currency_key",
       "fingerprint": "a57a6d1580dd23b0fc4bf63948a296da"
     },
     {
       "category": "constraint",
-      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_allow_inverse_not_null",
-      "fingerprint": "65454a32734c158076182dbb95c0e265"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_approved_at_not_null",
-      "fingerprint": "9f1956530c0102dbdd7532f13d3b1302"
-    },
-    {
-      "category": "constraint",
       "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_approved_by_fkey",
       "fingerprint": "110651700f2cf1b3d653b3d4a50d81a9"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_approved_by_not_null",
-      "fingerprint": "9f2444de4206dd55abc88fe1427d1c42"
     },
     {
       "category": "constraint",
@@ -383,33 +288,8 @@
     },
     {
       "category": "constraint",
-      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_from_currency_not_null",
-      "fingerprint": "ec5050a09811f62bd376f03036ef6796"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_id_not_null",
-      "fingerprint": "907e13ecdcdbd392cdd617ad837e567b"
-    },
-    {
-      "category": "constraint",
       "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_organization_id_fkey",
       "fingerprint": "b039bf2c1d70812c9804b2e1491c08e5"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_organization_id_not_null",
-      "fingerprint": "b1c5f3cc0ae886c86bc2354d85385e3c"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_period_end_not_null",
-      "fingerprint": "0bb48f7f944d8e6b11bcb5394c488ebc"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_period_start_not_null",
-      "fingerprint": "19dbcd6f94406deb2e46aac9ce9eb7a4"
     },
     {
       "category": "constraint",
@@ -423,18 +303,8 @@
     },
     {
       "category": "constraint",
-      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_purpose_not_null",
-      "fingerprint": "e1449a19ccb9cb98e3d0829f5f709b4d"
-    },
-    {
-      "category": "constraint",
       "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_quote_scope_check",
       "fingerprint": "cda15b641d2959b1dbe4174cd5d42b7a"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_quote_scope_not_null",
-      "fingerprint": "b0606310968a4cdd1d209a14b87322f7"
     },
     {
       "category": "constraint",
@@ -443,18 +313,8 @@
     },
     {
       "category": "constraint",
-      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_reason_not_null",
-      "fingerprint": "f9ef52b0a7b83591d0397142289b704c"
-    },
-    {
-      "category": "constraint",
       "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_selection_basis_check",
       "fingerprint": "bd49484f7b982c0d5f972d6ce77f6d5a"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_selection_basis_not_null",
-      "fingerprint": "895fa9b4436a0129b02349bd5506a5cc"
     },
     {
       "category": "constraint",
@@ -463,18 +323,8 @@
     },
     {
       "category": "constraint",
-      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_source_not_null",
-      "fingerprint": "bfc016e1968b58b33573a2f0ac519c69"
-    },
-    {
-      "category": "constraint",
       "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_to_currency_fkey",
       "fingerprint": "dfa14daba7e3f7099d6ce4717b5fbd3f"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_to_currency_not_null",
-      "fingerprint": "b25e42a6ab0abe812ae77775f1494c13"
     },
     {
       "category": "constraint",
@@ -483,18 +333,8 @@
     },
     {
       "category": "constraint",
-      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_amount_not_null",
-      "fingerprint": "0c0e78d0f0b7ca537d7ed19cb2811726"
-    },
-    {
-      "category": "constraint",
       "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_base_amount_check",
       "fingerprint": "aab3b8d6afedeeba2ca88d6ed1746116"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_base_amount_not_null",
-      "fingerprint": "b1035adeabb4c9792c76ba46fd5e3697"
     },
     {
       "category": "constraint",
@@ -503,18 +343,8 @@
     },
     {
       "category": "constraint",
-      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_base_currency_not_null",
-      "fingerprint": "974653f2c9a5681e98bf0fd8af380a0d"
-    },
-    {
-      "category": "constraint",
       "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_category_code_check",
       "fingerprint": "b425ed29aff4401ba870fb792e007cd4"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_category_code_not_null",
-      "fingerprint": "fa2a9f5a3a61f76fc4ea384b2ea24502"
     },
     {
       "category": "constraint",
@@ -523,28 +353,8 @@
     },
     {
       "category": "constraint",
-      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_currency_not_null",
-      "fingerprint": "946af7ba56a033c941ea7f54b34bf749"
-    },
-    {
-      "category": "constraint",
       "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_description_check",
       "fingerprint": "862da06f3712ba0250a93d7f3278205b"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_description_not_null",
-      "fingerprint": "9d32284ef0b74edf030fb5182f04f937"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_document_date_not_null",
-      "fingerprint": "7ddbe2b67b504d7792753ff27e4b827f"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_id_not_null",
-      "fingerprint": "907e13ecdcdbd392cdd617ad837e567b"
     },
     {
       "category": "constraint",
@@ -553,18 +363,8 @@
     },
     {
       "category": "constraint",
-      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_kind_not_null",
-      "fingerprint": "83646729528283b9a355ed46f1b1f03b"
-    },
-    {
-      "category": "constraint",
       "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_pkey",
       "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_recorded_at_not_null",
-      "fingerprint": "1f0a2c50b521d227f1b8f6b71e384760"
     },
     {
       "category": "constraint",
@@ -578,18 +378,8 @@
     },
     {
       "category": "constraint",
-      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_transaction_id_not_null",
-      "fingerprint": "2e24bf62b605ab0564564c2f53204e4b"
-    },
-    {
-      "category": "constraint",
       "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_user_id_fkey",
       "fingerprint": "e6f2b822f3d1e554defc759e49a034fa"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_user_id_not_null",
-      "fingerprint": "3003e44049459afa56e7df8289c91ce3"
     },
     {
       "category": "function",
