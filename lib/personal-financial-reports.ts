@@ -23,6 +23,8 @@ export type PersonalReport={
  cashAccounts:Array<{id:string;name:string;currency:string;opening:string;inflows:string;outflows:string;closing:string;netMovement:string;movementCount:number}>;
  /** A source-ID reconciliation only. Remaining cash activity is NOT classified as income, expense or statutory cash flow. */
  cashTransferReconciliation:Array<{currency:string;grossInflows:string;grossOutflows:string;verifiedInternalInflows:string;verifiedInternalOutflows:string;remainingUnclassifiedInflows:string;remainingUnclassifiedOutflows:string;verifiedPairs:number;unverifiedLegs:number;transferEvidenceComplete:boolean}>;
+ purchaseFunding?:Array<{id:string;date:string;currency:string;payment:string;baseCurrency:string;
+   assetBasis:string;cashBasis:string;realizedFx:string;reversed:boolean}>;
  issues:string[];
 };
 
@@ -101,10 +103,21 @@ export function personalFinancialReports(data:RegisterData,from:string,to:string
    remainingUnclassifiedOutflows:money(new D(grossOutflows).minus(verifiedInternalOutflows).toString()),
    verifiedPairs:verified.length/2,unverifiedLegs,transferEvidenceComplete:unverifiedLegs===0};
  });
+ const purchaseFunding=activity.flatMap(m=>{
+  const funding=m.purchaseFunding;
+  if(!funding || m.source!=='ASSETS'||funding.base_currency!==m.currency)return [];
+  const direction=funding.reversed?-1:1;
+  if(!new D(m.amount).eq(new D(funding.cash_basis_base).times(-direction)))return [];
+  return [{id:m.id,date:m.date,currency:funding.payment_currency,baseCurrency:funding.base_currency,
+   payment:new D(funding.payment_amount).times(direction).toString(),
+   assetBasis:new D(funding.asset_basis_base).times(direction).toString(),
+   cashBasis:new D(funding.cash_basis_base).times(direction).toString(),
+   realizedFx:new D(funding.realized_fx_base).times(direction).toString(),reversed:funding.reversed}];
+ }).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
  const issues=[...data.warnings];
  if(positions.some(p=>!p.complete))issues.push('PERSONAL_POSITION_RECONCILIATION_REQUIRED');
  if(positions.length>1)issues.push('PERSONAL_MULTI_CURRENCY_NOT_AGGREGATED');
  issues.push('PERSONAL_INCOME_EXPENSE_CLASSIFICATION_PENDING','PERSONAL_CASH_GROSS_INCLUDES_INTERNAL_TRANSFERS');
  if(hasUnverifiedTransfers)issues.push('PERSONAL_TRANSFER_PROVENANCE_INCOMPLETE');
- return{scope:'PERSONAL',basis:'CURRENT_PERSONAL_REGISTER_ESTIMATE',asOf:data.asOf,from,to,baseCurrency:data.baseCurrency,categories,positions,cashAccounts,cashTransferReconciliation,issues:[...new Set(issues)]};
+ return{scope:'PERSONAL',basis:'CURRENT_PERSONAL_REGISTER_ESTIMATE',asOf:data.asOf,from,to,baseCurrency:data.baseCurrency,categories,positions,cashAccounts,cashTransferReconciliation,purchaseFunding,issues:[...new Set(issues)]};
 }

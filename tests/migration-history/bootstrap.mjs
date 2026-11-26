@@ -18,6 +18,14 @@ try{
  await check('atomic institutional chart template and tenant isolation',async()=>{
   assert.match(sql(await load('tests/sql/atomic-chart-template.sql')),/PASS atomic chart activation/);
  });
+ await check('personal purchase funding reconciles amounts, FIFO cost, retries and reversals in both paths',async()=>{
+  const evidence=JSON.parse(sql(await load('tests/sql/personal-purchase-funding-fx.sql')));
+  assert.equal(evidence.length,26);
+  assert.ok(evidence.every(row=>row.rolled_back||
+   row.single_withdrawal_on_retry&&row.single_reversal_pair_on_retry&&row.reversal_rolled_back_on_failure));
+  console.log('PERSONAL_PURCHASE_FUNDING_FX '+JSON.stringify(evidence));
+  await writeFile(new URL('tests/migration-history/personal-purchase-funding-result.json',root),JSON.stringify(evidence,null,2)+'\n');
+ });
  await check('all canonical migration versions applied to a fresh local database',async()=>{
   const versions=JSON.parse(sql("select coalesce(jsonb_agg(version order by version),'[]') from supabase_migrations.schema_migrations"));
   assert.deepEqual(versions,manifest.entries.map(x=>x.version).sort());
@@ -101,6 +109,7 @@ try{
    'personal-fx-rates-schema-delta',
    'atomic-chart-template-schema-delta',
    'fiscal-reversal-window-schema-delta',
+   'personal-purchase-funding-schema-delta',
   ];
   const deltas=await Promise.all(deltaNames.map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
   for(const delta of deltas){
