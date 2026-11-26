@@ -94,6 +94,48 @@ try {
  const nextDep=await prepare(machine,'DEPRECIATION','2026-05-02',50);await post(nextDep);
  await assert.rejects(post(stale),/ASSET_OPERATION_BALANCE_CHANGED_RECREATE/);
  await assert.rejects(prepare(machine,'DISPOSAL','2026-02-15',0,1),/ASSET_BOOK_RECONCILIATION_REQUIRED/);
+ // Issue #466: verify finance's reference amounts through the real lifecycle functions.
+ const historicCost=120_000,residual=12_000,usefulMonths=60;
+ const monthly=(historicCost-residual)/usefulMonths;
+ assert.equal(monthly,1800);
+ const reference=await asset(historicCost,1);
+ await query("update asset_accounts set metadata=jsonb_build_object('residual_value_base',$2::numeric) where id=$1",[reference,residual]);
+ const initial=await prepare(reference,'DEPRECIATION','2026-01-28',monthly);
+ assert.deepEqual(roles(initial),{DEPRECIATION:1800});
+ assert.equal(Number((await query('select remaining_value_base from lots where asset_account_id=$1',[reference]))[0].remaining_value_base),120_000);
+ await post(initial);
+ await assert.rejects(prepare(reference,'DEPRECIATION','2026-01-29',monthly),/ASSET_DEPRECIATION_PERIOD_EXISTS/);
+ for(let month=2;month<=12;month++){
+  const date=`2026-${String(month).padStart(2,'0')}-28`;
+  await post(await prepare(reference,'DEPRECIATION',date,monthly));
+ }
+ const annual=(await query("select private.financial_opening_asset_book($1,$2,'2026-12-31') book",[org,reference]))[0].book;
+ assert.deepEqual(annual,{known:true,gross:'120000.0000',depreciation:'21600.0000',issue:null});
+ const [annualLot]=await query('select remaining_quantity,remaining_value_base from lots where asset_account_id=$1',[reference]);
+ assert.equal(Number(annualLot.remaining_quantity),1);
+ assert.equal(Number(annualLot.remaining_value_base),98_400);
+
+ // Seed already-posted depreciation as history so the canonical book has a 90,000 net basis.
+ const prior=await asset(historicCost,1);
+ await post(await prepare(prior,'DEPRECIATION','2026-01-30',30_000));
+ const beforeSale=(await query("select private.financial_opening_asset_book($1,$2,'2026-01-31') book",[org,prior]))[0].book;
+ assert.deepEqual(beforeSale,{known:true,gross:'120000.0000',depreciation:'30000.0000',issue:null});
+ const referenceSale=await prepare(prior,'SALE','2026-02-01',95_000,1,14_250);
+ assert.deepEqual(roles(referenceSale),{SALE_GAIN:5000,SALE_NET_BOOK_VALUE:90_000,OUTPUT_VAT:14_250,ACCUMULATED_DEPRECIATION_RELEASE:30_000});
+ assert.equal(referenceSale.raw.obligations[0].settleable_base_amount,109_250);
+ assert.ok(referenceSale.raw.lines.every(line=>line.cash_direction==='NON_CASH'));
+ assert.equal(Number((await query('select remaining_value_base from lots where asset_account_id=$1',[prior]))[0].remaining_value_base),90_000);
+ await post(referenceSale);
+ const sold=(await query("select private.financial_opening_asset_book($1,$2,'2026-02-28') book",[org,prior]))[0].book;
+ assert.deepEqual(sold,{known:true,gross:'0.0000',depreciation:'0.0000',issue:null});
+
+ const openingReference=await asset(historicCost,1);
+ await post(await prepare(openingReference,'DEPRECIATION','2026-01-30',30_000));
+ await post(await prepare(openingReference,'DEPRECIATION','2026-02-01',monthly));
+ const [afterOpening]=await query('select remaining_value_base from lots where asset_account_id=$1',[openingReference]);
+ assert.equal(Number(afterOpening.remaining_value_base),88_200);
+ console.log('#466: 12 x 1,800 = 21,600 accumulated depreciation, net book value 98,400, duplicate month rejected.');
+ console.log('#466: 90,000 net book value became 88,200 after one month on carried history. Separate sale: 95,000 proceeds, 5,000 gain, 14,250 VAT, 109,250 receivable with no cash line.');
  // Authenticated callers can use only the narrow public boundary; no private-schema grant.
  await db.exec('set role authenticated');
  const authorized=(await query("select public.asset_lifecycle_posting_context($1,'2026-12-31',400) book",[machine]))[0].book;
