@@ -20,7 +20,7 @@ const canonicalFx='20261125165000',installedFx='20261125201134';
 const manifest=await verifyFiles();
 const installed=()=>JSON.parse(sql("select jsonb_agg(version order by version) from supabase_migrations.schema_migrations"));
 const expectedBefore=manifest.entries.map(entry=>entry.version===canonicalFx?installedFx:entry.version)
- .filter(version=>!versions.includes(version)&&version!==fundingVersion).sort();
+ .filter(version=>!versions.includes(version)&&version<fundingVersion).sort();
 assert.deepEqual(installed(),expectedBefore);
 assert.equal(sql("select name from supabase_migrations.schema_migrations where version='"+installedFx+"'"),'personal_fx_rates');
 assert.equal(sql("select to_regprocedure('public.apply_financial_chart_template(uuid,text,jsonb)') is null"),'t');
@@ -109,8 +109,17 @@ for(let pass=0;pass<2;pass++){
  assert.deepEqual(historicalFunding(),legacy,'The funding upgrade altered a previously posted purchase or its lots');
  assert.deepEqual(evidence(),before,'The funding upgrade altered the previously released financial scope');
 }
+const incomeFile='20261126221500_personal_income_documents.sql';
+await copyFile(join('supabase/migrations',incomeFile),join(dir,'supabase/migrations',incomeFile));
+for(let pass=0;pass<2;pass++){
+ console.log(supabase('migration','up','--local'));
+ assert.deepEqual(installed(),[...expectedAfter,fundingVersion,incomeFile.slice(0,14)].sort());
+ assert.deepEqual(historicalFunding(),legacy);
+ assert.deepEqual(evidence(),before);
+}
+sql(await readFile('tests/personal-income-documents.sql','utf8'));
 await writeFile('tests/migration-history/work02-upgrade-result.json',JSON.stringify({
- baselineFxVersion:installedFx,appliedVersions:[...versions,fundingVersion],secondApplyAddedNoMigrations:true,
+ baselineFxVersion:installedFx,appliedVersions:[...versions,fundingVersion,incomeFile.slice(0,14)],secondApplyAddedNoMigrations:true,
  preservedExistingRecords:['personal FX rate and registry entry','chart account','approved opening','approved posting policy','official statement','linked legacy purchase, cash withdrawal and lot allocations'],
  postUpgradeChecks:['personal FX authorization and inverse opening quote','atomic chart activation and rollback','fiscal cutoff, close and next opening'],
 },null,2)+'\n');
