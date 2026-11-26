@@ -106,7 +106,7 @@ async function verifySavedAssessmentMethod(browser) {
   try {
    const page=await ctx.newPage();
    for(const locale of ['ar','en']) {
-    const method=page.getByLabel(locale==='ar'?'المنهج':'Method',{exact:true});
+    const method=page.getByRole('combobox',{name:locale==='ar'?'المنهج':'Method',exact:true});
     const waitForMethods=()=>method.locator('option').filter({hasText:/UNIFIED_HAWL/}).waitFor({state:'attached'});
     await page.goto(app+'/'+locale+'/assessments?scope=PERSONAL');
     await waitForMethods();
@@ -115,9 +115,9 @@ async function verifySavedAssessmentMethod(browser) {
     await waitForMethods();
     assert.equal(await method.inputValue(),savedMethod.id,locale+' reload '+savedMethod.code);
    }
-   const method=page.getByLabel('Method',{exact:true});
+   const method=page.getByRole('combobox',{name:'Method',exact:true});
    await page.getByLabel('Assessment date',{exact:true}).fill(due);
-   await page.getByLabel('Nisab standard',{exact:true}).selectOption('GOLD');
+   await page.getByRole('combobox',{name:'Nisab standard',exact:true}).selectOption('GOLD');
    await page.getByLabel('Pure gold / g',{exact:true}).fill('400');
    await page.getByLabel('Pure silver / g',{exact:true}).fill('5');
    await method.selectOption(otherMethod.id);
