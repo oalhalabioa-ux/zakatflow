@@ -1,0 +1,495 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "public.financial_fx_revaluation_evidence.bound_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fx_revaluation_evidence.bound_by",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fx_revaluation_evidence.cutoff",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fx_revaluation_evidence.debt_account_id",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fx_revaluation_evidence.debt_side",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fx_revaluation_evidence.document_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fx_revaluation_evidence.document_module",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fx_revaluation_evidence.id",
+      "fingerprint": "14d922d5953a033bd73eb735b72efd58"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fx_revaluation_evidence.journal_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fx_revaluation_evidence.line_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fx_revaluation_evidence.obligation_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fx_revaluation_evidence.offset_account_id",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fx_revaluation_evidence.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fx_revaluation_evidence.posted_base_amount",
+      "fingerprint": "a139b2cff82e67c9224ae20fd7e11e3e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fx_revaluation_evidence.posting_rule_id",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.financial_fx_revaluation_evidence.quote_evidence",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "column",
+      "object_key": "public.organization_reporting_fx_policies.allow_inverse",
+      "fingerprint": "fa56500de2d6fb8f5d2ce2e52ced6e3f"
+    },
+    {
+      "category": "column",
+      "object_key": "public.organization_reporting_fx_policies.approved_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "public.organization_reporting_fx_policies.approved_by",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.organization_reporting_fx_policies.from_currency",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.organization_reporting_fx_policies.id",
+      "fingerprint": "14d922d5953a033bd73eb735b72efd58"
+    },
+    {
+      "category": "column",
+      "object_key": "public.organization_reporting_fx_policies.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.organization_reporting_fx_policies.period_end",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "public.organization_reporting_fx_policies.period_start",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "public.organization_reporting_fx_policies.purpose",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.organization_reporting_fx_policies.quote_scope",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.organization_reporting_fx_policies.reason",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.organization_reporting_fx_policies.selection_basis",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.organization_reporting_fx_policies.source",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.organization_reporting_fx_policies.to_currency",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_expense_documents.amount",
+      "fingerprint": "cf7ea4b2bc926cdb0c5a79fea270e409"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_expense_documents.base_amount",
+      "fingerprint": "cf7ea4b2bc926cdb0c5a79fea270e409"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_expense_documents.base_currency",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_expense_documents.category_code",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_expense_documents.currency",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_expense_documents.description",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_expense_documents.document_date",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_expense_documents.id",
+      "fingerprint": "14d922d5953a033bd73eb735b72efd58"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_expense_documents.kind",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_expense_documents.recorded_at",
+      "fingerprint": "ba0b45b862fea580f23faff63964f8e0"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_expense_documents.transaction_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_income_expense_documents.user_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evid_obligation_id_organization_i_fkey",
+      "fingerprint": "21ec6a863a9f30e4f04a40231dd485ee"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evid_organization_id_obligation_id_key",
+      "fingerprint": "9c80caab969d18aeaf21a2122ab8c1af"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_eviden_journal_id_organization_id_fkey",
+      "fingerprint": "51d56f3734963ec6aabb3aa134ae897e"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_bound_by_fkey",
+      "fingerprint": "6486ace1d86421a7e71ae141dd3669b6"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_check",
+      "fingerprint": "a08ccf261d4fcb97ee4c43eaa51cb23b"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_debt_side_check",
+      "fingerprint": "4f51ab7c819ca3d3c6db9f61aceaa19c"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_line_id_organization_id_fkey",
+      "fingerprint": "e320fb7421af1db502b8a1cd9bd4b1a5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_organization_id_line_id_key",
+      "fingerprint": "cb78c468fb600e3646cd2d0e5346820f"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_posted_base_amount_check",
+      "fingerprint": "5b23ba51c87877249799eced4e83d1f7"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_pol_organization_id_from_currency_key",
+      "fingerprint": "a57a6d1580dd23b0fc4bf63948a296da"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_approved_by_fkey",
+      "fingerprint": "110651700f2cf1b3d653b3d4a50d81a9"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_check",
+      "fingerprint": "66dab3c56f76794ed0d34c5e31823c49"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_check1",
+      "fingerprint": "7924b91798a85e88f3e75a001e831824"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_from_currency_fkey",
+      "fingerprint": "b778ed6bc6db5a11113274384e57261b"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_organization_id_fkey",
+      "fingerprint": "b039bf2c1d70812c9804b2e1491c08e5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_purpose_check",
+      "fingerprint": "f5d38c839f0d64163d83151117e3d716"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_quote_scope_check",
+      "fingerprint": "cda15b641d2959b1dbe4174cd5d42b7a"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_reason_check",
+      "fingerprint": "e4ef0a026ebfb1ecb9365e74df4f3baa"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_selection_basis_check",
+      "fingerprint": "bd49484f7b982c0d5f972d6ce77f6d5a"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_source_check",
+      "fingerprint": "02daa58725a68dff420e5905e87fc9af"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_to_currency_fkey",
+      "fingerprint": "dfa14daba7e3f7099d6ce4717b5fbd3f"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_amount_check",
+      "fingerprint": "fd705b9b303538976b56c35414d5897a"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_base_amount_check",
+      "fingerprint": "aab3b8d6afedeeba2ca88d6ed1746116"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_base_currency_fkey",
+      "fingerprint": "43ebf78569420f31d9b94849e1005f05"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_category_code_check",
+      "fingerprint": "b425ed29aff4401ba870fb792e007cd4"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_currency_fkey",
+      "fingerprint": "0edbb66accb3ccfbaf03275bc21ee06d"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_description_check",
+      "fingerprint": "862da06f3712ba0250a93d7f3278205b"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_kind_check",
+      "fingerprint": "050f7e04d7350ce23bee6019f6c7d8ac"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_pkey",
+      "fingerprint": "4c6419b3704337bbfe50f018842a9ad3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_transaction_id_fkey",
+      "fingerprint": "8ef9644b1071e064f53fe4a5973b3c54"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_transaction_id_key",
+      "fingerprint": "a9e229d9e6db1bce212157b09a610337"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_user_id_fkey",
+      "fingerprint": "e6f2b822f3d1e554defc759e49a034fa"
+    },
+    {
+      "category": "function",
+      "object_key": "private.guard_personal_income_expense_source()",
+      "fingerprint": "c545cca5ecbf9f86843fcb9c4cb7f785"
+    },
+    {
+      "category": "function",
+      "object_key": "public.approve_organization_reporting_fx_policy(p_org uuid, p_pair_from text, p_pair_to text, p_purpose text, p_start date, p_end date, p_source text, p_quote_scope text, p_basis text, p_inverse boolean, p_reason text)",
+      "fingerprint": "110897861faf6f8c868041fad7e5d9d2"
+    },
+    {
+      "category": "function",
+      "object_key": "public.bind_financial_fx_revaluation(p_org uuid, p_journal uuid, p_line uuid, p_obligation uuid, p_cutoff date, p_debt_account text)",
+      "fingerprint": "670c7ff2d1e2cae555b12d4debf11e0c"
+    },
+    {
+      "category": "function",
+      "object_key": "public.classify_personal_income_expense(p_transaction uuid, p_kind text, p_code text, p_description text)",
+      "fingerprint": "1b8adf6551cc3c2492197bd0408b1cff"
+    },
+    {
+      "category": "function",
+      "object_key": "public.read_financial_fx_revaluation(p_org uuid, p_journal uuid, p_as_of date)",
+      "fingerprint": "5bf4951380d9e7372d223f7fd7f8d62e"
+    },
+    {
+      "category": "function",
+      "object_key": "public.read_personal_debts_at_cutoff(p_as_of date)",
+      "fingerprint": "4b62a73abff454988d060c427b93101f"
+    },
+    {
+      "category": "function",
+      "object_key": "public.read_personal_income_expense(p_from date, p_to date)",
+      "fingerprint": "a92d4a5e8eca42678303bbbbe3d43c24"
+    },
+    {
+      "category": "function",
+      "object_key": "public.resolve_organization_reporting_fx(p_org uuid, p_pair_from text, p_pair_to text, p_purpose text, p_as_of date)",
+      "fingerprint": "8dcffe32fd3e1899630e4408d3599f9a"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evid_organization_id_obligation_id_key",
+      "fingerprint": "4d6013fa5c85f9a7f710d3fd96fe4b2b"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_organization_id_line_id_key",
+      "fingerprint": "6978a737b0662c55c264b8943d01f234"
+    },
+    {
+      "category": "index",
+      "object_key": "public.financial_fx_revaluation_evidence.financial_fx_revaluation_evidence_pkey",
+      "fingerprint": "8c9860ade6d3fe2c78d51f7b2b56982a"
+    },
+    {
+      "category": "index",
+      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_pol_organization_id_from_currency_key",
+      "fingerprint": "9264d6a377583bd0a37c29c674cceef2"
+    },
+    {
+      "category": "index",
+      "object_key": "public.organization_reporting_fx_policies.organization_reporting_fx_policies_pkey",
+      "fingerprint": "f541ada2bbcdfd2afe6ff0e6d0442adf"
+    },
+    {
+      "category": "index",
+      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_pkey",
+      "fingerprint": "f77c3fb7fef5fb13f53ff9bfa639c10b"
+    },
+    {
+      "category": "index",
+      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_transaction_id_key",
+      "fingerprint": "9c8044eb675ccb6b417c8ff12ed56dc9"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.financial_fx_revaluation_evidence.fx_revaluation_evidence_read",
+      "fingerprint": "243bc177e9e2e2bc8cd630ec9e3b9117"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.organization_reporting_fx_policies.org_reporting_fx_policy_read",
+      "fingerprint": "013b394f0681ffb11ef2af7e32f19209"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.personal_income_expense_documents.personal_income_expense_document_read",
+      "fingerprint": "5370702055c9a361f17a9f898e3404c9"
+    },
+    {
+      "category": "rls",
+      "object_key": "public.financial_fx_revaluation_evidence",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "rls",
+      "object_key": "public.organization_reporting_fx_policies",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "rls",
+      "object_key": "public.personal_income_expense_documents",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.transactions.guard_personal_income_expense_source",
+      "fingerprint": "8401198c0cb36ec5865e0ef1d4207a94"
+    }
+  ]
+}

@@ -7,6 +7,7 @@ on:
       - 'tests/migration-history/**'
       - 'tests/sql/personal-sale*.sql'
       - 'tests/sql/personal-purchase-funding-fx.sql'
+      - 'tests/sql/v2-reporting-source-contracts.sql'
       - '.github/workflows/migration-history-qa.yml'
   push:
     branches: [main]
@@ -16,6 +17,7 @@ on:
       - 'tests/migration-history/**'
       - 'tests/sql/personal-sale*.sql'
       - 'tests/sql/personal-purchase-funding-fx.sql'
+      - 'tests/sql/v2-reporting-source-contracts.sql'
       - '.github/workflows/migration-history-qa.yml'
   workflow_dispatch:
 permissions:
@@ -65,6 +67,7 @@ jobs:
             tests/migration-history/bootstrap-result.json
             tests/migration-history/schema-differences.json
             tests/migration-history/personal-purchase-funding-result.json
+            tests/migration-history/v2-reporting-source-result.json
       - name: Destroy disposable database
         if: always()
         run: test -z "$HISTORY_QA_WORKDIR" || npx --yes supabase@2.122.0 stop --workdir "$HISTORY_QA_WORKDIR" --no-backup
@@ -94,6 +97,10 @@ jobs:
           (migrations/'20261126124000_atomic_chart_template.sql').unlink()
           (migrations/'20261126124100_fiscal_reversal_window.sql').unlink()
           (migrations/'20261126150000_personal_purchase_funding.sql').unlink()
+          # This rehearsal ends at #531. Later files belong to full clean bootstrap.
+          for migration in migrations.glob('*.sql'):
+            if migration.name[:14] > '20261126150000':
+              migration.unlink()
           # Issue #426 records the provider version for the same reviewed SQL.
           (migrations/'20261125165000_personal_fx_rates.sql').rename(migrations/'20261125201134_personal_fx_rates.sql')
           PY
