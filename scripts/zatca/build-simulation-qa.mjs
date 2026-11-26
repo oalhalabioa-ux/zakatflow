@@ -5,7 +5,13 @@ import { resolve } from 'node:path';
 
 // One intentional source-pinned preview package; no deployment or cloud call.
 if (execFileSync('git', ['status','--porcelain'], { encoding: 'utf8' }).trim()) throw Error('CLEAN_COMMITTED_SOURCE_REQUIRED');
-const sourceSha = execFileSync('git', ['rev-parse','HEAD'], { encoding: 'utf8' }).trim();
+const localSha = execFileSync('git', ['rev-parse','HEAD'], { encoding: 'utf8' }).trim();
+const reporting = process.argv.includes('--simplified-reporting');
+const sourceSha = process.env.FATOORA_QA_VERIFIED_SOURCE_SHA ?? localSha;
+if (sourceSha !== localSha) {
+  const tree = execFileSync('git', ['rev-parse','HEAD^{tree}'], { encoding: 'utf8' }).trim();
+  if (tree !== process.env.FATOORA_QA_VERIFIED_SOURCE_TREE) throw Error('VERIFIED_SOURCE_TREE_REQUIRED');
+}
 if (!/^[a-f0-9]{40}$/.test(sourceSha)) throw Error('COMMITTED_SOURCE_REQUIRED');
 const output = resolve(process.argv[2] || '../artifacts/yaqeen-fatoora-simulation-preview');
 await mkdir(output + '/api', { recursive: true }); await mkdir(output + '/public', { recursive: true });
@@ -13,9 +19,14 @@ await build({ entryPoints: ['scripts/zatca/simulation-qa-entry.ts'], outfile: ou
   bundle: true, platform: 'node', target: 'node22', format: 'cjs', minify: false, sourcemap: false,
   external: ['libxml2-wasm'],
   footer: { js: 'module.exports = module.exports.default;' },
-  define: { __YAQEEN_SIMULATION_QA_SOURCE_SHA__: JSON.stringify(sourceSha) } });
+  define: { __YAQEEN_SIMULATION_QA_SOURCE_SHA__: JSON.stringify(sourceSha),
+    __YAQEEN_SIMULATION_QA_REPORTING__: JSON.stringify(reporting) } });
 for (const [source, target] of [['simulation-qa-ui.html','index.html'],['simulation-qa-ui.js','simulation-qa-ui.js']])
   await writeFile(output + '/public/' + target, await readFile('scripts/zatca/' + source));
+if (reporting) {
+  for (const [source, target] of [['simulation-reporting.html','reporting.html'], ['simulation-reporting.js','simulation-reporting.js']])
+    await writeFile(output + '/public/' + target, await readFile('scripts/zatca/' + source));
+}
 const packageJson = { name: 'yaqeen-fatoora-simulation-qa', private: true, version: '1.0.0', engines: { node: '22.x' }, dependencies: { 'libxml2-wasm': '0.7.1' } };
 await writeFile(output + '/package.json', JSON.stringify(packageJson));
 const locked = JSON.parse(await readFile('package-lock.json', 'utf8')).packages['node_modules/libxml2-wasm'];

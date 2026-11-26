@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>الإبلاغ عن فاتورة مبسطة | محاكاة فاتورة</title>
+  <style>
+    body { margin: 0; font: 1rem/1.7 system-ui, sans-serif; color: #10243a; background: #f5f6f7; }
+    main { max-width: 42rem; margin: 3rem auto; padding: 1.5rem; background: white; border: 1px solid #d5dce1; border-radius: .6rem; }
+    button { font: inherit; margin: .25rem; padding: .6rem 1rem; color: #f5ebd6; background: #10243a; border: 0; border-radius: .3rem; }
+    button:disabled { opacity: .5; }
+    p { overflow-wrap: anywhere; }
+    @media (max-width: 48rem) { main { margin: 1rem; } }
+  </style>
+  <script src="/simulation-reporting.js" defer></script>
+</head>
+<body>
+  <main>
+    <h1>الإبلاغ عن فاتورة مبسطة</h1>
+    <p>معاينة فاتورة المعزولة. ترسل هذه التجربة عينة واحدة إلى محاكاة الهيئة.</p>
+    <p id="version"></p>
+    <p id="status" role="status">جارٍ التحقق من حالة الاختبار…</p>
+    <p id="details" dir="ltr"></p>
+    <button id="refresh" type="button" disabled>تحديث الحالة</button>
+    <button id="prepare" type="button" disabled>تجهيز العينة</button>
+    <button id="submit" type="button" disabled>إرسال العينة إلى المحاكاة</button>
+  </main>
+</body>
+</html>
