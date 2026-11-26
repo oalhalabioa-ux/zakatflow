@@ -13,7 +13,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{lang?:s
  const en=(await searchParams).lang==='en';
  const t=(ar:string,english:string)=>en?english:ar;
  const r=groupAcceptanceScenario();
- const row=(rows:{key:string;after:string;adjustment:string}[],key:string)=>rows.find(item=>item.key===key)!;
+ const row=(rows:{key:string;before:string;after:string;adjustment:string}[],key:string)=>rows.find(item=>item.key===key)!;
  const sections=[
   {title:t('الإلغاءات البينية','Intercompany eliminations'),rows:[
    ['assets-before',t('الأصول قبل الاستبعادات بعد إدراج 100٪ من التابعة','Assets before eliminations after including 100% of the subsidiary'),row(r.position,'assets').before],
