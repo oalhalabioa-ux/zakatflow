@@ -54,6 +54,8 @@ jobs:
         run: NODE_PATH="$RUNNER_TEMP/assets-tools/node_modules" node tests/assets-v2/sale-hawl-baseline.cjs --capture-sources
       - name: Enable the canonical gold entry points on disposable QA
         run: psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -X -v ON_ERROR_STOP=1 -f tests/sql/personal-gold-release-disabled.sql -f supabase/release/personal-gold-sales/enable.sql
+      - name: Verify first-cycle review controls in Arabic and English
+        run: node tests/assets-v2/first-cycle-browser.mjs
       - name: Verify source reconciliation, isolation and responsive card
         run: node tests/assets-v2/statement-browser.mjs
       - name: Upload Arabic and English review images
