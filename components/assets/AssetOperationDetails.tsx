@@ -60,6 +60,8 @@ export default function AssetOperationDetails({record,ar,onClose,onChanged,initi
  }setSettling(false);if(payload.status==='ACTUAL')paymentKey.current=null;setEditNotes(false);setReplacement(null);setCorrectingSale(false);setNotice(t('تم حفظ الإجراء وتحديث السجل','Action saved and register refreshed'));onChanged(next?x.id:undefined);if(method==='DELETE'||payload.action==='reverse'){onClose();return;}await reload(next?x.id:undefined);}catch(e:any){setError(['correct-sale','amend-sale-price'].includes(payload.action)?personalSaleCorrectionMessage(e.message,ar):e.message==='ASSET_BOOK_RECONCILIATION_REQUIRED'?t('تعذر مطابقة القيمة الدفترية مع سجل الأصل في التاريخ المختار. راجع تاريخ العملية وحركات الأصل قبل المتابعة.','The book value does not reconcile with the asset history on the selected date. Review the operation date and asset movements before continuing.'):messages[e.message]??e.message)}finally{setBusy(false)}}
  const row={...record,...data?.record,financial_event_status:data?.review?.event.status??record.financial_event_status,obligation_balances:data?.balances??record.obligation_balances,applied_base_amount:(data?.balances??[]).reduce((s:number,b:any)=>s+Number(b.applied_base_amount||0),0),outstanding_base_amount:(data?.balances??[]).reduce((s:number,b:any)=>s+Number(b.outstanding_base_amount||0),0)};
  const lotSummary=postedSaleSummary(row,ar);
+ const purchaseFunding=row.transaction_type==='PURCHASE'&&!row.organization_id&&row.metadata?.purchase_funding?.version===1
+  ?row.metadata.purchase_funding:null;
  const correctionLinks=[
   ['sale_correction_replacement_id',t('عرض السند المصحح','View corrected voucher')],
   ['corrects_sale_id',t('عرض سند البيع الأصلي','View original sale voucher')],
@@ -79,6 +81,11 @@ export default function AssetOperationDetails({record,ar,onClose,onChanged,initi
  <div><dt>{t('الكمية / سعر الوحدة','Quantity / unit price')}</dt><dd>{Number(row.quantity??0).toLocaleString()} / {row.unit_price==null?'—':Number(row.unit_price).toLocaleString()} {currency}</dd></div><div><dt>{t('الصافي / الضريبة / الإجمالي','Net / VAT / gross')}</dt><dd>{a.net.toLocaleString()} / {a.tax.toLocaleString()} / {a.total.toLocaleString()} {currency}</dd></div><div><dt>{t('سعر الصرف / الإجمالي بالأساس','FX / base gross')}</dt><dd>{a.fx} / {a.baseTotal.toLocaleString()} {base}</dd></div>
  <div><dt>{t('الأثر على قيمة الأصل','Asset book effect')}</dt><dd><Money value={a.bookEffect} currency={base} organizationId={row.organization_id}/></dd></div><div><dt>{t('ربح / خسارة البيع قبل المصاريف المرتبطة','Sale gain / loss before linked expenses')}</dt><dd>{a.gain==null?'—':<Money value={a.gain} currency={base} organizationId={row.organization_id}/>}</dd></div><div><dt>{t('تاريخ الاستحقاق','Due date')}</dt><dd>{data.review?.event.due_date??row.metadata?.due_date??'—'}</dd></div>
  <div><dt>{t('المسدد / المتبقي بالأساس','Applied / outstanding base')}</dt><dd>{data.balances.length?`${row.applied_base_amount.toLocaleString()} / ${row.outstanding_base_amount.toLocaleString()} ${base}`:'—'}</dd></div><div><dt>{t('إنشاء العملية','Created')}</dt><dd>{row.created_at?new Date(row.created_at).toLocaleString(ar?'ar-SA':'en-GB'):'—'}</dd></div><div><dt>{t('الملاحظات','Notes')}</dt><dd>{row.notes||'—'}</dd></div></dl>
+ {purchaseFunding&&<dl className="asset-voucher-meta">
+  <div><dt>{t('مبلغ الدفع','Funding payment')}</dt><dd><bdi>{purchaseFunding.payment_amount} {purchaseFunding.payment_currency}</bdi></dd></div>
+  <div><dt>{t('تكلفة دفعات النقد','Cash lot cost')}</dt><dd><bdi>{purchaseFunding.cash_basis_base} {purchaseFunding.base_currency}</bdi></dd></div>
+  <div><dt>{t('فرق الصرف المحقق','Realized FX')}</dt><dd><bdi>{purchaseFunding.realized_fx_base} {purchaseFunding.base_currency}</bdi></dd></div>
+ </dl>}
  {correctionLinks.map(([key,label])=><p key={key}><Link href={recordWorkspaceHref(ar?'ar':'en','transactions',{scope:row.organization_id?'ORGANIZATION':'PERSONAL',organizationId:row.organization_id??null,group:false},row.metadata[key])}>
   {label}{row.metadata.document_links?.[key]&&<> · <bdi>{row.metadata.document_links[key]}</bdi></>}
  </Link></p>)}

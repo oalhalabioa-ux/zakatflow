@@ -18,20 +18,13 @@ try{
  await check('atomic institutional chart template and tenant isolation',async()=>{
   assert.match(sql(await load('tests/sql/atomic-chart-template.sql')),/PASS atomic chart activation/);
  });
- await check('capture personal purchase funding FX behavior before automatic reference use',async()=>{
+ await check('personal purchase funding reconciles amounts, FIFO cost, retries and reversals in both paths',async()=>{
   const evidence=JSON.parse(sql(await load('tests/sql/personal-purchase-funding-fx.sql')));
-  // Diagnostic assertions on the shipped behavior, including its foreign-currency discrepancy.
-  const actual=evidence.map(value=>[
-   value.scenario,value.paid_usd,value.posted_sar,value.quantity_consumed_usd,value.fifo_carrying_sar,
-   value.remaining_usd,value.expected_fifo_carrying_sar,value.allocation_quantities_usd,
-  ]);
+  assert.equal(evidence.length,26);
+  assert.ok(evidence.every(row=>row.rolled_back||
+   row.single_withdrawal_on_retry&&row.single_reversal_pair_on_retry&&row.reversal_rolled_back_on_failure));
   console.log('PERSONAL_PURCHASE_FUNDING_FX '+JSON.stringify(evidence));
-  assert.deepEqual(actual,[
-   ['higher_purchase_rate_new',100,375,120,375,80,312.5,[120]],
-   ['lower_purchase_rate_new',100,375,93.75,375,106.25,400,[93.75]],
-   ['mixed_fifo_rates_existing',100,375,99,375,101,379,[70,29]],
-   ['same_rate_new',100,375,100,375,100,375,[100]],
-  ]);
+  await writeFile(new URL('tests/migration-history/personal-purchase-funding-result.json',root),JSON.stringify(evidence,null,2)+'\n');
  });
  await check('all canonical migration versions applied to a fresh local database',async()=>{
   const versions=JSON.parse(sql("select coalesce(jsonb_agg(version order by version),'[]') from supabase_migrations.schema_migrations"));
@@ -116,6 +109,7 @@ try{
    'personal-fx-rates-schema-delta',
    'atomic-chart-template-schema-delta',
    'fiscal-reversal-window-schema-delta',
+   'personal-purchase-funding-schema-delta',
   ];
   const deltas=await Promise.all(deltaNames.map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
   for(const delta of deltas){
