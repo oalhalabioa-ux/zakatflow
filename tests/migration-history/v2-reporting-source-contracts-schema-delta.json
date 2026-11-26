@@ -573,6 +573,11 @@
     },
     {
       "category": "constraint",
+      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_transaction_id_key",
+      "fingerprint": "a9e229d9e6db1bce212157b09a610337"
+    },
+    {
+      "category": "constraint",
       "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_transaction_id_not_null",
       "fingerprint": "2e24bf62b605ab0564564c2f53204e4b"
     },
@@ -585,11 +590,6 @@
       "category": "constraint",
       "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_user_id_not_null",
       "fingerprint": "3003e44049459afa56e7df8289c91ce3"
-    },
-    {
-      "category": "constraint",
-      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_user_id_transaction_id_key",
-      "fingerprint": "fc112390392cfdb0e32b2d9d17318735"
     },
     {
       "category": "function",
@@ -614,7 +614,7 @@
     {
       "category": "function",
       "object_key": "public.read_financial_fx_revaluation(p_org uuid, p_journal uuid, p_as_of date)",
-      "fingerprint": "71b06304557a79d9cffbdc26c78c67c9"
+      "fingerprint": "5bf4951380d9e7372d223f7fd7f8d62e"
     },
     {
       "category": "function",
@@ -663,8 +663,8 @@
     },
     {
       "category": "index",
-      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_user_id_transaction_id_key",
-      "fingerprint": "1e932b41d3edc9e45908ac6a0d91d3f6"
+      "object_key": "public.personal_income_expense_documents.personal_income_expense_documents_transaction_id_key",
+      "fingerprint": "9c8044eb675ccb6b417c8ff12ed56dc9"
     },
     {
       "category": "policy",

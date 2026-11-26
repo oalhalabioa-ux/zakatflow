@@ -219,7 +219,8 @@ begin
  select * into result from public.financial_fx_revaluation_evidence
    where organization_id=p_org and journal_id=p_journal and cutoff<=p_as_of;
  if not found then return null; end if;
- select jsonb_build_object('journalId',e.id,'lineId',l.id,'date',e.event_date,'baseAmount',l.base_amount::text)
+ select jsonb_build_object('journalId',e.id,'lineId',l.id,'date',e.event_date,'baseAmount',l.base_amount::text,
+    'debtAccountId',result.debt_account_id,'debtSide',case when result.debt_side='DEBIT' then 'CREDIT' else 'DEBIT' end)
  into reversal
  from public.financial_event_links k
  join public.financial_events e on e.id=k.event_id and e.organization_id=p_org
@@ -227,6 +228,8 @@ begin
  where k.organization_id=p_org and k.link_type='REVERSAL_OF' and k.related_event_id=result.journal_id
    and e.status in ('ACTUAL','REVERSED') and e.event_type='REVERSAL'
    and e.event_date between result.cutoff and p_as_of and l.cash_direction='NON_CASH'
+   and exists(select 1 from public.financial_events original where original.id=result.journal_id
+     and original.organization_id=p_org and original.status='REVERSED')
    and l.base_amount=result.posted_base_amount
    and (select count(*) from public.financial_event_lines lx where lx.event_id=e.id)=1
    and l.classification_id=(select x.classification_id from public.financial_event_lines x where x.id=result.line_id);
@@ -255,7 +258,7 @@ create table public.personal_income_expense_documents (
  base_currency text not null references public.currencies(code),
  document_date date not null,
  recorded_at timestamptz not null default now(),
- unique(user_id,transaction_id)
+ unique(transaction_id)
 );
 alter table public.personal_income_expense_documents enable row level security;
 revoke all on public.personal_income_expense_documents from public,anon,authenticated;

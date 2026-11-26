@@ -1,5 +1,6 @@
 -- Full-schema CI only. Use synthetic native V2 commands and roll everything back.
 begin;
+set constraints all immediate;
 create temporary table source_contract_proof(result jsonb);
 grant insert on source_contract_proof to authenticated;
 do $fixture$
@@ -103,6 +104,7 @@ begin
  before_fx:=public.read_financial_fx_revaluation(org,adjustment,as_of);
  after_fx:=public.read_financial_fx_revaluation(org,adjustment,'2026-04-01');
  if before_fx->'reversal'<>'null'::jsonb or after_fx->'reversal'->>'journalId' is distinct from reversal::text
+   or after_fx->'reversal'->>'debtAccountId'<>'120001' or after_fx->'reversal'->>'debtSide'<>'CREDIT'
    or after_fx->'evidence'->'quote_evidence'->>'rate' is distinct from rec->>'rate' then
   raise exception 'Revaluation cutoff or exact reversal mismatch'; end if;
  raw:=public.financial_statement_live_snapshot(org,'2026-01-01','2026-04-01');
