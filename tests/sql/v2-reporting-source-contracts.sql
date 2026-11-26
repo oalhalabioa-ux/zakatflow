@@ -31,6 +31,8 @@ begin
        (org,'SAR','USD','2026-02-28',0.25,'Synthetic inverse');
  set local role authenticated;
  perform public.save_financial_fiscal_calendar(org,1,1,'3300',0,'Synthetic schedule');
+ perform public.save_financial_chart_account(org,'120001','1200','قرض الاختبار','Fixture foreign loan','DEBIT',true,true,0,'Synthetic debt leaf');
+ perform public.save_financial_chart_account(org,'410001','4100','فرق صرف الاختبار','Fixture FX gain','CREDIT',true,true,0,'Synthetic FX leaf');
  perform public.link_financial_cash_accounts(org);
  perform public.assign_financial_opening_source(org,'liquidity_accounts',bank,'2026-01-01','2026-01-01','1000',3750,'Verified bank opening');
  ws:=public.financial_opening_workspace(org,'2026-01-01');
@@ -50,9 +52,9 @@ begin
  rules:=jsonb_build_array(
   jsonb_build_object('eventType','ADJUSTMENT','sourceModule','DEBT_CONTRACTS',
     'classificationId',debt_class::text||':DEBT_FUNDED_O_AR_LOAN','cashDirection','OUTFLOW',
-    'debitAccountId','1200','creditAccountId','1000','cashActivity','INVESTING','detailed',true),
+    'debitAccountId','120001','creditAccountId','1000','cashActivity','INVESTING','detailed',true),
   jsonb_build_object('eventType','ADJUSTMENT','sourceModule','FX_REVALUATION',
-    'classificationId',gain_class::text||':BASE','cashDirection','NON_CASH','debitAccountId','1200','creditAccountId','4100'));
+    'classificationId',gain_class::text||':BASE','cashDirection','NON_CASH','debitAccountId','120001','creditAccountId','410001','detailed',true));
  pol:=public.save_financial_reporting_policy(org,'2026-01-01',0,rules,'Synthetic loan and FX routing');
  perform public.approve_financial_reporting_policy((pol->>'id')::uuid,(pol->>'version')::integer);
  perform public.approve_financial_event(debt_event,'Approve synthetic loan');
@@ -86,9 +88,9 @@ begin
  perform public.approve_financial_event(adjustment,'Synthetic FX');
  perform public.transition_financial_event(adjustment,'ACTUAL','Post synthetic FX');
  select id into strict adj_line from public.financial_event_lines where event_id=adjustment;
- binding:=public.bind_financial_fx_revaluation(org,adjustment,adj_line,obligation,as_of,'1200');
+ binding:=public.bind_financial_fx_revaluation(org,adjustment,adj_line,obligation,as_of,'120001');
  if binding.document_id<>(debt->>'id')::uuid or binding.document_module<>'debt_contracts'
-   or binding.posted_base_amount<>15 or binding.debt_side<>'DEBIT' or binding.offset_account_id<>'4100'
+   or binding.posted_base_amount<>15 or binding.debt_side<>'DEBIT' or binding.offset_account_id<>'410001'
   then raise exception 'Revaluation binding missing exact ledger provenance'; end if;
 
  reversal:=public.create_financial_event_command(terms||jsonb_build_object('event_type','REVERSAL','source_event_key','synthetic-fx-reversal',
