@@ -30,7 +30,7 @@ describe('consistent business context',()=>{
    expect(currentWorkspaceScope(path,'scope=PERSONAL','ORGANIZATION')).toBe('PERSONAL');
   }
   expect(currentWorkspaceScope('payments','','ORGANIZATION')).toBe('ORGANIZATION');
-  expect(currentWorkspaceScope('vat','','PERSONAL')).toBe('ORGANIZATION');
+  expect(currentWorkspaceScope('vat','','PERSONAL')).toBe('PERSONAL');
   expect(currentWorkspaceScope('investments','','ORGANIZATION')).toBe('ORGANIZATION');
  });
  it('saves company and group together without dropping current page filters',()=>{

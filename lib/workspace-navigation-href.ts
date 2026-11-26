@@ -28,6 +28,7 @@ export function workspaceNavigationHref(href:string,selection:Selection):string{
  if(isWorkspaceScopePage(page)||organizationOnly||page==='settings/personal-setup')q.set('scope',scope);
  if(scope==='PERSONAL'||isSharedWorkspacePage(page)){
   clearOrganizationScopeQuery(q);
+  if((page==='vat'||page==='invoice-register')&&scope==='PERSONAL')q.delete('document_id');
   if(page==='financial-reports')q.delete('screen');
  }else if(isWorkspaceScopePage(page)||organizationOnly||page==='settings/personal-setup'){
   // Older callers still use organization_id. Never replace an explicit target
