@@ -75,8 +75,8 @@ export default async function Page({searchParams}:{searchParams:Promise<{lang?:s
   <h1>{t('قبول التجميع المالي على QA V2','QA V2 financial consolidation acceptance')}</h1>
   <p>{t('القيود والمستندات اصطناعية. أسعار نهاية الفترة من جدول ٢ب المنشور للبنك المركزي السعودي. المبالغ بالريال السعودي.','Journals and documents are synthetic. Period-end rates come from the published Saudi Central Bank table 2b. Amounts are in SAR.')}</p>
   <p data-group-rate-coverage>{t(
-   'التغطية المعروضة: الدولار واليورو والجنيه الإسترليني مقابل الريال في نهايات الأشهر من ديسمبر 2025 إلى سبتمبر 2026. يُوقف الحساب عند غياب سعر التاريخ أو موافقة المؤسسة.',
-   'Rates cover USD, EUR and GBP against SAR at month-end from December 2025 to September 2026. Missing rates or company approval block calculation.',
+   'يغطي الجدول 12 عملة مقابل الريال في نهايات الأشهر من سبتمبر 2025 إلى سبتمبر 2026. يُوقف الحساب عند غياب سعر التاريخ أو موافقة المؤسسة.',
+   'The table covers 12 currencies against SAR at month-end from September 2025 to September 2026. Missing rates or company approval block calculation.',
   )}</p>
   <p><a href={samaGroupRatePublication.sourceUrl}>{t('نشرة سبتمبر 2026، جدول ٢ب','September 2026 bulletin, table 2b')}</a></p>
   <p><a href="?lang=ar" lang="ar">العربية</a> · <a href="?lang=en" lang="en">English</a></p>

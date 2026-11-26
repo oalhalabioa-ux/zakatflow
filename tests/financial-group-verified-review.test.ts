@@ -12,6 +12,9 @@ describe('published group exchange rates and documentary elimination',()=>{
  it('uses SAMA rates exactly for the published pair and date',()=>{
   expect(groupReportingRate('EUR','SAR','2026-01-31')).toMatchObject({rate:'4.4708',reference:'SAMA_2026_09_TABLE_2B'});
   expect(groupReportingRate('USD','SAR','2025-12-31').rate).toBe('3.7500');
+  expect(groupReportingRate('CHF','SAR','2025-09-30').rate).toBe('4.7010');
+  expect(groupReportingRate('JPY','SAR','2026-09-30').rate).toBe('0.0238');
+  expect(groupReportingRate('EUR','EUR','2026-01-30')).toMatchObject({rate:'1',reference:'SAME_CURRENCY'});
   expect(()=>groupReportingRate('EUR','SAR','2026-01-30')).toThrow('GROUP_FX_PUBLISHED_RATE_REQUIRED');
   expect(()=>groupReportingRate('EUR','USD','2026-01-31')).toThrow('GROUP_FX_PUBLISHED_RATE_REQUIRED');
   expect(()=>groupReportingRate('toString','SAR','2026-01-31')).toThrow('GROUP_FX_PUBLISHED_RATE_REQUIRED');
