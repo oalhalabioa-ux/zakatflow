@@ -3,13 +3,13 @@ export type WorkspaceScope='PERSONAL'|'ORGANIZATION';
 export const isFinancialReportingPage=(path:string)=>['financial-reports','opening-balances','opening-balances/branches','opening-balances/centers','financial-reporting-policy','chart-of-accounts'].includes(path);
 const shared=new Set(['settings/system','account','notifications','guide','governance']);
 export const isSharedWorkspacePage=(path:string)=>shared.has(path);
-const scoped=new Set([...shared,'payments','assessments','transactions','lots','debt-collection','loans','debt-advances','dashboard','debts','cash-and-banks','receivables','payables','debt-report','financial-position','assets/dashboard','assets','investments','reports','reports/print','financial-reports','feasibility','prices','workflow','enterprise']);
+const scoped=new Set([...shared,'liquidity','vat','invoice-register','payments','assessments','transactions','lots','debt-collection','loans','debt-advances','dashboard','debts','cash-and-banks','receivables','payables','debt-report','financial-position','assets/dashboard','assets','investments','reports','reports/print','financial-reports','feasibility','prices','workflow','enterprise']);
 export const isWorkspaceScopeDetail=(path:string)=>/^(transactions|lots)\/[^/]+$/.test(path);
 export const isWorkspaceScopePage=(path:string)=>scoped.has(path)||isWorkspaceScopeDetail(path);
 export const workspaceScopeStorageKey='zf-workspace-scope';
 export function rememberedWorkspaceScope():WorkspaceScope|undefined{try{const s=sessionStorage.getItem(workspaceScopeStorageKey);return s==='PERSONAL'||s==='ORGANIZATION'?s:undefined}catch{return undefined}}
 export function rememberWorkspaceScope(scope:WorkspaceScope){try{sessionStorage.setItem(workspaceScopeStorageKey,scope)}catch{}}
-export const isClientWorkspaceScope=(path:string)=>isWorkspaceScopePage(path)&&!isWorkspaceScopeDetail(path)&&!['dashboard','financial-reports','reports/print','enterprise'].includes(path);
+export const isClientWorkspaceScope=(path:string)=>isWorkspaceScopePage(path)&&!isWorkspaceScopeDetail(path)&&!['liquidity','vat','invoice-register','dashboard','financial-reports','reports/print','enterprise'].includes(path);
 export function currentWorkspaceScope(path:string,query:string,remembered?:WorkspaceScope):WorkspaceScope{
  if(path==='settings/personal-setup')return 'PERSONAL';
  const q=new URLSearchParams(query),value=q.get('scope');
@@ -32,6 +32,7 @@ export function workspaceScopeHref(locale:string,path:string,query:string,scope:
  const target=leavingDetail?path.split('/')[0]:setup?(scope==='PERSONAL'?'settings/personal-setup':'settings/financial/setup'):stay?path:'dashboard';
  const q=new URLSearchParams(stay||setup?query:'');q.set('scope',scope);
  if(scope==='PERSONAL'||shared.has(target))clearOrganizationScopeQuery(q);
+ if((path==='vat'||path==='invoice-register')&&scope==='PERSONAL')q.delete('document_id');
  if(path==='financial-reports'&&scope==='PERSONAL')q.delete('screen');
  return '/'+locale+'/'+target+'?'+q;
 }
