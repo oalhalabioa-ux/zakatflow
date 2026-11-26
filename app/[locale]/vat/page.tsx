@@ -184,7 +184,24 @@ const emptyDocument = (): DocumentDraft => ({
 });
 const emptyDocumentLine = (): DocumentLineDraft => ({ description: '', unit: '', quantity: '1', unit_price: '', discount_amount: '0', discount_mode: 'AMOUNT', supply_type: 'STANDARD' });
 
-export default function VatManagement({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ document_id?:string; month?:string; section?: string | string[]; organization?:string | string[]; organization_id?:string | string[]; direction?:string | string[] }> }) {
+type VatPageProps = { params: Promise<{ locale: string }>; searchParams: Promise<{ scope?:string; document_id?:string; month?:string; section?: string | string[]; organization?:string | string[]; organization_id?:string | string[]; direction?:string | string[] }> };
+
+export default function VatManagement(props: VatPageProps) {
+  const { locale } = use(props.params);
+  const { scope } = use(props.searchParams);
+  if (scope === 'ORGANIZATION') return <OrganizationVatWorkspace {...props} />;
+  const ar = locale === 'ar';
+  return <main className="container vat-page" dir={ar ? 'rtl' : 'ltr'}>
+    <section className="vat-panel vat-empty" role="status">
+      <h1>{ar ? 'إدارة الضرائب والفوترة' : 'Tax and invoicing'}</h1>
+      <p>{scope === 'PERSONAL'
+        ? (ar ? 'تتوفر الفوترة الضريبية للمؤسسات. لعرض فواتير مؤسسة، اختر «مؤسسي» من البانر.' : 'Tax invoicing is available for organizations. To view company invoices, select Business in the banner.')
+        : (ar ? 'جارٍ تحديد نطاق العمل…' : 'Loading workspace scope…')}</p>
+    </section>
+  </main>;
+}
+
+function OrganizationVatWorkspace({ params, searchParams }: VatPageProps) {
   const { locale } = use(params);
   const { section,document_id:requestedDocument,month:requestedMonth,organization:canonicalOrganization,organization_id:requestedOrganization,direction:requestedDirection } = use(searchParams);
   const initialDirection=(Array.isArray(requestedDirection)?requestedDirection[0]:requestedDirection)==='PURCHASE'?'PURCHASE':'SALES';

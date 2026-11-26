@@ -32,7 +32,7 @@ describe('server workspace hydration',()=>{
 });
 
 describe('navigation follows the banner scope',()=>{
- it.each(['assets','assets/dashboard','transactions','lots','assessments','payments','cash-and-banks','receivables','payables','loans','debt-advances','debt-collection','debt-report','financial-position','investments','reports','reports/print','feasibility','financial-reports','prices','workflow','enterprise'])(
+ it.each(['liquidity','assets','assets/dashboard','transactions','lots','assessments','payments','cash-and-banks','receivables','payables','loans','debt-advances','debt-collection','debt-report','financial-position','investments','reports','reports/print','feasibility','financial-reports','prices','workflow','enterprise'])(
   'keeps %s personal even after a company was selected',page=>{
    const href=workspaceNavigationHref(`/ar/${page}`,personal);
    expect(href).toBe(`/ar/${page}?scope=PERSONAL`);
@@ -75,7 +75,7 @@ describe('navigation follows the banner scope',()=>{
   expect(workspaceScopeHref('en','settings/financial/setup','organization=company-a','PERSONAL')).toBe('/en/settings/personal-setup?scope=PERSONAL');
   expect(workspaceScopeHref('en','settings/personal-setup','','ORGANIZATION')).toBe('/en/settings/financial/setup?scope=ORGANIZATION');
  });
- it.each(['opening-balances','chart-of-accounts','financial-reporting-policy','vat','liquidity','budget-planning','settings/financial'])('does not pretend the organization-only %s supports personal data',page=>{
+ it.each(['opening-balances','chart-of-accounts','financial-reporting-policy','budget-planning','settings/financial'])('does not pretend the organization-only %s supports personal data',page=>{
   const href=workspaceNavigationHref(`/ar/${page}`,personal);
   expect(new URL(href,'https://app.invalid').searchParams.get('scope')).toBe('ORGANIZATION');
  });
@@ -90,4 +90,14 @@ it.each(['transactions/transaction-a','lots/lot-a'])('keeps %s record details sc
  expect(workspaceScopeHref('ar',page,'scope=ORGANIZATION&organization=company-a','ORGANIZATION')).toBe('/ar/'+page+'?scope=ORGANIZATION&organization=company-a');
  expect(workspaceScopeHref('ar',page,'scope=ORGANIZATION&organization=company-a','PERSONAL')).toBe('/ar/'+page.split('/')[0]+'?scope=PERSONAL');
  expect(workspaceScopeHref('en',page,'scope=PERSONAL','ORGANIZATION')).toBe('/en/'+page.split('/')[0]+'?scope=ORGANIZATION');
+});
+
+it.each(['dashboard','aggregate','invoices','unified','reports','einvoicing'])('keeps the banner selection when opening VAT section %s',section=>{
+ for(const locale of ['ar','en']){
+  const path='/'+locale+'/vat?section='+section;
+  expect(workspaceNavigationHref(path,personal)).toBe(path+'&scope=PERSONAL');
+  const query=new URL(workspaceNavigationHref(path,business),'https://app.invalid').searchParams;
+  expect(query.get('scope')).toBe('ORGANIZATION');
+  expect(query.get('organization')).toBe('company-a');
+ }
 });
