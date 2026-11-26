@@ -8,9 +8,9 @@ export function transactionAssetInWorkspace(asset:Asset|undefined,scope:Scope,or
  if(!asset)return false;
  return scope==='PERSONAL'?!asset.organization_id&&asset.ownership_scope!=='ORGANIZATION':!!asset.organization_id&&organizationIds.has(asset.organization_id);
 }
-export function transactionCashAccounts<T extends Asset>(assets:T[],selected:Asset|undefined,scope:Scope,organizationIds:ReadonlySet<string>):T[]{
+export function transactionCashAccounts<T extends Asset>(assets:T[],selected:Asset|undefined,scope:Scope,organizationIds:ReadonlySet<string>,allowForeignFunding=false):T[]{
  if(!transactionAssetInWorkspace(selected,scope,organizationIds))return [];
  return assets.filter(asset=>['CASH','BANK'].includes(asset.asset_type??'')&&
   transactionAssetInWorkspace(asset,scope,organizationIds)&&
-  (asset.organization_id??null)===(selected?.organization_id??null)&&asset.currency===selected?.currency);
+  (asset.organization_id??null)===(selected?.organization_id??null)&&(scope==='PERSONAL'&&allowForeignFunding||asset.currency===selected?.currency));
 }

@@ -1,5 +1,5 @@
 import {describe,expect,it} from 'vitest';
-import {personalHistoricalValuation,personalReportEvidence} from '../lib/personal-report-evidence';
+import {personalHistoricalValuation,personalPayableHistoryGaps,personalReportEvidence} from '../lib/personal-report-evidence';
 import {personalFinancialReports} from '../lib/personal-financial-reports';
 import {personalFinancialExportRows} from '../lib/personal-financial-export';
 import type {RegisterData,CashMovement} from '../lib/financial-register';
@@ -61,7 +61,7 @@ describe('personal statements read and reconcile source-linked evidence',()=>{
   ]);
   expect(report.recognizedIncome.map(r=>[r.category,r.amount])).toEqual([['FINANCE_INCOME','5.25'],['PARTICIPATION_EXPENSE','6']]);
   expect(personalFinancialExportRows(report,'income',true)).toContainEqual(['2026-10-08','Finance income','SAR','5.25','charge']);
-  expect(report.historicalPosition).toEqual([{currency:'SAR',cash:'1110.00',receivables:'0.00',liabilities:'0.00'}]);
+  expect(report.historicalPosition).toEqual([{currency:'SAR',cash:'1110.00',receivables:'0.00',liabilities:'0.00',supplierAdvances:'0.00',customerAdvances:'0.00'}]);
  });
 
  it('keeps a later reversal in its own period and restores the investing movement only once',()=>{
@@ -124,5 +124,41 @@ describe('personal statements read and reconcile source-linked evidence',()=>{
   expect(report.historicalAssetValuations).toEqual([mark]);
   expect(report.issues).toContain('PERSONAL_HISTORICAL_ASSET_VALUES_PARTIAL');
   expect(personalFinancialExportRows(report,'position',true)).toContainEqual(['Gold fixture','SAR','2470','2887.5','USER_MANUAL']);
+ });
+
+ it('reconciles each debt and separates advances from receivables and payables at the cutoff',()=>{
+  const {data}=evidenceFixture();
+  const addDebt=(id:string,side:RegisterData['debts'][number]['side'],amount:number)=>data.debts.push({id,side,amount,
+   partyKey:id,partyName:id,organizationId:null,entityId:null,currency:'SAR',dueDate:null,date:'2026-10-01',description:id,source:'fixture',eventId:null});
+  const addMovement=(id:string,debtId:string,side:'SALES'|'PURCHASE',advance:boolean,amount:number,date='2026-10-01')=>
+   data.debtMovements.push({id,debtId,side,advance,amount,date,organizationId:'PERSONAL',partyKey:debtId,partyName:debtId,due:null,
+    currency:'SAR',kind:'INVOICE',description:id,reference:id});
+  addDebt('a','PAYABLE',100);addDebt('b','PAYABLE',200);addDebt('paid','SUPPLIER_ADVANCE',60);addDebt('received','CUSTOMER_ADVANCE',45);
+  addMovement('a-start','a','PURCHASE',false,120);addMovement('a-payment','a','PURCHASE',false,-20,'2026-11-02');
+  addMovement('b-start','b','PURCHASE',false,200);addMovement('paid-start','paid','PURCHASE',true,-60);
+  addMovement('received-start','received','SALES',true,-45);
+  const report=()=>personalFinancialReports(data,'2026-10-01',cutoff);
+  expect(report().historicalPosition[0]).toMatchObject({liabilities:'320.00',supplierAdvances:'60.00',customerAdvances:'45.00'});
+  data.debtMovements[0].amount+=0.001;data.debtMovements[2].amount-=0.001;
+  expect(report().historicalPosition[0]).toMatchObject({liabilities:null,supplierAdvances:'60.00',customerAdvances:'45.00'});
+ });
+
+ it('withholds affected historical payable balances after a dated cancellation or opening-value edit',()=>{
+  const {data}=evidenceFixture();
+  const obligation=(id:string,currency:string,event_date:string,cancelled_at?:string)=>({id,request_id:id,amount:100,currency,event_date,cancelled_at});
+  const gaps=personalPayableHistoryGaps([
+   obligation('cancelled','SAR','2026-10-01','2026-10-31T21:00:00Z'),
+   obligation('edited','USD','2026-11-01'),
+   obligation('label-only','EUR','2026-10-01'),
+  ],[
+   {entity_id:'edited',old_data:{date:'2026-10-01',amount:100},new_data:{date:'2026-11-01',amount:100}},
+   {entity_id:'label-only',old_data:{date:'2026-10-01',amount:100},new_data:{date:'2026-10-01',amount:100}},
+  ],cutoff);
+  expect([...gaps]).toEqual(['SAR','USD']);
+  const report=personalFinancialReports(data,'2026-10-01',cutoff,{cash:new Map(),income:[],issues:[],unverifiedPayableCurrencies:gaps});
+  expect(report.historicalPosition).toEqual(expect.arrayContaining([
+   expect.objectContaining({currency:'SAR',liabilities:null,receivables:'0.00'}),
+   expect.objectContaining({currency:'USD',liabilities:null,customerAdvances:null}),
+  ]));
  });
 });

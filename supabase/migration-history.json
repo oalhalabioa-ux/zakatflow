@@ -2241,6 +2241,14 @@
       "expected_md5": "e0328bba4326ae855a8feeaa2ebf1c54",
       "file_sha256": "32b98d13305114d6475cd4a9e65122d623f10c9f15834abf1cb8c7a85e3b03f8",
       "validation_project": "Synthetic fiscal trial before and after foreign currency accrual reversal"
+    },
+    {
+      "path": "supabase/migrations/20261126150000_personal_purchase_funding.sql",
+      "version": "20261126150000",
+      "name": "personal_purchase_funding",
+      "expected_md5": "bb867b72902910648957c0d8628c95e5",
+      "file_sha256": "f364457448da3f22255868990c73d99f36375860f9d6ded59be34a68fbb0603c",
+      "validation_project": "Disposable canonical schema, quantity-first purchase funding in both paths, historical upgrade, retries, rollback and exact reversal"
     }
   ]
 }

@@ -7,7 +7,7 @@ begin
  select id into uid from public.profiles where base_currency='SAR' limit 1;
  perform set_config('request.jwt.claim.sub',uid::text,true);
  set local role authenticated;
- p:=jsonb_build_object('name','QA cash acquisition','asset_type','CASH','currency','SAR','ownership_scope','PERSONAL','metadata',jsonb_build_object('quantity',1,'purchase_value',1000,'purchase_date','2026-01-01','acquisition_mode','OPENING_BALANCE'));
+ p:=jsonb_build_object('name','QA cash acquisition','asset_type','CASH','currency','SAR','ownership_scope','PERSONAL','metadata',jsonb_build_object('quantity',1000,'purchase_value',1000,'purchase_date','2026-01-01','acquisition_mode','OPENING_BALANCE'));
  cash:=public.create_asset_with_acquisition(p,req);
  retry:=public.create_asset_with_acquisition(p,req);
  insert into asset_acquisition_test_results values('retry_same_request_has_one_asset',cash->>'id'=retry->>'id');
@@ -28,7 +28,7 @@ begin
  failed:=false;begin perform public.create_asset_with_acquisition(jsonb_set(p,'{currency}','"USD"'),gen_random_uuid());exception when others then failed:=sqlerrm='ASSET_ACQUISITION_INVALID';end;
  insert into asset_acquisition_test_results values('foreign_currency_requires_explicit_rate',failed);
 
- p:=jsonb_build_object('name','QA foreign cash','asset_type','CASH','currency','USD','ownership_scope','PERSONAL','metadata',jsonb_build_object('quantity',1,'purchase_value',200,'purchase_date','2026-01-01','acquisition_mode','OPENING_BALANCE','fx_rate',3.75));
+ p:=jsonb_build_object('name','QA foreign cash','asset_type','CASH','currency','USD','ownership_scope','PERSONAL','metadata',jsonb_build_object('quantity',200,'purchase_value',200,'purchase_date','2026-01-01','acquisition_mode','OPENING_BALANCE','fx_rate',3.75));
  foreign_cash:=public.create_asset_with_acquisition(p,gen_random_uuid());
  p:=jsonb_build_object('name','QA foreign sold asset','asset_type','OTHER','currency','USD','ownership_scope','PERSONAL','metadata',jsonb_build_object('quantity',2,'purchase_value',100,'purchase_date','2026-01-01','acquisition_mode','OPENING_BALANCE','fx_rate',3.75));
  foreign_asset:=public.create_asset_with_acquisition(p,gen_random_uuid());

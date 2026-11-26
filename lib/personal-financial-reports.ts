@@ -26,8 +26,11 @@ export type PersonalReport={
  cashTransferReconciliation:Array<{currency:string;grossInflows:string;grossOutflows:string;verifiedInternalInflows:string;verifiedInternalOutflows:string;remainingUnclassifiedInflows:string;remainingUnclassifiedOutflows:string;verifiedPairs:number;unverifiedLegs:number;transferEvidenceComplete:boolean}>;
  cashByActivity:Array<{currency:string;activity:PersonalCashClass;inflows:string;outflows:string;net:string}>;
  recognizedIncome:PersonalReportEvidence['income'];
- historicalPosition:Array<{currency:string;cash:string|null;receivables:string|null;liabilities:string|null}>;
+ historicalPosition:Array<{currency:string;cash:string|null;receivables:string|null;liabilities:string|null;
+  supplierAdvances:string|null;customerAdvances:string|null}>;
  historicalAssetValuations?:PersonalReportEvidence['assetValuations'];
+ purchaseFunding?:Array<{id:string;date:string;currency:string;payment:string;baseCurrency:string;
+   assetBasis:string;cashBasis:string;realizedFx:string;reversed:boolean}>;
  issues:string[];
 };
 
@@ -107,6 +110,17 @@ export function personalFinancialReports(data:RegisterData,from:string,to:string
    remainingUnclassifiedOutflows:money(new D(grossOutflows).minus(verifiedInternalOutflows).toString()),
    verifiedPairs:verified.length/2,unverifiedLegs,transferEvidenceComplete:unverifiedLegs===0};
  });
+ const purchaseFunding=activity.flatMap(m=>{
+  const funding=m.purchaseFunding;
+  if(!funding || m.source!=='ASSETS'||funding.base_currency!==m.currency)return [];
+  const direction=funding.reversed?-1:1;
+  if(!new D(m.amount).eq(new D(funding.cash_basis_base).times(-direction)))return [];
+  return [{id:m.id,date:m.date,currency:funding.payment_currency,baseCurrency:funding.base_currency,
+   payment:new D(funding.payment_amount).times(direction).toString(),
+   assetBasis:new D(funding.asset_basis_base).times(direction).toString(),
+   cashBasis:new D(funding.cash_basis_base).times(direction).toString(),
+   realizedFx:new D(funding.realized_fx_base).times(direction).toString(),reversed:funding.reversed}];
+ }).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id));
  const cashByActivity:PersonalReport['cashByActivity']=[];
  const cashClass=(row:typeof activity[number]):PersonalCashClass=>{
   return evidence.cash.get(row.reversalOfTransactionId??row.id)??'UNCLASSIFIED';
@@ -122,7 +136,7 @@ export function personalFinancialReports(data:RegisterData,from:string,to:string
   }
  }
  const recognizedIncome=evidence.income.filter(row=>row.date>=from&&row.date<=to);
- const historicalPosition=to===data.asOf?[]:historicalMonetaryPosition(data,to);
+ const historicalPosition=to===data.asOf?[]:historicalMonetaryPosition(data,to,evidence.unverifiedPayableCurrencies);
  const historicalAssetValuations=to===data.asOf?[]:(evidence.assetValuations??[]).filter(row=>row.date===to);
  const issues=[...data.warnings,...evidence.issues];
  if(to<data.asOf)issues.push(historicalAssetValuations.length?'PERSONAL_HISTORICAL_ASSET_VALUES_PARTIAL':'PERSONAL_HISTORICAL_ASSET_VALUES_UNAVAILABLE');
@@ -130,7 +144,7 @@ export function personalFinancialReports(data:RegisterData,from:string,to:string
  if(positions.length>1)issues.push('PERSONAL_MULTI_CURRENCY_NOT_AGGREGATED');
  issues.push('PERSONAL_INCOME_EXPENSE_CLASSIFICATION_PENDING','PERSONAL_CASH_GROSS_INCLUDES_INTERNAL_TRANSFERS');
  if(hasUnverifiedTransfers)issues.push('PERSONAL_TRANSFER_PROVENANCE_INCOMPLETE');
- return{scope:'PERSONAL',basis:'CURRENT_PERSONAL_REGISTER_ESTIMATE',asOf:data.asOf,from,to,baseCurrency:data.baseCurrency,categories,positions,cashAccounts,cashTransferReconciliation,cashByActivity,recognizedIncome,historicalPosition,historicalAssetValuations,issues:[...new Set(issues)]};
+ return{scope:'PERSONAL',basis:'CURRENT_PERSONAL_REGISTER_ESTIMATE',asOf:data.asOf,from,to,baseCurrency:data.baseCurrency,categories,positions,cashAccounts,cashTransferReconciliation,cashByActivity,recognizedIncome,historicalPosition,historicalAssetValuations,purchaseFunding,issues:[...new Set(issues)]};
 }
 
 
@@ -138,32 +152,46 @@ export function personalFinancialReports(data:RegisterData,from:string,to:string
  * a historic cutoff. A component is available only if its dated movements
  * reconcile to the current register, including opening and reversal rows.
  */
-function historicalMonetaryPosition(data:RegisterData,to:string):PersonalReport['historicalPosition']{
+function historicalMonetaryPosition(data:RegisterData,to:string,unverifiedPayableCurrencies:ReadonlySet<string>=new Set()):PersonalReport['historicalPosition']{
  const currencies=[...new Set([
-  ...data.accounts.map(a=>a.baseCurrency),...data.debts.map(d=>d.currency),...data.debtMovements.map(d=>d.currency),
+  ...data.accounts.map(a=>a.baseCurrency),...data.debts.map(d=>d.currency),...data.debtMovements.map(d=>d.currency),...unverifiedPayableCurrencies,
  ])].sort();
  const knownCashTypes=new Set(['OPENING_BALANCE','ADD','WITHDRAWAL','TRANSFER_IN','TRANSFER_OUT','ZAKAT_PAYMENT','REVERSAL','ADJUSTMENT','SALE']);
+ const total=(amounts:number[])=>amounts.reduce((sum,amount)=>sum.plus(amount),new D(0));
  return currencies.map(currency=>{
   const accounts=data.accounts.filter(a=>a.baseCurrency===currency);
   const holdings=accounts.map(account=>{
    const rows=data.cashMovements.filter(row=>row.accountId===account.id&&row.date<=data.asOf);
    if(rows.some(row=>row.currency!==currency||!knownCashTypes.has(row.transactionType??''))||
-    new Set(rows.map(row=>row.id)).size!==rows.length||!new D(add(rows.map(row=>row.amount))).eq(money(account.baseBalance)))return null;
-   return add(rows.filter(row=>row.date<=to).map(row=>row.amount));
+    new Set(rows.map(row=>row.id)).size!==rows.length||
+    !total(rows.map(row=>row.amount)).toDecimalPlaces(8).eq(new D(account.baseBalance).toDecimalPlaces(8)))return null;
+   return total(rows.filter(row=>row.date<=to).map(row=>row.amount));
   });
-  const cash=holdings.some(v=>v===null)?null:add(holdings as string[]);
+  const cash=holdings.some(v=>v===null)?null:money(holdings.reduce<Decimal>((sum,value)=>sum.plus(value??0),new D(0)).toString());
   const debts=data.debts.filter(d=>d.currency===currency);
   const movements=data.debtMovements.filter(d=>d.currency===currency&&d.date<=data.asOf);
-  const uncertain=data.warnings.includes('PERSONAL_CONTRACT_SCHEDULE_UNAVAILABLE')||
-   debts.some(d=>!['RECEIVABLE','PAYABLE'].includes(d.side))||movements.some(m=>m.advance||m.organizationId!=='PERSONAL')||
+  const uncertain=data.warnings.includes('PERSONAL_CONTRACT_SCHEDULE_UNAVAILABLE')||debts.some(d=>d.side==='UNAPPLIED')||
+   movements.some(m=>m.organizationId!=='PERSONAL')||
    new Set(movements.map(m=>m.id)).size!==movements.length;
-  const historicalDebt=(side:'RECEIVABLE'|'PAYABLE',reportSide:'SALES'|'PURCHASE')=>{
-   if(uncertain)return null;
-   const current=add(debts.filter(d=>d.side===side).map(d=>d.amount));
-   const rows=movements.filter(d=>d.side===reportSide);
-   if(!new D(add(rows.map(r=>r.amount))).eq(current))return null;
-   return add(rows.filter(r=>r.date<=to).map(r=>r.amount));
+  const historicalDebt=(side:typeof debts[number]['side'],reportSide:'SALES'|'PURCHASE',advance:boolean)=>{
+   if(uncertain||unverifiedPayableCurrencies.has(currency)&&['PAYABLE','CUSTOMER_ADVANCE'].includes(side))return null;
+   const current=new Map<string,Decimal>();
+   for(const debt of debts.filter(d=>d.side===side)){
+    const id=debt.sourceDebtId??debt.id;
+    current.set(id,(current.get(id)??new D(0)).plus(debt.amount));
+   }
+   const rows=movements.filter(m=>m.side===reportSide&&m.advance===advance);
+   const recorded=new Map<string,Decimal>();
+   for(const row of rows){
+    if(!row.debtId)return null;
+    recorded.set(row.debtId,(recorded.get(row.debtId)??new D(0)).plus(advance?-row.amount:row.amount));
+   }
+   for(const id of new Set([...current.keys(),...recorded.keys()])){
+    if(!(recorded.get(id)??new D(0)).toDecimalPlaces(4).eq((current.get(id)??new D(0)).toDecimalPlaces(4)))return null;
+   }
+   return money(total(rows.filter(row=>row.date<=to).map(row=>advance?-row.amount:row.amount)).toString());
   };
-  return {currency,cash,receivables:historicalDebt('RECEIVABLE','SALES'),liabilities:historicalDebt('PAYABLE','PURCHASE')};
+  return {currency,cash,receivables:historicalDebt('RECEIVABLE','SALES',false),liabilities:historicalDebt('PAYABLE','PURCHASE',false),
+   supplierAdvances:historicalDebt('SUPPLIER_ADVANCE','PURCHASE',true),customerAdvances:historicalDebt('CUSTOMER_ADVANCE','SALES',true)};
  });
 }

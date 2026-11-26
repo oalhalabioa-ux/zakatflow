@@ -9,13 +9,15 @@ export type PersonalReportEvidence={
  cash:Map<string,Exclude<PersonalCashClass,'UNCLASSIFIED'>>;
  investmentCashIds?:Set<string>;
  assetValuations?:PersonalHistoricalValuation[];
+ unverifiedPayableCurrencies?:Set<string>;
  income:Array<{id:string;date:string;currency:string;amount:string;category:PersonalIncomeClass}>;
  issues:string[];
 };
 type Contract={id:string;product:string;side:string;status:string;currency:string};
 type ContractMovement={id:string;contract_id:string;request_id:string;kind:string;amount:number|string;operation_date:string;
  asset_id:string|null;payable_id:string|null;transaction_ids:string[];reversed_at:string|null;reversal_date:string|null};
-type Payable={id:string;request_id:string;amount:number|string;currency:string;event_date:string};
+type Payable={id:string;request_id:string;amount:number|string;currency:string;event_date:string;cancelled_at?:string|null};
+type PayableEdit={entity_id:string;old_data:{date?:string;amount?:number}|null;new_data:{date?:string;amount?:number}|null};
 type Funding={cash_transaction_id:string|null;kind:string;side:string};
 type InvestmentOperation={id:string;contract_id:string;organization_id:string|null;status:string;kind:string;
  account_id:string;operation_date:string;amount:number|string;exchange_rate:number|string};
@@ -26,6 +28,21 @@ const date=/^\d{4}-\d{2}-\d{2}$/;
 const currency=/^[A-Z]{3}$/;
 const actualContracts=new Set(['POSTED','CANCELLED']);
 const investmentCashType=new Map([['FUND','TRANSFER_OUT'],['REDEEM','TRANSFER_IN'],['INCOME','ADD']]);
+
+/** The current register omits cancelled payables and keeps the latest opening edit.
+ * Flag the affected historical currencies until those changes have dated posting evidence. */
+export function personalPayableHistoryGaps(payables:Payable[],afterCutoffEdits:PayableEdit[],cutoff:string){
+ const edge=Date.parse(cutoff+'T23:59:59.999+03:00');
+ const byId=new Map(payables.map(payable=>[payable.id,payable]));
+ const gaps=new Set(payables.filter(row=>row.event_date<=cutoff&&row.cancelled_at&&Date.parse(row.cancelled_at)>edge).map(row=>row.currency));
+ for(const edit of afterCutoffEdits){
+  const payable=byId.get(edit.entity_id);
+  const before=edit.old_data,after=edit.new_data;
+  if(payable&&(!before?.date||!after?.date||
+   (before.date<=cutoff||after.date<=cutoff)&&(before.date!==after.date||before.amount!==after.amount)))gaps.add(payable.currency);
+ }
+ return gaps;
+}
 
 /** A dated asset quote and the independently reconciled asset statement at the same cutoff. */
 export function personalHistoricalValuation(

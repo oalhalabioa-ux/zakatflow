@@ -1,5 +1,5 @@
 import {requireUser} from './auth';
-import {personalHistoricalValuation,personalReportEvidence,type PersonalHistoricalValuation} from '../lib/personal-report-evidence';
+import {personalHistoricalValuation,personalPayableHistoryGaps,personalReportEvidence,type PersonalHistoricalValuation} from '../lib/personal-report-evidence';
 import type {RegisterData} from '../lib/financial-register';
 import {readAssetStatement} from './asset-statement';
 
@@ -21,14 +21,20 @@ export async function readPersonalReportEvidence(register:RegisterData,to:string
   all((a,b)=>supabase.from('personal_financings').select('cash_transaction_id,kind,side').eq('user_id',user.id).order('id').range(a,b)),
   all((a,b)=>supabase.from('transactions').select('id,asset_account_id,transaction_type,transaction_date,currency,gross_value,quantity,base_currency,base_value,metadata')
    .eq('user_id',user.id).is('organization_id',null).lte('transaction_date',to).order('id').range(a,b)),
-  all((a,b)=>supabase.from('personal_payables').select('id,request_id,amount,currency,event_date').eq('user_id',user.id).lte('event_date',to).order('id').range(a,b)),
+  all((a,b)=>supabase.from('personal_payables').select('id,request_id,amount,currency,event_date,cancelled_at').eq('user_id',user.id).order('id').range(a,b)),
   all((a,b)=>supabase.from('investment_operations').select('id,contract_id,organization_id,status,kind,account_id,operation_date,amount,exchange_rate')
    .eq('user_id',user.id).is('organization_id',null).eq('status','POSTED').lte('operation_date',to).order('id').range(a,b)),
  ]);
  const evidence=personalReportEvidence(register,{contracts,movements,funding,transactions,payables,investments});
  if(to===register.asOf)return evidence;
- const candidates=await all((a,b)=>supabase.from('asset_accounts').select('id,name,asset_type,currency,metadata')
-  .eq('user_id',user.id).eq('ownership_scope','PERSONAL').is('organization_id',null).eq('metadata->>market_valuation_date',to).order('id').range(a,b));
+ const [candidates,edits]=await Promise.all([
+  all((a,b)=>supabase.from('asset_accounts').select('id,name,asset_type,currency,metadata')
+   .eq('user_id',user.id).eq('ownership_scope','PERSONAL').is('organization_id',null).eq('metadata->>market_valuation_date',to).order('id').range(a,b)),
+  all((a,b)=>supabase.from('audit_logs').select('entity_id,old_data,new_data').eq('user_id',user.id)
+   .eq('entity_type','personal_payable').eq('action','EDIT').gt('created_at',to+'T23:59:59.999999+03:00').order('id').range(a,b)),
+ ]);
+ const unverifiedPayableCurrencies=personalPayableHistoryGaps(payables,edits,to);
+ if(unverifiedPayableCurrencies.size)evidence.issues.push('PERSONAL_HISTORICAL_PAYABLES_NEED_DATED_EVIDENCE');
  const assets=candidates.filter(a=>!['BANK','CASH','RECEIVABLE'].includes(a.asset_type)&&a.metadata?.market_price_currency===register.baseCurrency&&
   !a.metadata.archived&&a.metadata.market_value_auto!==true&&a.metadata.market_price_source!=='ACQUISITION_COST'&&
   !a.metadata.investment_id&&!a.metadata.personal_contract_id&&!a.metadata.register_source);
@@ -46,5 +52,5 @@ export async function readPersonalReportEvidence(register:RegisterData,to:string
    else evidence.issues.push('PERSONAL_HISTORICAL_ASSET_EVIDENCE_UNRECONCILED');
   }
  }
- return {...evidence,assetValuations};
+ return {...evidence,assetValuations,unverifiedPayableCurrencies};
 }
