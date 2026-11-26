@@ -2259,6 +2259,14 @@
       "validation_project": "Isolated personal first-cycle upgrade, pre-traffic rollback and gold receipt projections"
     },
     {
+      "path": "supabase/migrations/20261126190000_v2_reporting_source_contracts.sql",
+      "version": "20261126190000",
+      "name": "v2_reporting_source_contracts",
+      "expected_md5": "b6ce37ddf2bbede023a04f6edce3cb42",
+      "file_sha256": "765d1d7ba2abcee53db2dfcdd803ebf0e245a7a528d8d89f5f05ec25a812958d",
+      "validation_project": "Approved #535 reporting source contracts and ACLs; dependency for the draft cutoff integration"
+    },
+    {
       "path": "supabase/migrations/20261126204500_personal_pooled_hawl.sql",
       "version": "20261126204500",
       "name": "personal_pooled_hawl",
@@ -2273,6 +2281,22 @@
       "expected_md5": "3d282a08d2bcffc84fe7e14242d77816",
       "file_sha256": "906d4e2e76366737d8124e24f2fe7b778b34e50795291cba4b3ca900822d6d83",
       "validation_project": "Disposable canonical schema: dated closing evidence, same-day and cross-day qualification, cutoff save and finalization"
+    },
+    {
+      "path": "supabase/migrations/20261126221500_personal_income_documents.sql",
+      "version": "20261126221500",
+      "name": "personal_income_documents",
+      "expected_md5": "366579b81f0b0a48139fe0923094fbe6",
+      "file_sha256": "3c1d25e60f6e30381215d0a91d06c3517ac7ba1a758a1ba7592072c55bd36cc3",
+      "validation_project": "Approved #537 personal document and collection fixture; dependency for the draft cutoff integration"
+    },
+    {
+      "path": "supabase/migrations/20261126224500_personal_income_receivable_cutoff.sql",
+      "version": "20261126224500",
+      "name": "personal_income_receivable_cutoff",
+      "expected_md5": "6844a5ef59175e2be828efdfb6b6e0d8",
+      "file_sha256": "2b61a6a105e69cb75a0bdf4cc8cb716dd5b14d53ef9f7ba756c0944710bf7ec6",
+      "validation_project": "Disposable source integration: original document, dated COLLECT pair, cutoff, evidence gaps, ownership and unchanged existing debt coverage"
     }
   ]
 }
