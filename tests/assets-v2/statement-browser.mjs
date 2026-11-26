@@ -134,10 +134,36 @@ async function verifySavedAssessmentMethod(browser) {
    await page.getByRole('button',{name:'Recalculate',exact:true}).click();
    assert.equal(await method.inputValue(),otherMethod.id);
    await method.selectOption(savedMethod.id);
+   const finalize=page.getByRole('button',{name:'Finalize assessment',exact:true});
+   assert.equal(await finalize.isEnabled(),true);
+   const cycleRoute='**/api/zakat-cycles';
+   const releaseCycleRefresh=Promise.withResolvers();
+   const failFirstRefresh=savedMethod.code==='UNIFIED_HAWL';
+   const confirmRequests=[];
+   page.on('request',request=>{
+    if(request.method()==='POST'&&new URL(request.url()).pathname==='/api/assessments/confirm'){
+     confirmRequests.push(request.postDataJSON().id);
+    }
+   });
+   await page.route(cycleRoute,async route=>{
+    await releaseCycleRefresh.promise;
+    if(failFirstRefresh)await route.fulfill({status:503,json:{error:'QA_CYCLE_REFRESH_UNAVAILABLE'}});
+    else await route.continue();
+   },{times:1});
+   const cycleRefreshStarted=page.waitForRequest(cycleRoute);
    const revisedResponse=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/assessments/'+original.id&&r.request().method()==='PATCH');
-   await page.getByRole('button',{name:'Save recalculation',exact:true}).click();
-   const revised=await revisedResponse;
-   assert.ok(revised.ok(),await revised.text());
+   let revised;
+   try {
+    await page.getByRole('button',{name:'Save recalculation',exact:true}).click();
+    [revised]=await Promise.all([revisedResponse,cycleRefreshStarted]);
+    assert.ok(revised.ok(),await revised.text());
+    await page.getByText(/Saved a new assessment version/).waitFor();
+    assert.equal(await finalize.isDisabled(),true,'A pending cycle refresh must block the stale assessment');
+    await finalize.click({force:true});
+    assert.deepEqual(confirmRequests,[]);
+   } finally {
+    releaseCycleRefresh.resolve();
+   }
    const {assessment}=await revised.json();
    assert.equal(assessment.method_id,savedMethod.id);
    assert.equal(Number(assessment.zakat_due),900);
@@ -145,19 +171,24 @@ async function verifySavedAssessmentMethod(browser) {
     assert.match(assessment.calculation_snapshot.personalHawlWitness??'',/^[0-9a-f]{32}$/);
    }
 
-   await page.reload();
+   if(failFirstRefresh){
+    const retryRefresh=page.getByRole('button',{name:'Retry cycle refresh',exact:true});
+    await retryRefresh.waitFor();
+    assert.equal(await finalize.isDisabled(),true,'A failed cycle refresh must keep the stale assessment blocked');
+    await retryRefresh.click();
+   }
    page.once('dialog',dialog=>dialog.accept());
    const finalResponse=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/assessments/confirm'&&r.request().method()==='POST');
-   await page.getByRole('button',{name:'Finalize assessment',exact:true}).click();
+   await finalize.click();
    const final=await finalResponse;
-   assert.equal(final.request().postDataJSON().id,assessment.id);
+   assert.deepEqual(confirmRequests,[assessment.id]);
    assert.ok(final.ok(),await final.text());
    const closed=value(await owner.client.from('zakat_hawl_cycles').select('status,final_assessment_id').eq('id',cycle.id).single());
    assert.equal(closed.status,'CLOSED');
    assert.equal(closed.final_assessment_id,assessment.id);
    const finalized=value(await owner.client.from('zakat_assessments').select('method_id,assessment_kind').eq('id',assessment.id).single());
    assert.deepEqual(finalized,{method_id:savedMethod.id,assessment_kind:'FINAL'});
-   console.log('PASS stored assessment method on AR/EN initial load and reload, override and finalization',savedMethod.code);
+   console.log('PASS stored methods, manual override and same-page finalization after delayed cycle refresh',savedMethod.code);
   }finally{await ctx.close();}
  }
 }
