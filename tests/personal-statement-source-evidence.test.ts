@@ -36,6 +36,7 @@ function evidenceFixture(){
     payable_id:'payable',transaction_ids:[],reversed_at:null,reversal_date:null},
   ],
   funding:[{cash_transaction_id:'loan',kind:'LOAN',side:'PAYABLE'},{cash_transaction_id:'advance',kind:'ADVANCE',side:'RECEIVABLE'}],
+  investments:[],
   transactions:[
    tx('loan','bank','2026-10-01','ADD',200),
    tx('advance','bank','2026-10-09','WITHDRAWAL',35),
@@ -80,5 +81,30 @@ describe('personal statements read and reconcile source-linked evidence',()=>{
   expect(report.cashByActivity).not.toContainEqual(expect.objectContaining({activity:'INVESTING'}));
   expect(report.historicalPosition[0].cash).toBeNull();
   expect(report.recognizedIncome).toHaveLength(1);
+ });
+
+ it('classifies only posted personal investment cash and recognizes receipts without treating principal as income',()=>{
+  const {data,source}=evidenceFixture();
+  for(const [id,kind,type,sign] of [['fund','FUND','TRANSFER_OUT',-1],['income','INCOME','ADD',1],
+   ['redeem','REDEEM','TRANSFER_IN',1],['preview','INCOME','ADD',1],['mismatch','INCOME','ADD',1],['org','INCOME','ADD',1]] as const){
+   const amount=kind==='INCOME'?10:100,day='2026-10-15';
+   source.investments.push({id,contract_id:'investment-contract',organization_id:id==='org'?'organization':null,
+    status:id==='preview'?'APPROVED':'POSTED',kind,account_id:'bank',operation_date:day,amount,exchange_rate:3.75});
+   source.transactions.push({id,asset_account_id:'bank',transaction_type:type,transaction_date:day,currency:'USD',base_currency:'SAR',
+    quantity:amount,gross_value:amount,base_value:amount*3.75,metadata:{source:'INVESTMENTS',investment_operation_id:id,
+     investment_id:id==='mismatch'?'different-contract':'investment-contract',fx_rate:3.75}});
+   data.cashMovements.push({id,accountId:'bank',date:day,amount:sign*amount*3.75,transactionType:type,currency:'SAR',
+    source:'ASSETS',description:'Investment source',reference:id,internalTransferId:id});
+  }
+  const evidence=personalReportEvidence(data,source);
+  expect(['fund','income','redeem'].map(id=>evidence.cash.get(id))).toEqual(['INVESTING','INVESTING','INVESTING']);
+  expect(['preview','mismatch','org'].some(id=>evidence.cash.has(id))).toBe(false);
+  expect(evidence.income.filter(row=>row.category==='INVESTMENT_INCOME')).toEqual([
+   {id:'income',date:'2026-10-15',currency:'USD',amount:'10',category:'INVESTMENT_INCOME'},
+  ]);
+  expect(evidence.issues).toContain('PERSONAL_INVESTMENT_CASH_SOURCE_UNRECONCILED');
+  const report=personalFinancialReports(data,'2026-10-01',cutoff,evidence);
+  expect(report.cashTransferReconciliation[0].unverifiedLegs).toBe(3);
+  expect(personalFinancialExportRows(report,'income',false)).toContainEqual(['2026-10-15','دخل استثمار','USD','10','income']);
  });
 });

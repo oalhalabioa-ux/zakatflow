@@ -65,6 +65,7 @@ export function personalCashActivityLabel(category:import('./personal-report-evi
 
 export function personalIncomeLabel(category:import('./personal-report-evidence').PersonalIncomeClass,en:boolean){
  const labels={FINANCE_INCOME:['عائد تمويل','Finance income'],FINANCE_EXPENSE:['تكلفة تمويل','Finance cost'],
-  PARTICIPATION_INCOME:['دخل مشاركة','Participation income'],PARTICIPATION_EXPENSE:['تكلفة مشاركة','Participation cost']};
+  PARTICIPATION_INCOME:['دخل مشاركة','Participation income'],PARTICIPATION_EXPENSE:['تكلفة مشاركة','Participation cost'],
+  INVESTMENT_INCOME:['دخل استثمار','Investment income']};
  return labels[category][Number(en)];
 }

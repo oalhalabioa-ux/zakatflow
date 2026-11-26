@@ -2,9 +2,10 @@ import Decimal from 'decimal.js';
 import type {RegisterData} from './financial-register';
 
 export type PersonalCashClass='OPERATING'|'INVESTING'|'FINANCING'|'UNCLASSIFIED';
-export type PersonalIncomeClass='FINANCE_INCOME'|'FINANCE_EXPENSE'|'PARTICIPATION_INCOME'|'PARTICIPATION_EXPENSE';
+export type PersonalIncomeClass='FINANCE_INCOME'|'FINANCE_EXPENSE'|'PARTICIPATION_INCOME'|'PARTICIPATION_EXPENSE'|'INVESTMENT_INCOME';
 export type PersonalReportEvidence={
  cash:Map<string,Exclude<PersonalCashClass,'UNCLASSIFIED'>>;
+ investmentCashIds?:Set<string>;
  income:Array<{id:string;date:string;currency:string;amount:string;category:PersonalIncomeClass}>;
  issues:string[];
 };
@@ -13,16 +14,20 @@ type ContractMovement={id:string;contract_id:string;request_id:string;kind:strin
  asset_id:string|null;payable_id:string|null;transaction_ids:string[];reversed_at:string|null;reversal_date:string|null};
 type Payable={id:string;request_id:string;amount:number|string;currency:string;event_date:string};
 type Funding={cash_transaction_id:string|null;kind:string;side:string};
+type InvestmentOperation={id:string;contract_id:string;organization_id:string|null;status:string;kind:string;
+ account_id:string;operation_date:string;amount:number|string;exchange_rate:number|string};
 type Transaction={id:string;asset_account_id:string;transaction_type:string;transaction_date:string;currency:string;
  gross_value:number|string;quantity:number|string;base_currency:string;base_value:number|string;metadata:Record<string,unknown>|null};
 
 const date=/^\d{4}-\d{2}-\d{2}$/;
 const currency=/^[A-Z]{3}$/;
 const actualContracts=new Set(['POSTED','CANCELLED']);
+const investmentCashType=new Map([['FUND','TRANSFER_OUT'],['REDEEM','TRANSFER_IN'],['INCOME','ADD']]);
 
 /** Joins owner-scoped records from existing commands using persisted IDs. */
 export function personalReportEvidence(data:RegisterData, source:{
  contracts:Contract[];movements:ContractMovement[];funding:Funding[];transactions:Transaction[];payables:Payable[];
+ investments:InvestmentOperation[];
 }):PersonalReportEvidence{
  const income:PersonalReportEvidence['income']=[],issues=new Set<string>();
  const classified=new Map<string,Exclude<PersonalCashClass,'UNCLASSIFIED'>>();
@@ -32,6 +37,8 @@ export function personalReportEvidence(data:RegisterData, source:{
  const contracts=new Map(source.contracts.filter(c=>actualContracts.has(c.status)).map(c=>[c.id,c]));
  const payableById=new Map(source.payables.map(p=>[p.id,p]));
  const sourcesSeen=new Set<string>();
+ const cashByInvestment=new Map<string,Transaction[]>();
+ const investmentCashIds=new Set<string>();
  const use=(id:string,activity:Exclude<PersonalCashClass,'UNCLASSIFIED'>)=>{
   const movement=cashById.get(id),original=sourceById.get(id);
   if(!movement||!original)return;
@@ -81,6 +88,11 @@ export function personalReportEvidence(data:RegisterData, source:{
  }
  for(const row of source.transactions){
   if(!cashById.has(row.id))continue;
+  const investmentOp=row.metadata?.investment_operation_id;
+  if(row.metadata?.source==='INVESTMENTS'&&typeof investmentOp==='string'){
+   const linked=cashByInvestment.get(investmentOp);
+   if(linked)linked.push(row);else cashByInvestment.set(investmentOp,[row]);
+  }
   if(row.transaction_type==='WITHDRAWAL'&&row.metadata?.source==='ASSET_PURCHASE'){
    const purchase=sourceById.get(String(row.metadata.purchase_transaction_id));
    if(!purchase||purchase.transaction_type!=='PURCHASE'||purchase.asset_account_id===row.asset_account_id||
@@ -96,6 +108,25 @@ export function personalReportEvidence(data:RegisterData, source:{
     use(row.id,'INVESTING');
   }
  }
+ for(const operation of source.investments){
+  if(operation.organization_id!==null||operation.status!=='POSTED')continue;
+  const candidates=cashByInvestment.get(operation.id)??[];
+  const [row]=candidates;
+  const storedRate=row?.metadata?.fx_rate;
+  if(candidates.length!==1||row.asset_account_id!==operation.account_id||row.metadata?.investment_id!==operation.contract_id||
+   row.transaction_type!==investmentCashType.get(operation.kind)||row.transaction_date!==operation.operation_date||
+   Math.sign(cashById.get(row.id)!.amount)!==(operation.kind==='FUND'?-1:1)||
+   !currency.test(row.currency)||!new Decimal(operation.amount).gt(0)||!new Decimal(row.gross_value).eq(operation.amount)||
+   !new Decimal(operation.exchange_rate).gt(0)||typeof storedRate!=='number'||!new Decimal(storedRate).eq(operation.exchange_rate)){
+   issues.add('PERSONAL_INVESTMENT_CASH_SOURCE_UNRECONCILED');continue;
+  }
+  use(row.id,'INVESTING');
+  if(classified.has(row.id)&&!ambiguous.has(row.id))investmentCashIds.add(row.id);
+  if(operation.kind==='INCOME'&&investmentCashIds.has(row.id)){
+   income.push({id:operation.id,date:row.transaction_date,currency:row.currency,
+    amount:new Decimal(operation.amount).toString(),category:'INVESTMENT_INCOME'});
+  }
+ }
  for(const id of ambiguous)classified.delete(id);
- return {cash:classified,income,issues:[...issues]};
+ return {cash:classified,investmentCashIds,income,issues:[...issues]};
 }

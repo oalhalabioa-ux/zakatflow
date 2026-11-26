@@ -100,8 +100,8 @@ export default function PersonalFinancialStatements({english=false}:{english?:bo
    </section>}
    {tab==='income'&&<section className="fs-personal-panel">
     <h2>{t('دخل وتكاليف العقود المسجلة','Recognized contract income and costs')}</h2>
-    <p>{t('يغطي العرض عوائد التمويل وتكاليفه وحصص المشاركة المثبتة. تبقى الحركات العامة خارج الدخل والمصروف إلى أن يُسجّل تصنيفها.',
-     'This view covers recognized financing and participation amounts. Ordinary movements need a recorded classification before inclusion.')}</p>
+    <p>{t('يغطي العرض عوائد التمويل وتكاليفه وحصص المشاركة المثبتة ودخل الاستثمار المقبوض. تحتاج الحركات العامة إلى تصنيف مسجّل.',
+     'This view covers verified financing and participation amounts and investment income received. Other movements need a recorded classification.')}</p>
     {report.recognizedIncome?.length>0?<div className="fs-table-scroll"><table className="fs-table">
      <thead><tr><th>{t('التاريخ','Date')}</th><th>{t('التصنيف','Category')}</th><th>{t('المبلغ','Amount')}</th></tr></thead>
      <tbody>{report.recognizedIncome.map(r=><tr key={r.id}><td><bdi>{r.date}</bdi></td><td>{personalIncomeLabel(r.category,english)}</td><td>{currencyAmount(r.amount,r.currency)}</td></tr>)}</tbody>

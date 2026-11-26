@@ -78,8 +78,9 @@ export function personalFinancialReports(data:RegisterData,from:string,to:string
  const groups=new Map<string,typeof activity>();
  const recordedAsOf=data.cashMovements.filter(m=>m.date<=to);
  const reversalTargets=new Set(recordedAsOf.map(m=>m.reversalOfTransactionId).filter((id):id is string=>Boolean(id)));
- const selectedTransferIds=new Set(activity.map(m=>m.internalTransferId).filter(Boolean));
- for(const m of recordedAsOf.filter(m=>m.internalTransferId&&selectedTransferIds.has(m.internalTransferId))){
+ const investmentCash=(id:string)=>evidence.investmentCashIds?.has(id);
+ const selectedTransferIds=new Set(activity.filter(m=>!investmentCash(m.id)).map(m=>m.internalTransferId).filter(Boolean));
+ for(const m of recordedAsOf.filter(m=>m.internalTransferId&&selectedTransferIds.has(m.internalTransferId)&&!investmentCash(m.id))){
   const key=m.internalTransferId!;groups.set(key,[...(groups.get(key)??[]),m]);
  }
  const verifiedIds=new Set<string>();let hasUnverifiedTransfers=false;
@@ -93,13 +94,13 @@ export function personalFinancialReports(data:RegisterData,from:string,to:string
   // A shared ID by itself cannot validate a transfer if the original legs
   // have been reversed, missing, cross-currency or otherwise inconsistent.
  }
- if(activity.some(m=>(m.transactionType==='TRANSFER_IN'||m.transactionType==='TRANSFER_OUT')&&!verifiedIds.has(m.id)))hasUnverifiedTransfers=true;
+ if(activity.some(m=>(m.transactionType==='TRANSFER_IN'||m.transactionType==='TRANSFER_OUT')&&!investmentCash(m.id)&&!verifiedIds.has(m.id)))hasUnverifiedTransfers=true;
  const cashTransferReconciliation=[...new Set(cashAccounts.map(a=>a.currency))].sort().map(currency=>{
   const accounts=cashAccounts.filter(a=>a.currency===currency),rows=activity.filter(m=>m.currency===currency),verified=rows.filter(m=>verifiedIds.has(m.id));
   const grossInflows=add(accounts.map(a=>a.inflows)),grossOutflows=add(accounts.map(a=>a.outflows));
   const verifiedInternalInflows=add(verified.filter(m=>m.amount>0).map(m=>m.amount));
   const verifiedInternalOutflows=add(verified.filter(m=>m.amount<0).map(m=>-m.amount));
-  const unverifiedLegs=rows.filter(m=>(m.transactionType==='TRANSFER_IN'||m.transactionType==='TRANSFER_OUT'||Boolean(m.internalTransferId))&&!verifiedIds.has(m.id)).length;
+  const unverifiedLegs=rows.filter(m=>(m.transactionType==='TRANSFER_IN'||m.transactionType==='TRANSFER_OUT'||Boolean(m.internalTransferId))&&!investmentCash(m.id)&&!verifiedIds.has(m.id)).length;
   return{currency,grossInflows,grossOutflows,verifiedInternalInflows,verifiedInternalOutflows,
    remainingUnclassifiedInflows:money(new D(grossInflows).minus(verifiedInternalInflows).toString()),
    remainingUnclassifiedOutflows:money(new D(grossOutflows).minus(verifiedInternalOutflows).toString()),

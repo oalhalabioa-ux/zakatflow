@@ -13,7 +13,7 @@ export async function readPersonalReportEvidence(register:RegisterData,to:string
    if(data.length<500)return rows;
   }
  }
- const [contracts,movements,funding,transactions,payables]=await Promise.all([
+ const [contracts,movements,funding,transactions,payables,investments]=await Promise.all([
   all((a,b)=>supabase.from('personal_contracts').select('id,product,side,status,currency').eq('user_id',user.id).order('id').range(a,b)),
   all((a,b)=>supabase.from('personal_contract_movements').select('id,contract_id,request_id,kind,amount,operation_date,asset_id,payable_id,transaction_ids,reversed_at,reversal_date')
    .eq('user_id',user.id).lte('operation_date',to).order('id').range(a,b)),
@@ -21,6 +21,8 @@ export async function readPersonalReportEvidence(register:RegisterData,to:string
   all((a,b)=>supabase.from('transactions').select('id,asset_account_id,transaction_type,transaction_date,currency,gross_value,quantity,base_currency,base_value,metadata')
    .eq('user_id',user.id).is('organization_id',null).lte('transaction_date',to).order('id').range(a,b)),
   all((a,b)=>supabase.from('personal_payables').select('id,request_id,amount,currency,event_date').eq('user_id',user.id).lte('event_date',to).order('id').range(a,b)),
+  all((a,b)=>supabase.from('investment_operations').select('id,contract_id,organization_id,status,kind,account_id,operation_date,amount,exchange_rate')
+   .eq('user_id',user.id).is('organization_id',null).eq('status','POSTED').lte('operation_date',to).order('id').range(a,b)),
  ]);
- return personalReportEvidence(register,{contracts,movements,funding,transactions,payables});
+ return personalReportEvidence(register,{contracts,movements,funding,transactions,payables,investments});
 }
