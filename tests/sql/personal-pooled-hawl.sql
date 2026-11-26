@@ -82,6 +82,22 @@ begin
     end if;
     result:=public.save_zakat_assessment_snapshot(payload,lines);
     final_id:=(result->>'id')::uuid;
+    if method_code='UNIFIED_HAWL' then
+      if result->'calculation_snapshot'->>'personalHawlWitness' is null then
+        raise exception 'Missing server-owned pool witness';
+      end if;
+      begin
+        insert into public.transactions(user_id,asset_account_id,transaction_type,transaction_date,quantity,currency,base_currency,base_value)
+          select owner_id,l.asset_account_id,'PURCHASE',cutoff,1,'SAR','SAR',400
+          from public.lots l where l.id=added_lot returning id,asset_account_id into tx_id,asset_id;
+        insert into public.lots(user_id,asset_account_id,source_transaction_id,acquisition_date,hawl_start_date,original_quantity,remaining_quantity,original_value_base,remaining_value_base)
+          values(owner_id,asset_id,tx_id,cutoff,cutoff,1,1,400,400);
+        perform public.close_zakat_cycle(cycle_id,final_id);
+        raise exception 'Pool closed with a stale assessment';
+      exception when raise_exception then
+        if sqlerrm<>'POOLED_HAWL_RECALCULATION_REQUIRED' then raise; end if;
+      end;
+    end if;
     perform public.close_zakat_cycle(cycle_id,final_id);
     if (select final_zakat_due from public.zakat_hawl_cycles where id=cycle_id) is distinct from expected then
       raise exception 'Wrong final amount for %',method_code;

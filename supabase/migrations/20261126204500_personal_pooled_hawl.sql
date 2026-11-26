@@ -87,6 +87,23 @@ $$;
 revoke all on function public.personal_zakat_assessment_periods(uuid,uuid) from public,anon;
 grant execute on function public.personal_zakat_assessment_periods(uuid,uuid) to authenticated;
 
+-- Save the inputs used by the pool and reject stale open snapshots at close.
+create function private.personal_pooled_hawl_witness(p_cycle uuid, p_method uuid, p_cutoff date)
+returns text
+language sql stable security invoker set search_path = '' as $$
+  select md5(coalesce(jsonb_agg(jsonb_build_array(
+    l.id,l.asset_account_id,l.source_transaction_id,l.remaining_quantity,l.remaining_value_base,
+    hp.hawl_start_date,hp.hawl_due_date,hp.hawl_period,hp.period_basis
+  ) order by l.id)::text,'[]'))
+  from public.lots l
+  join public.asset_accounts a on a.id=l.asset_account_id
+  left join public.personal_zakat_assessment_periods(p_cycle,p_method) hp on hp.lot_id=l.id
+  where l.user_id=auth.uid() and l.organization_id is null and a.ownership_scope='PERSONAL'
+    and a.is_zakatable and l.acquisition_date<=p_cutoff and l.remaining_quantity>0
+$$;
+revoke all on function private.personal_pooled_hawl_witness(uuid,uuid,date) from public,anon;
+grant execute on function private.personal_pooled_hawl_witness(uuid,uuid,date) to authenticated;
+
 create or replace function public.save_zakat_assessment_snapshot(p_assessment jsonb,p_lines jsonb,p_revision_of uuid default null)
 returns jsonb language plpgsql security invoker set search_path='' as $$
 declare
@@ -174,6 +191,10 @@ begin
   if eligible<expected_nisab then eligible:=0;end if;
  end if;
  if abs(eligible-(p_assessment->>'total_zakatable_value')::numeric)>0.00000001 or abs(due-(p_assessment->>'zakat_due')::numeric)>0.00000001 or abs(due-eligible*m.zakat_rate)>0.00000001 then raise exception 'ASSESSMENT_TOTAL_MISMATCH';end if;
+ if c.id is not null and m.code='UNIFIED_HAWL' then
+  p_assessment:=jsonb_set(p_assessment,'{calculation_snapshot,personalHawlWitness}',
+   to_jsonb(private.personal_pooled_hawl_witness(c.id,m.id,(p_assessment->>'assessment_date')::date)));
+ end if;
  insert into public.zakat_assessments(user_id,assessment_date,valuation_date,method_id,nisab_standard,nisab_quantity,nisab_value_base,total_zakatable_value,zakat_rate,zakat_due,currency,status,method_version,calculation_snapshot,hawl_cycle_id,cycle_number,assessment_kind)
  values(uid,(p_assessment->>'assessment_date')::date,(p_assessment->>'valuation_date')::date,m.id,p_assessment->>'nisab_standard',(p_assessment->>'nisab_quantity')::numeric,expected_nisab,eligible,m.zakat_rate,due,base_currency,'CALCULATED',m.version,p_assessment->'calculation_snapshot',c.id,coalesce(c.cycle_no,1),'RECALCULATION') returning * into a;
  for item in select value from jsonb_array_elements(p_lines) loop
@@ -207,6 +228,8 @@ begin
  if a.calculation_snapshot->>'hawlPeriodPolicy' is distinct from 'FINAL_COVERAGE_V1' then raise exception 'FINAL_ASSESSMENT_RECALCULATION_REQUIRED';end if;
  if exists(select 1 from public.zakat_methods m where m.id=a.method_id and m.code='UNIFIED_HAWL') then
   if a.calculation_snapshot->>'personalHawlPeriodPolicy' is distinct from 'PERSONAL_POOL_V1'
+   or a.calculation_snapshot->>'personalHawlWitness' is distinct from
+    private.personal_pooled_hawl_witness(c.id,a.method_id,a.assessment_date)
    then raise exception 'POOLED_HAWL_RECALCULATION_REQUIRED';end if;
   if exists(
    select 1

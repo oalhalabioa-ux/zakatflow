@@ -3,8 +3,13 @@
   "upserts": [
     {
       "category": "function",
+      "object_key": "private.personal_pooled_hawl_witness(p_cycle uuid, p_method uuid, p_cutoff date)",
+      "fingerprint": "a0680375d8437ddd604889d742eded85"
+    },
+    {
+      "category": "function",
       "object_key": "public.close_zakat_cycle(p_cycle_id uuid, p_final_assessment_id uuid)",
-      "fingerprint": "d4b4400f81883bcc178e5b2c1948eae1"
+      "fingerprint": "d271d33585139c5e687edebe93d13eba"
     },
     {
       "category": "function",
@@ -14,7 +19,7 @@
     {
       "category": "function",
       "object_key": "public.save_zakat_assessment_snapshot(p_assessment jsonb, p_lines jsonb, p_revision_of uuid)",
-      "fingerprint": "c728ed82a352510d2c0ce1588ce6d0bb"
+      "fingerprint": "1aa0c48e7f87a1fb568b5434128ee2e4"
     },
     {
       "category": "function",
