@@ -2249,6 +2249,14 @@
       "expected_md5": "bb867b72902910648957c0d8628c95e5",
       "file_sha256": "f364457448da3f22255868990c73d99f36375860f9d6ded59be34a68fbb0603c",
       "validation_project": "Disposable canonical schema, quantity-first purchase funding in both paths, historical upgrade, retries, rollback and exact reversal"
+    },
+    {
+      "path": "supabase/migrations/20261126221500_personal_income_documents.sql",
+      "version": "20261126221500",
+      "name": "personal_income_documents",
+      "expected_md5": "fbab47ab3e81cfb80d67e430420f8e7b",
+      "file_sha256": "2565935d481a05c36b35d6d851e23baf245d2b1ba2ef36722c5d054b53dcef00",
+      "validation_project": "Isolated personal revenue document storage and scope tests"
     }
   ]
 }
