@@ -313,6 +313,7 @@ export default function Transactions() {
           <h3 className="transaction-form-section-title">بيانات الحركة</h3>
           <Field label="الأصل">
             <select
+              name="asset_account_id"
               value={form.asset_account_id}
               onChange={(e) => { const selected = visibleAssets.find((a) => a.id === e.target.value); changeReferenceContext({ asset_account_id: e.target.value, proceeds_account_id:"",funding_account_id:"",counterparty_id:"",currency: selected?.currency || form.currency,base_currency:selected?.ownership_scope==="ORGANIZATION"?catalog.organizations?.find((o:any)=>o.id===selected.organization_id)?.base_currency:catalog.base_currency }); }}
             >
@@ -327,6 +328,7 @@ export default function Transactions() {
           {form.asset_account_id && (() => { const selected=selectedAsset; return selected ? <div className="notice"><strong>تصنيف الأصل:</strong> {selected.asset_class_code || "Legacy"} / {assetTypeLabel(selected)} · <strong>الملكية:</strong> {assetOwnerLabel(selected)}{form.transaction_type==="PURCHASE" && selected.ownership_scope==="ORGANIZATION" ? " · شراء أصل مؤسسي — المعالجة المالية حسب تصنيف الأصل، وليس مصروفًا تشغيليًا (OPEX) تلقائيًا" : ""}</div> : null; })()}
           <Field label="النوع">
             <select
+              name="transaction_type"
               value={form.transaction_type}
               onChange={(e) =>
                 changeReferenceContext({ transaction_type: e.target.value })

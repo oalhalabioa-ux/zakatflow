@@ -169,8 +169,8 @@ export async function fxIntegrationAcceptance({app,ownerContext,outsiderContext,
   const date=form.getByLabel('التاريخ',{exact:true});
   async function enter(){
    await open();
-   await form.getByLabel('الأصل',{exact:true}).selectOption(asset.id);
-   await form.getByLabel('النوع',{exact:true}).selectOption('ADD');
+   await form.locator('select[name=asset_account_id]').selectOption(asset.id);
+   await form.locator('select[name=transaction_type]').selectOption('ADD');
    await date.fill('2026-11-09');
    await form.getByLabel('سعر الوحدة',{exact:true}).fill('100');
    await reference.click();
