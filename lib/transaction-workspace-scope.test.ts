@@ -27,6 +27,13 @@ describe('transaction draft scope',()=>{
   expect(transactionCashAccounts(accounts,company,'PERSONAL',ids)).toEqual([]);
   expect(transactionCashAccounts(accounts,undefined,'PERSONAL',ids)).toEqual([]);
  });
+ it('includes foreign cash only for a personal purchase with explicit funding currency',()=>{
+  expect(transactionCashAccounts(accounts,personal,'PERSONAL',ids,true).map(a=>a.id))
+   .toEqual(['personal-bank','personal-usd']);
+  const companyUsd={...company,id:'company-usd',asset_type:'BANK',currency:'USD'};
+  expect(transactionCashAccounts([...accounts,companyUsd],company,'ORGANIZATION',ids,true).map(a=>a.id))
+   .toEqual(['company-bank']);
+ });
  it('changes draft identity on company, group or ownership changes without tying personal drafts to a remembered company',()=>{
   expect(new Set([
    transactionWorkspaceKey('PERSONAL','company-a',true),

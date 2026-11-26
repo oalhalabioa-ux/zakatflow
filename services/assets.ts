@@ -155,7 +155,7 @@ export async function createAsset(input:unknown){
  const parsed=assetSchema.parse(input);const{supabase,user}=await requireUser();
  await validateAssetOwnership(supabase,user,parsed);
  const quote=await resolveAssetEntryFx(supabase,user.id,parsed.currency,String(parsed.metadata?.purchase_date||''),parsed.ownership_scope==='ORGANIZATION'?parsed.organization_id??null:null);
- parsed.metadata=acquisitionValuation({...parsed.metadata,fx_rate:quote.rate,fx_rate_id:quote.row?.id??null,fx_rate_date:quote.row?.valuation_date??parsed.metadata?.purchase_date,fx_rate_source:quote.row?.source??'BASE_CURRENCY'},parsed.currency);
+ parsed.metadata=acquisitionValuation({...parsed.metadata,fx_rate:quote.rate,fx_rate_id:quote.row?.id??null,fx_rate_date:quote.row?.valuation_date??parsed.metadata?.purchase_date,fx_rate_source:quote.row?.source??'BASE_CURRENCY',...(parsed.ownership_scope==='PERSONAL'&&parsed.metadata.acquisition_mode==='PURCHASE'?{fx_source_from:quote.row?.from_currency??parsed.currency,fx_source_to:quote.row?.to_currency??quote.base_currency}:{})},parsed.currency);
  if(parsed.metadata.tax_category){const tax=assetEntryTaxSettings({...parsed.metadata,ownership_scope:parsed.ownership_scope},Number(parsed.metadata.purchase_value||0));parsed.metadata={...parsed.metadata,...tax.metadata};}
  const requestId=(input as any)?.request_id||randomUUID();
  if(['CASH','BANK','RECEIVABLE'].includes(parsed.asset_type)){

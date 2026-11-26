@@ -77,6 +77,7 @@ export default function Transactions() {
     notes: "",
     adjustment_direction: "IN",
     proceeds_account_id: "",
+    funding_amount: "",
     disposal_zero_value: false,
   });
   const [form, setForm] = useState<any>(emptyForm);
@@ -87,6 +88,9 @@ export default function Transactions() {
   const visibleAssets=assets.filter(asset=>transactionAssetInWorkspace(asset,scope,organizationIds));
   const selectedAsset=visibleAssets.find(a=>a.id===form.asset_account_id);
   const cashAccounts=transactionCashAccounts(assets,selectedAsset,scope,organizationIds);
+  const purchaseFundingAccounts=transactionCashAccounts(assets,selectedAsset,scope,organizationIds,scope==='PERSONAL');
+  const purchaseFundingCurrency=purchaseFundingAccounts.find(a=>a.id===form.funding_account_id)?.currency;
+  const foreignFunding=Boolean(purchaseFundingCurrency&&purchaseFundingCurrency!==selectedAsset?.currency);
   const workspaceKey=transactionWorkspaceKey(scope,org,group),workspaceRef=useRef({key:workspaceKey,generation:0}),previousWorkspace=useRef<string|null>(null);
   if(workspaceRef.current.key!==workspaceKey)workspaceRef.current={key:workspaceKey,generation:workspaceRef.current.generation+1};
   const ownerBase=selectedAsset?.ownership_scope==="ORGANIZATION"?catalog.organizations?.find((o:any)=>o.id===selectedAsset.organization_id)?.base_currency:catalog.base_currency;
@@ -170,6 +174,15 @@ export default function Transactions() {
   async function save() {
     if (saving || !selectedAsset) return;
     if(form.transaction_type==="SALE"&&!cashAccounts.some(account=>account.id===form.proceeds_account_id))return;
+    if(form.transaction_type==='PURCHASE'&&scope==='PERSONAL'){
+      if(form.currency!==form.base_currency&&!(Number(form.fx_rate)>0)){
+        setMsg(t('أدخل سعر الصرف الفعلي بتاريخ الشراء.','Enter the actual exchange rate on the purchase date.'));return;
+      }
+      if(!purchaseFundingCurrency){setMsg(t('اختر حساب تمويل الشراء.','Choose the purchase funding account.'));return;}
+      if(foreignFunding&&!(Number.isFinite(Number(form.funding_amount))&&Number(form.funding_amount)>0)){
+        setMsg(t('أدخل مبلغ الدفع بعملة حساب التمويل.','Enter the payment amount in the funding currency.'));return;
+      }
+    }
     const submittedGeneration=workspaceRef.current.generation;
     setSaving(true);
     try {
@@ -178,7 +191,7 @@ export default function Transactions() {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        ...form,request_id:requestId,funding_account_id:form.funding_account_id||null,counterparty_id:form.counterparty_id||null,due_date:form.due_date||null,vat_amount:Number(form.vat_amount||0),recoverable_percent:Number(form.recoverable_percent??100),
+        ...form,request_id:requestId,funding_account_id:form.funding_account_id||null,funding_currency:form.transaction_type==='PURCHASE'&&foreignFunding?purchaseFundingCurrency:undefined,funding_amount:form.transaction_type==='PURCHASE'&&foreignFunding?Number(form.funding_amount):undefined,counterparty_id:form.counterparty_id||null,due_date:form.due_date||null,vat_amount:Number(form.vat_amount||0),recoverable_percent:Number(form.recoverable_percent??100),
         quantity: Number(form.quantity),
         unit_price: form.unit_price === "" ? undefined : Number(form.unit_price),
         gross_value: Number(form.gross_value),
@@ -191,7 +204,7 @@ export default function Transactions() {
         ? selectedAsset?.ownership_scope==="ORGANIZATION"?"تم حفظ مسودة الشراء. أكمل الاعتماد والترحيل من التفاصيل والإجراءات.":"تم حفظ المعاملة وتحديث رصيد الأصل."
         : (await r.json()).error || "خطأ",
     );
-    if (r.ok) {setReferenceApplied(false);setRequestId(crypto.randomUUID());setEntryOpen(false);setForm((x:any)=>({...x,asset_account_id:"",quantity:1,unit_price:"",gross_value:"",base_value:"",...(referenceApplied?{fx_rate:1}:{}),proceeds_account_id:"",funding_account_id:"",counterparty_id:"",vat_amount:"",notes:""}));await load();}
+    if (r.ok) {setReferenceApplied(false);setRequestId(crypto.randomUUID());setEntryOpen(false);setForm((x:any)=>({...x,asset_account_id:"",quantity:1,unit_price:"",gross_value:"",base_value:"",...(referenceApplied?{fx_rate:1}:{}),proceeds_account_id:"",funding_account_id:"",funding_amount:"",counterparty_id:"",vat_amount:"",notes:""}));await load();}
     } catch { if(workspaceRef.current.generation===submittedGeneration)setMsg("تعذر حفظ المعاملة. حاول مرة أخرى."); } finally { if(workspaceRef.current.generation===submittedGeneration)setSaving(false); }
   }
   const filteredRows = useMemo(() => {
@@ -315,7 +328,8 @@ export default function Transactions() {
             <select
               name="asset_account_id"
               value={form.asset_account_id}
-              onChange={(e) => { const selected = visibleAssets.find((a) => a.id === e.target.value); changeReferenceContext({ asset_account_id: e.target.value, proceeds_account_id:"",funding_account_id:"",counterparty_id:"",currency: selected?.currency || form.currency,base_currency:selected?.ownership_scope==="ORGANIZATION"?catalog.organizations?.find((o:any)=>o.id===selected.organization_id)?.base_currency:catalog.base_currency }); }}
+              onChange={(e) => { const selected = visibleAssets.find((a) => a.id === e.target.value); changeReferenceContext({ asset_account_id: e.target.value, proceeds_account_id:"",funding_account_id:"",funding_amount:"",counterparty_id:"",
+              ...(scope==='PERSONAL'&&form.transaction_type==='PURCHASE'?{fx_rate:'',base_value:''}:{}),currency: selected?.currency || form.currency,base_currency:selected?.ownership_scope==="ORGANIZATION"?catalog.organizations?.find((o:any)=>o.id===selected.organization_id)?.base_currency:catalog.base_currency }); }}
             >
               <option value="">اختر الأصل</option>
               {visibleAssets.map((a) => (
@@ -331,7 +345,10 @@ export default function Transactions() {
               name="transaction_type"
               value={form.transaction_type}
               onChange={(e) =>
-                changeReferenceContext({ transaction_type: e.target.value })
+                changeReferenceContext({ transaction_type: e.target.value,
+                  ...(scope==='PERSONAL'&&e.target.value==='PURCHASE'&&form.currency!==form.base_currency
+                    ?{fx_rate:'',base_value:''}:{}),
+                })
               }
             >
               {TRANSACTION_TYPES.map(([value, label]) => (
@@ -394,7 +411,11 @@ export default function Transactions() {
           <Field label="إجمالي القيمة">
             <input type="number" step="any" value={form.gross_value} readOnly />
           </Field>
-          {form.transaction_type==="PURCHASE"&&<><h3 className="transaction-form-section-title">الفاتورة والتمويل</h3><Field label="ضريبة الفاتورة (بعملة المعاملة)"><input type="number" min="0" step="any" value={form.vat_amount||0} onChange={e=>setForm({...form,vat_amount:e.target.value})}/></Field>{selectedAsset?.ownership_scope==="ORGANIZATION"?<><Field label="المورد"><select value={form.counterparty_id||""} onChange={e=>setForm({...form,counterparty_id:e.target.value})}><option value="">اختر المورد</option>{(catalog.counterparties||[]).filter((p:any)=>p.organization_id===selectedAsset.organization_id&&["SUPPLIER","BOTH"].includes(p.party_type)).map((p:any)=><option key={p.id} value={p.id}>{p.name}</option>)}</select></Field><Field label="رقم الفاتورة"><input value={form.reference||""} onChange={e=>setForm({...form,reference:e.target.value})}/></Field><Field label="تاريخ استحقاق الدفع"><input type="date" min={form.transaction_date} value={form.due_date||""} onChange={e=>setForm({...form,due_date:e.target.value})}/></Field><Field label="نسبة استرداد الضريبة %"><input type="number" min="0" max="100" value={form.recoverable_percent??100} onChange={e=>setForm({...form,recoverable_percent:e.target.value})}/></Field></>:<Field label="حساب تمويل الشراء"><select value={form.funding_account_id||""} onChange={e=>setForm({...form,funding_account_id:e.target.value})}><option value="">اختر حساب التمويل</option>{cashAccounts.map(a=><option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}</select></Field>}</>}
+          {form.transaction_type==="PURCHASE"&&<><h3 className="transaction-form-section-title">الفاتورة والتمويل</h3><Field label="ضريبة الفاتورة (بعملة المعاملة)"><input type="number" min="0" step="any" value={form.vat_amount||0} onChange={e=>setForm({...form,vat_amount:e.target.value})}/></Field>{selectedAsset?.ownership_scope==="ORGANIZATION"?<><Field label="المورد"><select value={form.counterparty_id||""} onChange={e=>setForm({...form,counterparty_id:e.target.value})}><option value="">اختر المورد</option>{(catalog.counterparties||[]).filter((p:any)=>p.organization_id===selectedAsset.organization_id&&["SUPPLIER","BOTH"].includes(p.party_type)).map((p:any)=><option key={p.id} value={p.id}>{p.name}</option>)}</select></Field><Field label="رقم الفاتورة"><input value={form.reference||""} onChange={e=>setForm({...form,reference:e.target.value})}/></Field><Field label="تاريخ استحقاق الدفع"><input type="date" min={form.transaction_date} value={form.due_date||""} onChange={e=>setForm({...form,due_date:e.target.value})}/></Field><Field label="نسبة استرداد الضريبة %"><input type="number" min="0" max="100" value={form.recoverable_percent??100} onChange={e=>setForm({...form,recoverable_percent:e.target.value})}/></Field></>:<><Field label="حساب تمويل الشراء"><select value={form.funding_account_id||""} onChange={e=>setForm({...form,funding_account_id:e.target.value,funding_amount:""})}><option value="">اختر حساب التمويل</option>{purchaseFundingAccounts.map(a=><option key={a.id} value={a.id}>{a.name} · {a.currency}</option>)}</select></Field>
+          {foreignFunding&&<Field label={t('مبلغ الدفع بعملة حساب التمويل','Payment in funding currency')+' ('+purchaseFundingCurrency+')'}>
+            <input required type="number" min="0" step="any" value={form.funding_amount}
+              onChange={e=>setForm({...form,funding_amount:e.target.value})}/>
+          </Field>}</>}</>}
           {selectedAsset?.ownership_scope==="ORGANIZATION"&&form.transaction_type!=="PURCHASE"&&<div className="notice">الإهلاك والبيع والاستبعاد المؤسسي متاحة من عمليات الأصل في <a href="assets">صفحة الأصول</a> مع الاعتماد المالي.</div>}
           <h3 className="transaction-form-section-title">العملة وسعر الصرف</h3>
           <Field label="عملة المعاملة">
