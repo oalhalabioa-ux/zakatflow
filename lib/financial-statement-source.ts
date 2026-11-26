@@ -139,7 +139,19 @@ export function statementTreeRows(s:StatementSourceSnapshot,view:StatementView,e
   }
  });return rows;
 }
-export function statementSourceExport(s:StatementSourceSnapshot,view:StatementView,en:boolean,comparison?:StatementSourceSnapshot|null):string[][]{const t=(ar:string,eng:string)=>en?eng:ar,prior=validStatementComparison(s,comparison),previous=new Map(prior?statementTreeRows(prior,view,en).map(r=>[r.id,r]):[]);return[...statementSourceMetadata(s,en),...(prior?[[t('فترة المقارنة','Comparison period'),prior.statements.from,prior.statements.to],[t('مصدر المقارنة','Comparison source'),prior.openingSourceId,prior.policyId]]:[]),[],[t('البند','Item'),t('الفترة الحالية','Current period'),...(prior?[t('الفترة السابقة','Previous period'),t('التغير','Change'),t('نسبة التغير','Change %')]:[])],...statementTreeRows(s,view,en).map(r=>{if(!prior)return[r.label,r.value];const before=r.value!==''?(previous.get(r.id)?.value??'0.0000'):'',change=r.value!==''&&before!==''?statementChange(r.value,before):undefined;return[r.label,r.value,before,change?.delta??'',change?.percentage??'']}),[],[t('القيود المصدرية','Source journals'),...s.statements.sourceJournalIds],[],[t('القيد','Journal'),t('الحدث','Event'),t('السطر','Line'),t('قاعدة الترحيل','Posting rule')],...s.lineage.map(l=>[l.journalId,l.eventId,l.lineId,l.ruleId])]}
+/** A valid comparison can contain activity categories absent from the current period. */
+export function cashFlowComparisonRows(rows:StatementTreeRow[],priorRows:ReadonlyMap<string,StatementTreeRow>){
+ if(!priorRows.size)return rows;
+ const currentIds=new Set(rows.map(row=>row.id)),priorOnly=new Map<string,StatementTreeRow[]>();
+ for(const row of priorRows.values()){
+  if(!row.parentId||currentIds.has(row.id))continue;
+  const group=priorOnly.get(row.parentId)??[];
+  group.push({...row,value:'0.0000'});
+  priorOnly.set(row.parentId,group);
+ }
+ return rows.flatMap(row=>[row,...(priorOnly.get(row.id)??[])]);
+}
+export function statementSourceExport(s:StatementSourceSnapshot,view:StatementView,en:boolean,comparison?:StatementSourceSnapshot|null):string[][]{const t=(ar:string,eng:string)=>en?eng:ar,prior=validStatementComparison(s,comparison),previous=new Map(prior?statementTreeRows(prior,view,en).map(r=>[r.id,r]):[]),current=statementTreeRows(s,view,en),rows=view==='cash-flow'?cashFlowComparisonRows(current,previous):current;return[...statementSourceMetadata(s,en),...(prior?[[t('فترة المقارنة','Comparison period'),prior.statements.from,prior.statements.to],[t('مصدر المقارنة','Comparison source'),prior.openingSourceId,prior.policyId]]:[]),[],[t('البند','Item'),t('الفترة الحالية','Current period'),...(prior?[t('الفترة السابقة','Previous period'),t('التغير','Change'),t('نسبة التغير','Change %')]:[])],...rows.map(r=>{if(!prior)return[r.label,r.value];const before=r.value!==''?(previous.get(r.id)?.value??'0.0000'):'',change=r.value!==''&&before!==''?statementChange(r.value,before):undefined;return[r.label,r.value,before,change?.delta??'',change?.percentage??'']}),[],[t('القيود المصدرية','Source journals'),...s.statements.sourceJournalIds],[],[t('القيد','Journal'),t('الحدث','Event'),t('السطر','Line'),t('قاعدة الترحيل','Posting rule')],...s.lineage.map(l=>[l.journalId,l.eventId,l.lineId,l.ruleId])]}
 
 
 export function statementSourceMetadata(s:StatementSourceSnapshot,en:boolean):string[][]{
