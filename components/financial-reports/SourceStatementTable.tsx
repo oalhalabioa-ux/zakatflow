@@ -4,7 +4,7 @@ import Decimal from 'decimal.js';
 import {validStatementComparison,statementChange} from '../../lib/financial-statement-comparison';
 import {Icon} from './FinancialReportsPilot';
 import {statementHierarchy} from '../../lib/financial-statement-hierarchy';
-import {statementTreeRows,type StatementSourceSnapshot,type StatementView} from '../../lib/financial-statement-source';
+import {cashFlowComparisonRows,statementTreeRows,type StatementSourceSnapshot,type StatementView} from '../../lib/financial-statement-source';
 
 const Money=Decimal.clone({precision:50});
 export function statementAmount(value:string){const n=new Money(value),[whole,fraction]=n.abs().toFixed(2).split('.');const text=whole.replace(/\B(?=(\d{3})+(?!\d))/g,',')+'.'+fraction;return n.isNegative()?'('+text+')':text}
@@ -13,8 +13,11 @@ export function StatementGroupToggle({label,icon,en,expanded,controls,onToggle}:
 }
 export default function SourceStatementTable({snapshot,view,en,comparison}:{snapshot:StatementSourceSnapshot;view:StatementView;en:boolean;comparison?:StatementSourceSnapshot|null}){
  const[collapsed,setCollapsed]=useState<Set<string>>(()=>new Set()),prefix=useId().replaceAll(':','');
- const rows=useMemo(()=>statementTreeRows(snapshot,view,en),[snapshot,view,en]);
  const prior=validStatementComparison(snapshot,comparison),priorRows=useMemo(()=>new Map(prior?statementTreeRows(prior,view,en).map(r=>[r.id,r]):[]),[prior,view,en]);
+ const rows=useMemo(()=>{
+  const current=statementTreeRows(snapshot,view,en);
+  return view==='cash-flow'?cashFlowComparisonRows(current,priorRows):current;
+ },[snapshot,view,en,priorRows]);
  const hierarchy=useMemo(()=>statementHierarchy(rows),[rows]),children=hierarchy.descendants;
  const t=(ar:string,english:string)=>en?english:ar;
  function toggle(id:string){setCollapsed(previous=>{const next=new Set(previous);if(next.has(id))next.delete(id);else next.add(id);return next})}

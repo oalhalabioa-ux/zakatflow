@@ -83,6 +83,20 @@ export async function verifyStatementAcceptance({a,b,viewer,sql,app,cookie,conte
 
   await page.setViewportSize({width:390,height:844});await page.waitForFunction(()=>getComputedStyle(document.querySelector('.corp-workspace')).marginInlineStart==='0px');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.equal(await page.locator('.fs-source-statement-table').evaluate(el=>el.scrollWidth>el.clientWidth),view==='cash-flow','Cash comparison columns scroll inside the mobile table');assert.ok(await page.locator('.fs-source-statement-table td[data-amount]').first().isVisible(),'Mobile current amount must be visible');await page.screenshot({path:`docs/financial-reports/evidence-v3/statement-${view}-${lang}-mobile.png`,fullPage:true});await verifyCellSpacing(view,lang,'mobile');await disclosure(view,lang,'mobile');if(view==='position')await compactPosition(lang,'mobile');
  });
+ await check('Cash activity rows omit disclosure when there are no details',async()=>{
+  const tab=await context.newPage();
+  tab.on('pageerror',error=>errors.push(error.message));
+  try{
+   await tab.goto(app+'/design-preview/financial-reports/source-statements?screen=cash-flow&lang=ar');
+   const table=tab.locator('.fs-source-statement-table');
+   await table.waitFor();
+   const date=tab.getByLabel('من تاريخ',{exact:true});
+   await date.fill('2026-10-01');
+   await tab.waitForFunction(()=>document.querySelector('.fs-source-statement-table [data-statement-row="cash-1"] [data-amount]')?.getAttribute('data-amount')==='0.0000');
+   assert.equal(await table.locator('.fs-statement-group-toggle,tr[data-parent-row]').count(),0);
+   assert.equal(await table.locator('[data-statement-row="cash-5"] [data-amount]').getAttribute('data-amount'),'575.0000');
+  }finally{await tab.close()}
+ });
  await check('Cash table renders a validated previous period and percentage',async()=>{
   const response=await fetch(base+query,{headers:{cookie}});
   assert.equal(response.status,200);

@@ -27,6 +27,19 @@ describe('complete canonical statement snapshot',()=>{
   expect(statement.statements).toEqual(normalizeStatementSource(fixture(),query).statements);
  });
  it('groups cash details by explicitly mapped activity with original recognition references',()=>{const s=normalizeStatementSource(fixture(),query),rows=statementTreeRows(s,'cash-flow',true);expect(s.cashMovements).toHaveLength(4);expect(rows.filter(r=>r.parentId==='cash-1').map(r=>r.value)).toEqual(['200.0000','-115.0000']);expect(rows.find(r=>r.parentId==='cash-2')?.value).toBe('-40.0000');expect(rows.find(r=>r.parentId==='cash-3')?.value).toBe('30.0000');expect(rows.find(r=>r.parentId==='cash-1')?.label).toContain('Receipts');expect(s.cashMovements[0].reference).toBe('payment')});
+ it('exports a cash activity present only in the verified comparison period',()=>{
+  const raw=fixture();
+  raw.events=[];
+  raw.coverage={...raw.coverage,eventCount:0,lineCount:0};
+  const current=normalizeStatementSource(raw,query);
+  const priorRaw=JSON.parse(JSON.stringify(fixture()).replace(/202[56]-(?=\d{2}-\d{2})/g,year=>year==='2026-'?'2025-':'2024-'));
+  const prior=normalizeStatementSource(priorRaw,{...query,from:'2025-01-01',to:'2025-12-31'});
+  const rows=statementSourceExport(current,'cash-flow',true,prior);
+  const receipts=rows.find(row=>row[0]==='Receipts — Settlements');
+  expect(receipts).toEqual(['Receipts — Settlements','0.0000','200.0000','-200.0000','-100.0000']);
+  expect(rows.find(row=>row[0]==='Closing cash')?.slice(1,3)).toEqual(['500.0000','575.0000']);
+  expect(statementSourceExport(current,'cash-flow',true).some(row=>row[0]==='Receipts — Settlements')).toBe(false);
+ });
  it('exports the complete hierarchy independently of any display collapse state',()=>{const s=normalizeStatementSource(fixture(),query);for(const view of['income','position','cash-flow']as const){const tree=statementTreeRows(s,view,true),exported=statementSourceExport(s,view,true);for(const row of tree)expect(exported).toContainEqual([row.label,row.value])}});
  it('carries exact original recognition-line IDs into the server-only branch evidence path',()=>{
   const result=normalizeStatementSource(fixture(),query);
