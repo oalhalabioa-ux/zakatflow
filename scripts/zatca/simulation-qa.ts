@@ -304,14 +304,17 @@ export function createSimulationQa(clients: { kms: Pick<KMSClient,'send'>; secre
       return { version: ack.VersionId! };
     }, assertCreateOnly: verifyCreateOnlyFence, transport: clients.transport,
   }, config.sourceSha);
+  async function clearanceContext(finalCredential?: ReturnType<typeof finalCertificate.diagnosticCredential>) {
+    if (!config.standardClearanceExperiment || !config.finalCertificateExperiment) fail('QA_CLEARANCE_CONTEXT_UNAVAILABLE');
+    const [final, link] = await Promise.all([
+      finalCredential ?? finalCertificate.diagnosticCredential(), simplified.deliveryLink(),
+    ]);
+    if (link.simplifiedManifestDigest !== final.simplifiedManifestDigest) fail('QA_CLEARANCE_CONTEXT_UNAVAILABLE');
+    return { organizationId: unit.organizationId, legalName: unit.legalName, vatNumber: unit.taxpayerVatNumber,
+      ...final, previousInvoiceHash: link.previousInvoiceHash };
+  }
   const clearance = createStandardClearanceQa({
-    async load() {
-      if (!config.standardClearanceExperiment || !config.finalCertificateExperiment) fail('QA_CLEARANCE_CONTEXT_UNAVAILABLE');
-      const final = await finalCertificate.diagnosticCredential(), link = await simplified.deliveryLink();
-      if (link.simplifiedManifestDigest !== final.simplifiedManifestDigest) fail('QA_CLEARANCE_CONTEXT_UNAVAILABLE');
-      return { organizationId: unit.organizationId, legalName: unit.legalName, vatNumber: unit.taxpayerVatNumber,
-        ...final, previousInvoiceHash: link.previousInvoiceHash };
-    },
+    load: clearanceContext,
     read: name => read(base + '/' + name),
     async create(name, version, content) {
       const fullName = base + '/' + name;
@@ -326,8 +329,10 @@ export function createSimulationQa(clients: { kms: Pick<KMSClient,'send'>; secre
     async load() {
       if (!config.simplifiedReportingExperiment || !config.standardClearanceExperiment)
         fail('QA_REPORTING_CONTEXT_UNAVAILABLE');
-      const final = await finalCertificate.diagnosticCredential();
-      const predecessor = await clearance.reportingPredecessor();
+      const credential = finalCertificate.diagnosticCredential();
+      const [final, predecessor] = await Promise.all([
+        credential, clearance.reportingPredecessor(() => clearanceContext(credential)),
+      ]);
       return { organizationId: unit.organizationId, legalName: unit.legalName, vatNumber: unit.taxpayerVatNumber,
         ...final, ...predecessor, certificate: decodeZatcaComplianceCertificate(final.token).toString('base64') };
     },

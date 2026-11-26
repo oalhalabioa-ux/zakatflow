@@ -45,9 +45,9 @@ export function createStandardClearanceQa(deps: StandardClearanceQaDependencies,
   const address = standardQaSampleSchema.safeParse(privateSample);
   const flags = { stage: 'STANDARD_CLEARANCE_QA_ONLY', diagnosticOnly: true, applicationProfileApproved: false,
     trustVerified: false, authorityStampVerified: false, activationAllowed: false } as const;
-  async function context() {
+  async function context(load = deps.load) {
     try {
-      const saved = contextSchema.parse(await deps.load());
+      const saved = contextSchema.parse(await load());
       if (!address.success) throw Error();
       const { token: _token, secret: _secret, ...binding } = saved;
       return { saved, sample: address.data, digest: hash(JSON.stringify({ ...binding, sample: address.data })) };
@@ -146,15 +146,21 @@ export function createStandardClearanceQa(deps: StandardClearanceQaDependencies,
     return { ...flags, manifestDigest: m.digest, results, protocolPassed: results.every(r => r.state === 'PASSED') };
   }
   return {
-    async reportingPredecessor() {
-      const m = await manifest(await context());
+    async reportingPredecessor(load?: StandardClearanceQaDependencies['load']) {
+      const m = await manifest(await context(load));
       if (!m) throw Error('QA_CLEARANCE_PREVIOUS_REQUIRED');
-      const { results } = await summary(m);
-      const first = results[0];
-      // This is the specific saved warning run. Its strict acceptance gate
-      // also prevented either standard note from taking the next counter.
-      if (first.state !== 'CLEARED_WITH_WARNINGS'
-        || results.slice(1).some(result => result.state !== 'NOT_SENT'))
+      const receipt = await result(0, m);
+      const first = receipt && await inspect(receipt, m.value.artifacts[0]);
+      const returned = first && 'returnedInspection' in first ? first.returnedInspection : null;
+      const stamp = returned?.stampCryptography;
+      // For this Simulation reporting run, use the prior generated document's
+      // hash to continue the counter. Confirm the saved gateway response binds
+      // to that document even when the gateway serializes it differently.
+      // The clearance acceptance and authority trust gates stay untouched.
+      if (first?.http !== 202 || first.disposition !== 'CLEARED' || first.errorCount !== 0
+        || !first.warningCodes.includes('BR-KSA-100') || !returned?.uuidMatched || !returned.expandedContentMatched
+        || !returned.stampStructurePresent || !stamp?.referenceMatchesReturnedHash || !stamp.invoiceDigestSignatureMatches
+        || await intent(1, m) || await intent(2, m) || await result(1, m) || await result(2, m))
         throw Error('QA_CLEARANCE_PREVIOUS_REQUIRED');
       return { previousInvoiceHash: m.value.artifacts[0].invoiceHash, invoiceCounter: '8' };
     },
