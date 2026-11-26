@@ -1,11 +1,11 @@
 import type {PersonalReport} from './personal-financial-reports';
 
-export type PersonalExportView='overview'|'position'|'cash'|'accounts';
+export type PersonalExportView='overview'|'position'|'cash'|'accounts'|'income';
 
 /** Export from one authorized snapshot. Never synthesize income or aggregate currencies. */
 export function personalFinancialExportRows(report:PersonalReport,view:PersonalExportView,en:boolean):string[][]{
  if(report.scope!=='PERSONAL'||report.basis!=='CURRENT_PERSONAL_REGISTER_ESTIMATE')throw Error('PERSONAL_EXPORT_SCOPE_INVALID');
- if(!['overview','position','cash','accounts'].includes(view))throw Error('PERSONAL_EXPORT_VIEW_INVALID');
+ if(!['overview','position','cash','accounts','income'].includes(view))throw Error('PERSONAL_EXPORT_VIEW_INVALID');
  const t=(ar:string,english:string)=>en?english:ar;
  const rows:string[][]=[
   [t('الجهة','Scope'),t('شخصي فقط','Personal only')],
@@ -22,6 +22,11 @@ export function personalFinancialExportRows(report:PersonalReport,view:PersonalE
   rows.push([t('العملة','Currency'),t('النقد والبنوك','Cash'),t('الذمم المدينة','Receivables'),t('استثمارات','Investments'),t('أصول أخرى','Other assets'),t('الالتزامات','Liabilities'),t('صافي الثروة','Net worth'),t('حالة التسوية','Reconciliation')]);
   for(const p of report.positions)rows.push([p.currency,p.cash,p.receivables,p.investments,p.otherAssets,p.liabilities,p.complete&&p.netWorth!==null?p.netWorth:'',p.complete?t('متاح','Available'):t('غير مكتمل — صافي الثروة محجوب','Incomplete — net worth withheld')]);
  }
+ if((view==='overview'||view==='position')&&report.historicalPosition?.length){
+  rows.push([],[t('أرصدة نقدية وذمم تاريخية متحقق منها','Verified historical monetary balances'),report.to]);
+  rows.push([t('العملة','Currency'),t('النقد','Cash'),t('الذمم المدينة','Receivables'),t('الالتزامات','Liabilities')]);
+  for(const p of report.historicalPosition)rows.push([p.currency,p.cash??'',p.receivables??'',p.liabilities??'']);
+ }
  if(view==='overview'||view==='cash'){
   rows.push([],[t('حركة الحسابات النقدية — ليست قائمة تدفقات نقدية معيارية','Cash-account activity — not a statutory cash-flow statement')]);
   rows.push([t('الحساب','Account'),t('العملة','Currency'),t('أول الفترة','Opening'),t('المقبوضات الإجمالية','Gross inflows'),t('المدفوعات الإجمالية','Gross outflows'),t('صافي الحركة','Net movement'),t('آخر الفترة','Closing')]);
@@ -32,6 +37,17 @@ export function personalFinancialExportRows(report:PersonalReport,view:PersonalE
    for(const a of report.cashTransferReconciliation)rows.push([a.currency,a.verifiedInternalInflows,a.verifiedInternalOutflows,a.remainingUnclassifiedInflows,a.remainingUnclassifiedOutflows,String(a.verifiedPairs),String(a.unverifiedLegs)]);
   }
  }
+ if((view==='overview'||view==='cash')&&report.cashByActivity?.length){
+  rows.push([],[t('التدفقات حسب مصدر الحركة','Cash activity by source')],[t('العملة','Currency'),t('النشاط','Activity'),t('المقبوضات','Inflows'),t('المدفوعات','Outflows'),t('الصافي','Net')]);
+  for(const r of report.cashByActivity)rows.push([r.currency,personalCashActivityLabel(r.activity,en),r.inflows,r.outflows,r.net]);
+ }
+ if(view==='income'){
+  const income=report.recognizedIncome??[];
+  if(!income.length)throw Error('PERSONAL_EXPORT_INCOME_EVIDENCE_REQUIRED');
+  rows.push([t('دخل وتكاليف العقود المسجلة · تغطية جزئية','Recognized contract income and costs · partial coverage')]);
+  rows.push([t('التاريخ','Date'),t('التصنيف','Category'),t('العملة','Currency'),t('المبلغ','Amount'),t('المصدر','Source')]);
+  for(const r of income)rows.push([r.date,personalIncomeLabel(r.category,en),r.currency,r.amount,r.id]);
+ }
  if(view==='accounts'){
   rows.push([t('تصنيفات عرض تلقائية — ليست حسابات ترحيل فعلية','Automatic display classifications — not posted ledger accounts')]);
   rows.push([t('الرمز','Code'),t('التصنيف','Category'),t('طبيعة الرصيد','Balance type'),t('العملة','Currency'),t('الرصيد','Balance')]);
@@ -40,4 +56,15 @@ export function personalFinancialExportRows(report:PersonalReport,view:PersonalE
  if(report.issues.length){rows.push([],[t('تنبيهات المصدر','Source cautions')]);for(const issue of report.issues)rows.push([issue]);}
  if(rows.length>25_000)throw Error('PERSONAL_EXPORT_TOO_LARGE');
  return rows;
+}
+
+export function personalCashActivityLabel(category:import('./personal-report-evidence').PersonalCashClass,en:boolean){
+ const labels={OPERATING:['تشغيلي','Operating'],INVESTING:['استثماري','Investing'],FINANCING:['تمويلي','Financing'],UNCLASSIFIED:['غير مصنّف','Unclassified']};
+ return labels[category][Number(en)];
+}
+
+export function personalIncomeLabel(category:import('./personal-report-evidence').PersonalIncomeClass,en:boolean){
+ const labels={FINANCE_INCOME:['عائد تمويل','Finance income'],FINANCE_EXPENSE:['تكلفة تمويل','Finance cost'],
+  PARTICIPATION_INCOME:['دخل مشاركة','Participation income'],PARTICIPATION_EXPENSE:['تكلفة مشاركة','Participation cost']};
+ return labels[category][Number(en)];
 }
