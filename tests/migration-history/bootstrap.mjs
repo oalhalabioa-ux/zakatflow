@@ -15,6 +15,9 @@ const sql=input=>execFileSync('docker',['exec','-i','supabase_db_migration-histo
 const checks=[];const check=async(name,run)=>{await run();checks.push({name,status:'passed'});console.log('PASS '+name)};
 try{
  const manifest=await verifyFiles();
+ await check('later assets do not change historical Hawl continuity evidence',async()=>{
+  sql(await load('tests/sql/personal-hawl-cutoff-asset-scope.sql'));
+ });
  await check('daily Hawl continuity keeps same-day cutoff and persists the renewed cross-day cutoff',async()=>{
   sql(await load('tests/sql/personal-hawl-daily-continuity.sql'));
  });
@@ -119,6 +122,7 @@ try{
    'personal-first-hawl-schema-delta',
    'personal-pooled-hawl-schema-delta',
    'personal-hawl-daily-continuity-schema-delta',
+   'personal-hawl-cutoff-asset-scope-schema-delta',
   ];
   const deltas=await Promise.all(deltaNames.map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
   for(const delta of deltas){
