@@ -237,6 +237,7 @@ jobs:
                             '20261126124000_atomic_chart_template.sql',
                             '20261126124100_fiscal_reversal_window.sql',
                             '20261126150000_personal_purchase_funding.sql',
+                            '20261127122200_personal_asset_supplier_schedule.sql',
                             '20261126175500_personal_first_hawl_start.sql'):
             (root/'migrations'/migration).unlink()
           PY
