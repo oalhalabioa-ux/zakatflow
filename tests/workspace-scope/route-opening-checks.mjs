@@ -19,7 +19,7 @@ const shared=[
  {path:'debt-collection',marker:'.debt-collection-alerts',reads:[api('/api/debt-collection','scoped')]},
  {path:'assessments',personal:'#assessment-panel-REGISTER:not([hidden]) .assessment-register',business:'#assessment-panel-MANUAL:not([hidden])',personalReads:[api('/api/assessments/report'),api('/api/zakat-cycles')],businessReads:[api('/api/assessments/manual','company')],businessText:'Scope assessment A'},
  {path:'payments',personal:'.zpay-kpis',business:'h1:text-is("Corporate Zakat payments")',personalReads:[api('/api/payments'),api('/api/zakat-cycles')],businessReads:[api('/api/liquidity','company'),api('/api/assessments/manual','company')],businessText:'Matching operations: 0'},
- {path:'reports',marker:'.asset-report-kpis',reads:[api('/api/assets'),api('/api/transactions')]},
+ {path:'reports',marker:'.fixed-table-scroll table',reads:[api('/api/reports/fixed-assets','scoped')],openGeneralAssetReport:true,fixture:'Gold'},
 ];
 const account=[
  {path:'settings/system',marker:'[data-system-preferences] form',reads:[api('/api/settings')],account:true},
@@ -227,6 +227,18 @@ export async function routeOpeningAcceptance({context,app,organizationId,otherOr
      assert.equal(await page.locator('.investment-workspace .error').filter({visible:true}).count(),0,'Investment dashboard source failed');
      await page.locator('.investment-tabs').getByRole('button',{name:'الودائع',exact:true}).click();
      await page.locator('.investment-table').waitFor();
+    }
+    if(spec.openGeneralAssetReport){
+     await settleFrames(page,pending);
+     await finishResponses(pending);
+     const generalReads=['/api/assets','/api/transactions'];
+     assert.ok(!completed.some(response=>generalReads.includes(new URL(response.url()).pathname)),
+      'Opening fixed assets must defer the general asset and transaction reads');
+     await page.getByRole('button',{name:'All assets',exact:true}).click();
+     await page.locator('.asset-report-kpis').first().waitFor();
+     await finishResponses(pending);
+     assert.ok(generalReads.every(path=>completed.some(response=>new URL(response.url()).pathname===path)),
+      'The general asset report must still load both sources when requested');
     }
     if(scope==='ORGANIZATION'&&spec.businessText)await page.getByText(spec.businessText,{exact:false}).first().waitFor();
     if(spec.fixture){
