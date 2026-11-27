@@ -2273,6 +2273,14 @@
       "expected_md5": "3d282a08d2bcffc84fe7e14242d77816",
       "file_sha256": "906d4e2e76366737d8124e24f2fe7b778b34e50795291cba4b3ca900822d6d83",
       "validation_project": "Disposable canonical schema: dated closing evidence, same-day and cross-day qualification, cutoff save and finalization"
+    },
+    {
+      "path": "supabase/migrations/20261127122200_personal_asset_supplier_schedule.sql",
+      "version": "20261127122200",
+      "name": "personal_asset_supplier_schedule",
+      "expected_md5": "5c69ea5b6edf51414658dfb26fb9dfc0",
+      "file_sha256": "25256a90574a9f146ba01b6bb455d6735ce67be9b16a8090c947b2ad7828e2a0",
+      "validation_project": "Disposable canonical schema: personal purchase with supplier payable and dated payment, four installments, reversal and owner isolation"
     }
   ]
 }

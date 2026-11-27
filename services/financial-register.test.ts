@@ -107,3 +107,19 @@ it('shows the linked cash flow external reference instead of an internal settlem
  const r=await financialRegister('ORGANIZATION',org,false);
  expect(r.cashMovements.map(m=>[m.amount,m.reference])).toEqual([[100,'CUSTOMER-REF-17'],[-40,'']]);
 });
+
+it('retains the dated purchase payable and reversal under the real personal transaction vouchers',async()=>{
+ fixtures.personal_payables=[{id:'debt',user_id:'actor',party:'Supplier',description:'Equipment',currency:'SAR',
+  amount:100000,event_date:'2026-02-01',due_date:'2026-03-01',cancelled_at:'2026-04-01T09:00:00Z'}];
+ fixtures.personal_asset_supplier_schedules=[{user_id:'actor',payable_id:'debt',purchase_id:'purchase'}];
+ fixtures.transactions=[
+  {id:'purchase',user_id:'actor',transaction_type:'PURCHASE',transaction_date:'2026-02-01'},
+  {id:'reverse',user_id:'actor',transaction_type:'REVERSAL',transaction_date:'2026-04-01',reversal_of_transaction_id:'purchase'},
+ ];
+ const register=await financialRegister('PERSONAL',null,false);
+ expect(register.debts[0]).toMatchObject({amount:0,voucherSourceId:'purchase',isOpening:false});
+ expect(register.debtMovements).toMatchObject([
+  {amount:100000,date:'2026-02-01',voucherSourceId:'purchase',isOpening:false},
+  {amount:-100000,date:'2026-04-01',voucherSourceId:'reverse',isOpening:false},
+ ]);
+});
