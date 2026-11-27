@@ -3,11 +3,13 @@
  --fixed-gold: #c6a35d;
  --fixed-pale: #f5ebd6;
  --fixed-green: #205347;
- --fixed-text: var(--text, #1d3852);
+ --fixed-text: var(--text, var(--brand-text, #1d3852));
  --fixed-muted: var(--muted, #526578);
- --fixed-surface: var(--surface, #fff);
+ --fixed-surface: var(--surface, var(--brand-surface, #fff));
  --fixed-bg: var(--bg, #f5f7fa);
- --fixed-line: var(--border, #d9e0e8);
+ --fixed-line: var(--border, var(--brand-border, #e1e6ed));
+ --fixed-table-head: color-mix(in srgb, var(--fixed-surface) 88%, var(--fixed-text));
+ --fixed-row-alt: color-mix(in srgb, var(--fixed-surface) 96%, var(--fixed-text));
  color: var(--fixed-text);
  display: grid;
  gap: 16px;
@@ -33,32 +35,41 @@
  border-color: #205347;
  box-shadow: inset 0 -2px #c6a35d;
 }
+.fixed-assets .fixed-views button[aria-pressed="true"] { color: var(--fixed-pale); box-shadow: inset 0 -2px var(--fixed-pale); }
 .fixed-assets-heading {
  display: flex;
  gap: 14px;
  align-items: center;
- padding: clamp(16px, 2.3vw, 30px);
- color: var(--fixed-pale);
- background: var(--fixed-navy);
- border-radius: 14px;
- border-inline-start: 3px solid var(--fixed-gold);
+ padding: 4px 0 10px;
+ color: var(--fixed-text);
+ background: transparent;
+ border-radius: 0;
 }
 .fixed-assets-heading h2 { margin: 0; line-height: 1.4; font-size: clamp(1.15rem, 2.4vw, 1.8rem); color: inherit; }
-.fixed-heading-icon { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 44px; border: 1px solid var(--fixed-gold); color: var(--fixed-gold); border-radius: 10px; }
+.fixed-heading-icon { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 44px; border: 1px solid var(--fixed-gold); color: #967136; background: var(--fixed-pale); border-radius: 10px; }
 .fixed-heading-icon svg { width: 21px; height: 21px; }
-.fixed-scope { margin: 0 0 3px; font-size: .82rem; color: var(--fixed-gold); }
+.fixed-scope { margin: 0 0 3px; font-size: .82rem; color: var(--fixed-muted); }
+.fixed-heading-copy { min-width: 0; }
+.fixed-heading-description { margin: 4px 0 0; font-size: .86rem; line-height: 1.55; color: var(--fixed-muted); }
 .fixed-kpi-group { display: grid; gap: 8px; min-width: 0; }
 .fixed-kpi-meta { display: flex; align-items: center; justify-content: space-between; font-size: .8rem; color: var(--fixed-muted); }
-.fixed-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 9px; }
+.fixed-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 155px), 1fr)); gap: 12px; }
 .fixed-kpi { display: grid; align-content: space-between; gap: 11px; padding: 13px; min-height: 92px; min-width: 0; border-radius: 10px; background: var(--fixed-surface); border: 1px solid var(--fixed-line); }
+.fixed-kpi:is([data-key="gross"], [data-key="accumulated"], [data-key="book"], [data-key="depreciation"]) { background: var(--fixed-navy); color: var(--fixed-pale); border-color: var(--fixed-navy); }
 .fixed-kpi[data-key="book"] { border-block-start: 2px solid var(--fixed-gold); }
+.fixed-kpi-label { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.fixed-kpi-label svg, .fixed-views svg, .fixed-mobile-layout svg { width: 18px; height: 18px; flex: 0 0 18px; color: #967136; }
+.fixed-kpi:is([data-key="gross"], [data-key="accumulated"], [data-key="book"], [data-key="depreciation"]) :is(.fixed-kpi-label, .fixed-kpi-label svg, strong, .fixed-amount small) { color: var(--fixed-pale); }
+.fixed-kpi strong { min-width: 0; max-width: 100%; overflow-x: auto; }
 .fixed-kpi > span { font-size: .84rem; line-height: 1.4; color: var(--fixed-muted); }
 .fixed-kpi strong { font-size: clamp(1rem, 1.7vw, 1.4rem); line-height: 1.3; }
-.fixed-amount { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.fixed-amount { font-variant-numeric: tabular-nums; white-space: nowrap; overflow-wrap: normal; display: inline-block; }
 .fixed-amount small { font-size: .68em; font-weight: 500; color: var(--fixed-muted); }
 .fixed-workbench { background: var(--fixed-surface); border: 1px solid var(--fixed-line); border-radius: 12px; min-width: 0; }
 .fixed-views, .fixed-controls, .fixed-caption, .fixed-pagination, .fixed-message { padding: 11px 14px; margin: 0; }
-.fixed-views { border-bottom: 1px solid var(--fixed-line); }
+.fixed-views { border-bottom: 1px solid var(--fixed-line); gap: 8px; }
+.fixed-views button { display: inline-flex; align-items: center; gap: 7px; }
+.fixed-views button[aria-pressed="true"] svg { color: var(--fixed-pale); }
 .fixed-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 9px; }
 .fixed-controls label { display: grid; gap: 4px; font-size: .8rem; color: var(--fixed-muted); }
 .fixed-controls .fixed-search { margin-inline-end: auto; width: min(100%, 300px); }
@@ -73,22 +84,27 @@
 .fixed-caption { display: flex; flex-wrap: wrap; gap: 7px 12px; justify-content: space-between; color: var(--fixed-muted); font-size: .8rem; }
 .fixed-table-scroll { overflow: auto; max-height: 490px; }
 .fixed-table-scroll table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .85rem; }
-.fixed-table-scroll th { position: sticky; top: 0; z-index: 1; background: var(--fixed-navy); color: var(--fixed-pale); text-align: start; }
-.fixed-table-scroll :is(th, td) { padding: 9px 11px; vertical-align: middle; border-bottom: 1px solid var(--fixed-line); }
-.fixed-table-scroll :is(td, th) + :is(td, th) { white-space: nowrap; }
+.fixed-table-scroll th { position: sticky; top: 0; z-index: 1; background: var(--fixed-table-head); color: var(--fixed-text); text-align: center; }
+.fixed-table-scroll :is(th, td) { padding: 12px 12px; min-height: 44px; vertical-align: middle; text-align: center; border-bottom: 1px solid var(--fixed-line); }
+.fixed-table-scroll :is(td, th)[data-column]:not([data-column="name"]):not([data-column="class"]) { white-space: nowrap; }
+.fixed-table-scroll :is(td, th):is([data-column="name"], [data-column="class"]) { white-space: normal; overflow-wrap: break-word; text-align: start; min-width: 130px; }
+.fixed-table-scroll td:is([data-column="acquisition"], [data-column="date"]) { font-variant-numeric: tabular-nums; direction: ltr; }
 .fixed-table-scroll td:first-child { min-width: 116px; font-weight: 600; }
-.fixed-table-scroll tbody tr:nth-child(even) { background: var(--fixed-bg); }
+.fixed-table-scroll tbody tr:nth-child(even) { background: var(--fixed-row-alt); }
 .fixed-table-scroll th button, .fixed-inline { border: none; background: none; color: inherit; font: inherit; cursor: pointer; padding: 4px; }
 .fixed-inline { text-decoration: underline; }
 .fixed-table-scroll .fixed-amount { white-space: nowrap; }
 .fixed-state { border-radius: 100px; padding: 3px 8px; border: 1px solid var(--fixed-line); color: var(--fixed-muted); }
-.fixed-state[data-state="ACTIVE"] { color: #173f36; background: #e1eee7; border-color: #c3d5ca; }
+.fixed-state[data-state="ACTIVE"] { color: var(--fixed-pale); background: var(--fixed-green); border-color: var(--fixed-green); }
+.fixed-state[data-state="PENDING"] { color: var(--fixed-navy); background: var(--fixed-pale); border-color: #e8d6ad; }
+.fixed-state[data-state="EXITED"] { color: var(--fixed-text); background: var(--fixed-table-head); }
+.fixed-state { display: inline-flex; white-space: nowrap; font-size: .78rem; }
 .fixed-state[data-state="UNVERIFIED"] { color: #624b1e; background: #f5ebd6; border-color: #e8d6ad; }
 .fixed-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: end; gap: 8px; font-size: .83rem; color: var(--fixed-muted); }
 .fixed-pagination button:disabled { opacity: .48; cursor: default; }
 .fixed-note { margin: 0; color: var(--fixed-muted); font-size: .8rem; line-height: 1.55; }
 .fixed-message { font-size: .9rem; }
-@media (max-width: 1180px) { .fixed-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 1180px) { .fixed-kpis { grid-template-columns: repeat(auto-fit, minmax(min(100%, 155px), 1fr)); } }
 @media (max-width: 590px) {
  .fixed-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
  .fixed-controls .fixed-search { width: 100%; }
@@ -98,12 +114,50 @@
  .fixed-report-navigation button { padding-inline: 9px; }
 }
 
-/* Keep the report's navy surfaces readable under the shared application themes. */
+/* Theme-specific table and title overrides are confined to the new fixed asset center. */
 .corp-shell .corp-content .fixed-assets .fixed-assets-heading h2 {
- color: var(--fixed-pale) !important;
+ color: var(--fixed-text) !important;
 }
 .corp-shell .corp-content .fixed-assets .fixed-table-scroll table > thead > tr > th {
- background: var(--fixed-navy) !important;
- color: var(--fixed-pale) !important;
- border-color: var(--fixed-navy) !important;
+ background: var(--fixed-table-head) !important;
+ color: var(--fixed-text) !important;
+ border-color: var(--fixed-line) !important;
+}
+
+/* Royal Calm — mobile cards and the original full scrollable table.
+ * Native row/cell roles and labels remain available; no duplicate data/renderers. */
+.fixed-assets .fixed-mobile-layout { display: none; }
+.fixed-mobile-layout button {
+ display: inline-flex; align-items: center; gap: 7px; min-height: 40px;
+ padding: 8px 12px; border: 1px solid var(--fixed-line); border-radius: 8px;
+ color: var(--fixed-text); background: var(--fixed-surface); font: inherit; cursor: pointer;
+}
+.fixed-mobile-layout button[aria-pressed="true"] { background: var(--fixed-green); border-color: var(--fixed-green); color: var(--fixed-pale); }
+.fixed-mobile-layout button[aria-pressed="true"] svg { color: var(--fixed-pale); }
+.fixed-assets .fixed-table-scroll { min-width: 0; max-width: 100%; overscroll-behavior-x: contain; }
+.fixed-assets .fixed-table-scroll table { width: 100%; min-width: 100%; table-layout: auto; }
+.fixed-assets .fixed-table-scroll td[data-column="book"] .fixed-amount { font-weight: 700; }
+@media (max-width: 590px) {
+ .fixed-assets-heading { align-items: flex-start; }
+ .fixed-kpi { padding: 11px; }
+ .fixed-assets .fixed-mobile-layout { display: flex; padding: 0 14px 10px; }
+ .fixed-assets .fixed-table-scroll[data-mobile-layout="cards"] { max-height: none; overflow: visible; padding: 0 10px 10px; }
+ .fixed-assets .fixed-table-scroll[data-mobile-layout="cards"] table,
+ .fixed-assets .fixed-table-scroll[data-mobile-layout="cards"] tbody { display: block; min-width: 0; width: 100%; }
+ .fixed-assets .fixed-table-scroll[data-mobile-layout="cards"] thead { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+ .fixed-assets .fixed-table-scroll[data-mobile-layout="cards"] tbody tr { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); margin-block-end: 10px; background: var(--fixed-surface); border: 1px solid var(--fixed-line); border-radius: 10px; overflow: hidden; }
+ .fixed-assets .fixed-table-scroll[data-mobile-layout="cards"] td { min-width: 0; padding: 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; text-align: start; border-bottom: 1px solid var(--fixed-line); direction: inherit; white-space: normal; }
+ .fixed-assets .fixed-table-scroll[data-mobile-layout="cards"] td::before { content: attr(data-label); font-size: .75rem; color: var(--fixed-muted); font-weight: 500; white-space: normal; }
+ .fixed-assets .fixed-table-scroll[data-mobile-layout="cards"] td[data-column="name"] { grid-column: 1/-1; font-size: 1rem; background: var(--fixed-row-alt); overflow-wrap: anywhere; }
+ .fixed-assets .fixed-table-scroll[data-mobile-layout="cards"] td[data-column="class"] { overflow-wrap: anywhere; }
+ .fixed-assets .fixed-table-scroll[data-mobile-layout="cards"] td .fixed-amount { max-width: 100%; overflow-x: auto; }
+ .fixed-assets .fixed-table-scroll[data-mobile-layout="cards"] tr.fixed-empty { display: block; }
+ .fixed-assets .fixed-table-scroll[data-mobile-layout="cards"] tr.fixed-empty td { display: block; border: 0; }
+ .fixed-assets .fixed-table-scroll[data-mobile-layout="cards"] tr.fixed-empty td::before { display: none; }
+}
+
+/* Keep keyboard-accessible column sorting visible when its header has focus in mobile card mode. */
+@media (max-width: 590px) {
+ .fixed-assets .fixed-table-scroll[data-mobile-layout="cards"] thead:focus-within { position: static; display: block; width: auto; height: auto; margin: 0 0 8px; overflow: auto; clip-path: none; white-space: normal; }
+ .fixed-assets .fixed-table-scroll[data-mobile-layout="cards"] td:is([data-column="acquisition"],[data-column="date"]) { direction: inherit; }
 }
