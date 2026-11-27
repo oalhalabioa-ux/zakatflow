@@ -215,7 +215,11 @@ try{
  });
  await check('bootstrap contains no customer, owner, membership or subscription records',async()=>{
   assert.equal(sql('select (select count(*) from auth.users)+(select count(*) from organizations)+(select count(*) from organization_members)+(select count(*) from platform_admins)+(select count(*) from platform_subscriptions)'), '0');
-  assert.equal(sql('select count(*) from pg_policies where schemaname in (\'public\',\'private\',\'subscription_private\')'),'201');
+  assert.equal(sql('select count(*) from pg_policies where schemaname in (\'public\',\'private\',\'subscription_private\')'),'202');
+  assert.equal(sql(`select count(*) from pg_policies where (schemaname,tablename,policyname) in (
+    ('private','asset_supplier_payment_schedules','asset_supplier_payment_schedules_read'),
+    ('public','personal_asset_supplier_schedules','personal_asset_supplier_schedules_owner')
+  )`),'2');
   assert.equal(sql('select count(*) from subscription_private.guard_coverage'),'103');
  });
  const admin=createClient(status.API_URL,status.SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
