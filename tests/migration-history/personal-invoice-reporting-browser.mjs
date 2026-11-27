@@ -47,9 +47,17 @@ export async function verifyInvoiceReporting({app, ownerContext, otherContext, b
     const ar = locale==='ar';
     await page.goto(app+'/'+locale+'/financial-reports?scope=PERSONAL',{waitUntil:'domcontentloaded',timeout:90000});
     const main = page.locator('main.fs-personal-reports');
+    const positionCard = main.locator('.fs-personal-card');
+    await positionCard.getByText('7,500.00 SAR',{exact:true}).waitFor();
+    const filteredResponse = page.waitForResponse(response=>{
+      const url = new URL(response.url());
+      return url.pathname==='/api/financial-reporting/personal' &&
+        url.searchParams.get('from')===start && url.searchParams.get('to')===end;
+    });
     await main.getByLabel(ar?'بداية الفترة':'Period start').fill(start);
     await main.getByLabel(ar?'نهاية الفترة':'Period end').fill(end);
-    const positionCard = main.locator('.fs-personal-card');
+    assert.equal((await filteredResponse).status(),200);
+    await main.getByText(start+' – '+end,{exact:true}).waitFor({state:'attached'});
     await positionCard.getByText('7,500.00 SAR',{exact:true}).waitFor();
     await positionCard.getByText('4,000.00 SAR',{exact:true}).waitFor();
     const cashRow = main.getByRole('row').filter({hasText:bankName});
@@ -61,6 +69,10 @@ export async function verifyInvoiceReporting({app, ownerContext, otherContext, b
     assert.equal(await csv.failure(),null);
     const csvText = await readFile(await csv.path(),'utf8');
     assert.ok(csvText.includes(csvRow(positionRow)+','));
+    const startLabel = ar?'من تاريخ الحركة':'Movement from';
+    const endLabel = ar?'إلى تاريخ الحركة':'Movement to';
+    assert.ok(csvText.split('\r\n').includes(csvRow([startLabel,start])));
+    assert.ok(csvText.split('\r\n').includes(csvRow([endLabel,end])));
     assert.ok(csvText.split('\r\n').includes(csvRow(bankRow)));
     assert.ok(csvText.includes(csvRow([ar?'الذمم المدينة':'Receivables'])));
 
@@ -76,6 +88,8 @@ export async function verifyInvoiceReporting({app, ownerContext, otherContext, b
     assert.equal(Boolean(sheet.views[0].rightToLeft),ar);
     assert.ok(rows.some(row=>positionRow.every((cell,i)=>row[i]===cell)));
     assert.deepEqual(rows.find(row=>row[0]===bankName),bankRow);
+    assert.deepEqual(rows.find(row=>row[0]===startLabel),[startLabel,start]);
+    assert.deepEqual(rows.find(row=>row[0]===endLabel),[endLabel,end]);
 
     await main.getByRole('tab',{name:ar?/الدخل والمصروفات/:/Income & expenses/}).click();
     const incomeLabel = ar?'الإيراد المهني المثبت':'Recognized professional income';
