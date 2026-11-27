@@ -1,101 +1,196 @@
 'use client';
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {riyadhToday} from '../../lib/financial-register';
+import {priorStatementPeriod,statementRowComparison} from '../../lib/financial-statement-comparison';
+import {STATEMENT_HUB_TITLES} from '../../lib/financial-statement-summary';
 import type {PersonalReport} from '../../lib/personal-financial-reports';
-import {personalFinancialExportRows,type PersonalExportView} from '../../lib/personal-financial-export';
-import {financialSourceRowsCsv} from '../../lib/financial-budget-source';
+import type {StatementView} from '../../lib/financial-statement-source';
+import {personalStatementComparison,personalStatementCurrencies,personalStatementExport,personalStatementRows,type PersonalStatementView} from '../../lib/personal-statement-presentation';
+import {ComboChart,Donut,ReportCard} from './ReportCharts';
+import {Metric} from './ReportPages';
+import {StatementReportTable,statementAmount} from './SourceStatementTable';
+import StatementReportHeader,{type StatementFileKind} from './StatementReportHeader';
+import StatementReportLayout from './StatementReportLayout';
+import {downloadStatementFile} from './downloadStatementFile';
 import './financial-reports-suite.css';
 import './financial-reporting-source.css';
 
-type Tab='overview'|'position'|'cash'|'accounts'|'income';
-const tabs:ReadonlyArray<[Tab,string,string]>=[
- ['overview','الملخص الشخصي','Personal overview'],
- ['position','المركز المالي','Financial position'],
- ['cash','الحركة النقدية','Cash movement'],
- ['accounts','الدليل المبسّط','Simple chart'],
- ['income','الدخل والمصروفات','Income & expenses'],
-];
-const format=(value:string|null)=>value===null?'—':value.replace(/\B(?=(\d{3})+(?!\d))/g,',');
+const views = ['income','position','cash-flow'] as const;
+type Period = {from:string;to:string};
+type Reports = {current:PersonalReport;previous:PersonalReport|null};
 
-export default function PersonalFinancialStatements({english=false}:{english?:boolean}){
- const[tab,setTab]=useState<Tab>('overview'),[from,setFrom]=useState(()=>riyadhToday().slice(0,4)+'-01-01'),
-  [to,setTo]=useState(()=>riyadhToday()),[snapshot,setReport]=useState<PersonalReport|null>(null),
-  [busy,setBusy]=useState(true),[error,setError]=useState(''),[exporting,setExporting]=useState(false),[exportError,setExportError]=useState('');
- const t=(ar:string,en:string)=>english?en:ar;
- const report=snapshot?.from===from&&snapshot.to===to?snapshot:null;
- const exportKey=[from,to,tab,english].join('|'),selection=useRef('');
- useLayoutEffect(()=>{selection.current=exportKey;return()=>{selection.current=''}},[exportKey]);
- useEffect(()=>{
-  const abort=new AbortController();setReport(null);setBusy(true);setError('');
-  fetch('/api/financial-reporting/personal?'+new URLSearchParams({from,to}),{cache:'no-store',signal:abort.signal})
-   .then(async response=>{if(!response.ok)throw Error(response.status===401?'UNAUTHORIZED':response.status===400?'INVALID_PERIOD':'UNAVAILABLE');return response.json() as Promise<PersonalReport>})
-   .then(value=>{if(!abort.signal.aborted){if(value.scope!=='PERSONAL'||value.from!==from||value.to!==to)throw Error('UNAVAILABLE');setReport(value)}})
-   .catch(cause=>{if(!abort.signal.aborted)setError(cause instanceof Error?cause.message:'UNAVAILABLE')})
-   .finally(()=>{if(!abort.signal.aborted)setBusy(false)});
-  return()=>abort.abort();
- },[from,to]);
- function save(blob:Blob,name:string){const url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download=name;document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
- async function download(kind:'csv'|'xlsx'|'print'){
-  if(busy||!report||tab==='income'||exporting)return;
-  const key=selection.current;setExporting(true);setExportError('');
-  try{
-   // Re-read with the authenticated user at export time. Never trust a cached
-   // personal register after the user loses access or changes report scope.
-   const response=await fetch('/api/financial-reporting/personal?'+new URLSearchParams({from,to}),{cache:'no-store'});
-   if(selection.current!==key)return;
-   if(response.status===401){setReport(null);setError('UNAUTHORIZED');return;}
-   if(!response.ok)throw Error('PERSONAL_EXPORT_UNAVAILABLE');
-   const fresh=await response.json() as PersonalReport;
-   if(fresh.scope!=='PERSONAL'||fresh.from!==from||fresh.to!==to||selection.current!==key)return;
-   const rows=personalFinancialExportRows(fresh,tab as PersonalExportView,english);
-   if(selection.current!==key)return;
-   setReport(fresh);
-   if(kind==='print'){await new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())));if(selection.current===key)window.print();return;}
-   const filename=`yaqeen-personal-estimate-${tab}-${from}-${to}`;
-   if(kind==='csv'){save(new Blob([financialSourceRowsCsv(rows)],{type:'text/csv;charset=utf-8'}),filename+'.csv');return;}
-   const {Workbook}=await import('exceljs');if(selection.current!==key)return;
-   const book=new Workbook(),sheet=book.addWorksheet('Personal');sheet.views=[{rightToLeft:!english}];
-   rows.forEach(row=>sheet.addRow(row));sheet.columns.forEach((col,index)=>col.width=index===0?48:26);
-   const bytes=await book.xlsx.writeBuffer();if(selection.current===key)save(new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),filename+'.xlsx');
-  }catch{if(selection.current===key)setExportError('PERSONAL_EXPORT_FAILED')}finally{setExporting(false)}
- }
- const currencyAmount=(value:string|null,currency:string)=><bdi dir="ltr">{format(value)} {currency}</bdi>;
- const incomplete=report?.positions.some(p=>!p.complete)??false;
- return <main className="fs-root fs-connected fs-personal-reports" dir={english?'ltr':'rtl'} lang={english?'en':'ar'}>
-  <header className="fs-personal-head"><div><span className="fs-personal-eyebrow">{t('يقين الأعمال · النطاق الشخصي','Yaqeen Business · Personal')}</span><h1>{t('قوائمي المالية الشخصية','My personal financial reports')}</h1><p>{t('تُستمد هذه المعاينة من حساباتك وأصولك وذممك الشخصية فقط، دون بيانات أي مؤسسة.','This read-only view uses your personal accounts, assets and debts only — never an organization’s books.')}</p></div><div className="fs-personal-actions"><span className="fs-personal-scope">{t('شخصي','Personal')}</span><button type="button" disabled={busy||!report||tab==='income'||exporting} onClick={()=>download('xlsx')}>{exporting?t('جارٍ التجهيز…','Preparing…'):t('Excel','Excel')}</button><button type="button" disabled={busy||!report||tab==='income'||exporting} onClick={()=>download('csv')}>CSV</button><button type="button" disabled={busy||!report||tab==='income'||exporting} onClick={()=>download('print')}>{t('طباعة / PDF','Print / PDF')}</button></div></header>
-  <div className="fs-personal-tabs" role="tablist" aria-label={t('أنواع التقارير الشخصية','Personal report views')}>
-   {tabs.map(([id,ar,en])=><button key={id} type="button" role="tab" aria-selected={tab===id} onClick={()=>setTab(id)}>{english?en:ar}{id==='income'&&<small> {t('قيد الربط','Pending')}</small>}</button>)}
-  </div>
-  <div className="fs-personal-period"><label>{t('من تاريخ','From')}<input aria-label={t('بداية الفترة','Period start')} type="date" value={from} max={to} onChange={e=>setFrom(e.target.value)}/></label><label>{t('إلى تاريخ','To')}<input aria-label={t('نهاية الفترة','Period end')} type="date" value={to} min={from} max={riyadhToday()} onChange={e=>setTo(e.target.value)}/></label>{report&&<small>{t('المركز المالي بتاريخ','Financial position as of')} {report.asOf}</small>}</div>
-  {report&&<p className="fs-personal-print-context">
-   {tabs.find(([id])=>id===tab)?.[english?2:1]} · {t('المركز المالي بتاريخ','Financial position as of')} <bdi>{report.asOf}</bdi>
-   {' · '}{t('فترة الحركة النقدية','Cash movement period')} <bdi>{report.from} – {report.to}</bdi>
-  </p>}
-  <p className="fs-personal-disclaimer">{t('عرض شخصي تقديري من الأرصدة الحالية، وليس قوائم مدققة أو دفتر قيود شركات. لا تُجمع العملات المختلفة تلقائيًا.','Personal current-balance estimate, not audited statements or corporate journals. Different currencies are not silently combined.')}</p>
-  {busy&&<p role="status" className="fs-source-loading">{t('جارٍ قراءة سجلاتك الشخصية…','Loading your personal registers…')}</p>}
-  {error&&<div className="fs-source-error" role="alert">{error==='UNAUTHORIZED'?t('يرجى تسجيل الدخول للاطلاع على سجلاتك الشخصية.','Sign in to view your personal records.'):error==='INVALID_PERIOD'?t('الفترة المحددة غير صحيحة.','Invalid reporting period.'):t('تعذر التحقق من السجلات الشخصية؛ لن تُعرض أرقام بديلة.','Personal source verification failed; no substitute figures are shown.')}</div>}
-  {exportError&&<div className="fs-source-error" role="alert">{t('تعذّر تجهيز التصدير من بيانات شخصية متحقق منها. حاول التحديث، دون حفظ ملف غير مكتمل.','Could not prepare a verified personal export. Refresh and retry; no incomplete file was saved.')}</div>}
-  {!busy&&!error&&report&&<>
-   {!report.positions.length&&!report.cashAccounts.length&&<div className="fs-personal-empty">{t('لا توجد أرصدة شخصية مسجلة بعد. يمكنك البدء من موديول الأصول أو النقد والبنوك.','No personal balances are recorded yet. Start in Assets or Cash & Banks.')}</div>}
-   {(tab==='overview'||tab==='position')&&<div className="fs-personal-cards">{report.positions.map(p=><article key={p.currency} className="fs-personal-card"><div className="fs-personal-card-title"><h2>{t('المركز المالي','Financial position')} · {p.currency}</h2><span>{p.complete?t('قابل للحساب','Calculated'):t('يتطلب تسوية','Reconciliation needed')}</span></div><div className="fs-personal-summary"><span>{t('النقد والبنوك','Cash & banks')}</span><strong>{currencyAmount(p.cash,p.currency)}</strong><span>{t('الذمم المدينة','Receivables')}</span><strong>{currencyAmount(p.receivables,p.currency)}</strong><span>{t('الاستثمارات','Investments')}</span><strong>{currencyAmount(p.investments,p.currency)}</strong><span>{t('الأصول الأخرى','Other assets')}</span><strong>{currencyAmount(p.otherAssets,p.currency)}</strong><span>{t('الالتزامات','Liabilities')}</span><strong>{currencyAmount(p.liabilities,p.currency)}</strong></div><div className="fs-personal-net"><span>{t('صافي الثروة','Net worth')}</span><strong>{currencyAmount(p.netWorth,p.currency)}</strong></div>{!p.complete&&<p>{t('صافي الثروة محجوب حتى تسوية الأرصدة غير المصنّفة أو غير المربوطة.','Net worth is withheld until unclassified or unallocated balances are reconciled.')}</p>}</article>)}</div>}
-   {(tab==='overview'||tab==='cash')&&<section className="fs-personal-panel"><h2>{t('حركة الحسابات النقدية خلال الفترة','Cash account movement for the period')}</h2><p>{t('تتضمن إجماليات الداخل والخارج التحويلات بين الحسابات الشخصية، لذلك لا تُعد قائمة تدفقات تشغيلية. صافي الحركة لكل حساب يُعرض مستقلًا.','Gross inflows and outflows may include transfers between your accounts. This is not an operating cash-flow statement; each account’s net movement is shown separately.')}</p><div className="fs-table-scroll"><table className="fs-table"><thead><tr><th>{t('الحساب','Account')}</th><th>{t('العملة','Currency')}</th><th>{t('رصيد أول الفترة','Opening')}</th><th>{t('مقبوضات','Inflows')}</th><th>{t('مدفوعات','Outflows')}</th><th>{t('صافي الحركة','Net movement')}</th><th>{t('آخر الفترة','Closing')}</th></tr></thead><tbody>{report.cashAccounts.map(a=><tr key={a.id}><td>{a.name}</td><td>{a.currency}</td><td dir="ltr">{format(a.opening)}</td><td dir="ltr">{format(a.inflows)}</td><td dir="ltr">{format(a.outflows)}</td><td dir="ltr">{format(a.netMovement)}</td><td dir="ltr">{format(a.closing)}</td></tr>)}{!report.cashAccounts.length&&<tr><td colSpan={7}>{t('لا توجد حسابات نقدية شخصية مسجلة.','No personal cash accounts are recorded.')}</td></tr>}</tbody></table></div></section>}
-   {(tab==='overview'||tab==='cash')&&report.cashTransferReconciliation?.length>0&&<section className="fs-personal-panel"><h2>{t('تسوية التحويلات الداخلية المثبتة','Verified internal transfer reconciliation')}</h2><p>{t('تُستبعد فقط التحويلات ذات الطرفين المتطابقين عبر معرّف المصدر. المبالغ المتبقية غير مصنّفة بعد ولا تمثل بالضرورة تدفقات خارجية أو دخلاً ومصروفاً.','Only source-ID-matched, balanced transfer pairs are separated. Remaining amounts are unclassified, not necessarily external cash flows, income or expenses.')}</p><div className="fs-table-scroll"><table className="fs-table"><thead><tr><th>{t('العملة','Currency')}</th><th>{t('التحويلات الداخلة المثبتة','Verified internal in')}</th><th>{t('التحويلات الخارجة المثبتة','Verified internal out')}</th><th>{t('الداخل غير المصنّف','Unclassified in')}</th><th>{t('الخارج غير المصنّف','Unclassified out')}</th><th>{t('التحقق','Evidence')}</th></tr></thead><tbody>{report.cashTransferReconciliation.map(r=><tr key={r.currency}><td>{r.currency}</td><td dir="ltr">{format(r.verifiedInternalInflows)}</td><td dir="ltr">{format(r.verifiedInternalOutflows)}</td><td dir="ltr">{format(r.remainingUnclassifiedInflows)}</td><td dir="ltr">{format(r.remainingUnclassifiedOutflows)}</td><td>{r.transferEvidenceComplete?t('مكتمل للتحويلات المسجلة','Recorded transfers matched'):t(`${r.unverifiedLegs} حركة تحتاج تحقق`,`${r.unverifiedLegs} legs need review`)}</td></tr>)}</tbody></table></div></section>}
-   {(tab==='overview'||tab==='cash')&&Boolean(report.purchaseFunding?.length)&&<section className="fs-personal-panel">
-    <h2>{t('تمويل شراء الأصول وفرق الصرف','Asset purchase funding and FX difference')}</h2>
-    <div className="fs-table-scroll"><table className="fs-table"><thead><tr>
-     <th>{t('التاريخ','Date')}</th><th>{t('الحركة','Movement')}</th><th>{t('مبلغ الدفع','Payment')}</th>
-     <th>{t('تكلفة الأصل','Asset cost')}</th><th>{t('تكلفة دفعات النقد','Cash lot cost')}</th>
-     <th>{t('فرق الصرف المحقق','Realized FX')}</th>
-    </tr></thead><tbody>{report.purchaseFunding?.map(row=><tr key={row.id}>
-     <td><bdi>{row.date}</bdi></td><td>{row.reversed?t('عكس','Reversal'):t('شراء','Purchase')}</td>
-     <td><bdi dir="ltr">{row.payment} {row.currency}</bdi></td><td><bdi dir="ltr">{row.assetBasis} {row.baseCurrency}</bdi></td>
-     <td><bdi dir="ltr">{row.cashBasis} {row.baseCurrency}</bdi></td><td><bdi dir="ltr">{row.realizedFx} {row.baseCurrency}</bdi></td>
-    </tr>)}</tbody></table></div>
-   </section>}
-   {tab==='accounts'&&<section className="fs-personal-panel"><h2>{t('تصنيفات الحسابات الشخصية التلقائية','Automatic personal account categories')}</h2><p>{t('هذا دليل عرض وتصنيف من المصدر الحالي، ولا ينشئ حسابات أو قيودًا جديدة.','This is a read-only classification of current sources; it creates no accounts or journal entries.')}</p><div className="fs-table-scroll"><table className="fs-table"><thead><tr><th>{t('رمز التصنيف','Reporting code')}</th><th>{t('الحساب','Category')}</th><th>{t('العملة','Currency')}</th><th>{t('الرصيد','Balance')}</th></tr></thead><tbody>{report.categories.map(c=><tr key={c.code+':'+c.currency}><td dir="ltr">{c.code}</td><td>{english?c.en:c.ar}</td><td>{c.currency}</td><td dir="ltr">{format(c.amount)}</td></tr>)}</tbody></table></div></section>}
-   {tab==='income'&&report.professionalIncome&&<section className="fs-personal-panel"><h2>{t('الإيراد المهني المثبت','Recognized professional income')}</h2><p>{report.professionalIncome.net} SAR · {t('ضريبة المخرجات','Output VAT')} {report.professionalIncome.tax} SAR · {t('عدد المستندات','Documents')} {report.professionalIncome.count}</p></section>}
-   {tab==='income'&&!report.professionalIncome&&<section className="fs-personal-panel fs-personal-pending"><h2>{t('الإيرادات والمصروفات الشخصية قيد الربط','Personal income and expenses — pending')}</h2><p>{t('لا يصح اعتبار كل إيداع إيرادًا ولا كل سحب مصروفًا. ستتاح قائمة الدخل عندما يتوفر تصنيف موثوق للحركات وتفصل التحويلات والقروض والاستثمارات عن الإيرادات والمصروفات.','Deposits are not automatically income and withdrawals are not automatically expenses. This view will become available only after reliable transaction classification separates transfers, loans and investments from actual income and expenses.')}</p></section>}
-   {incomplete&&<div className="fs-personal-warning" role="status">{t('توجد أرصدة تستلزم تسوية قبل احتساب صافي الثروة.','Some balances require reconciliation before net worth can be calculated.')}</div>}
-  </>}
- </main>;
+async function readPersonalReport(period:Period,signal?:AbortSignal,comparison=false) {
+  const response=await fetch('/api/financial-reporting/personal?'+new URLSearchParams(period),{cache:'no-store',signal});
+  if(response.status===401||response.status===403)throw Error('UNAUTHORIZED');
+  if(!response.ok){
+    if(comparison)return null;
+    throw Error('UNAVAILABLE');
+  }
+  const report:PersonalReport=await response.json();
+  if(report.scope!=='PERSONAL'||report.basis!=='CURRENT_PERSONAL_REGISTER_ESTIMATE'||
+    report.from!==period.from||report.to!==period.to)throw Error('UNAVAILABLE');
+  return report;
+}
+
+async function readReports(period:Period,signal?:AbortSignal):Promise<Reports>{
+  const current=await readPersonalReport(period,signal);
+  if(!current)throw Error('UNAVAILABLE');
+  const previous=await readPersonalReport(priorStatementPeriod(period.from,period.to),signal,true);
+  return {current,previous:personalStatementComparison(current,previous)};
+}
+
+export default function PersonalFinancialStatements({english=false,initialView='overview'}:{english?:boolean;initialView?:PersonalStatementView}){
+  const [view,setView]=useState(initialView);
+  const [from,setFrom]=useState(()=>riyadhToday().slice(0,4)+'-01-01'),[to,setTo]=useState(riyadhToday);
+  const [reports,setReports]=useState<Reports|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
+  const [menuOpen,setMenuOpen]=useState(false),[exporting,setExporting]=useState(false),[refresh,setRefresh]=useState(0);
+  const t=(ar:string,en:string)=>english?en:ar;
+  const periodValid=Boolean(from&&to&&from<=to&&to<=riyadhToday());
+  const displayed=reports?.current.from===from&&reports.current.to===to?reports:null;
+  const currencies=displayed?personalStatementCurrencies(displayed.current,view):[];
+  const key=[from,to,view,english,refresh].join('|'),active=useRef('');
+  useLayoutEffect(()=>{active.current=key;return()=>{active.current='';};},[key]);
+  useEffect(()=>{setView(initialView);setMenuOpen(false);},[initialView]);
+
+  useEffect(()=>{
+    setReports(null);setError('');setMenuOpen(false);
+    if(!periodValid){setLoading(false);return;}
+    const abort=new AbortController();
+    setLoading(true);
+    readReports({from,to},abort.signal)
+      .then(snapshot=>{if(!abort.signal.aborted)setReports(snapshot);})
+      .catch(cause=>{if(!abort.signal.aborted)setError(cause instanceof Error?cause.message:'UNAVAILABLE');})
+      .finally(()=>{if(!abort.signal.aborted)setLoading(false);});
+    return()=>abort.abort();
+  },[from,to,refresh,periodValid]);
+
+  function openView(next:PersonalStatementView){
+    setView(next);setMenuOpen(false);
+    const url=new URL(window.location.href);
+    if(next==='overview')url.searchParams.delete('screen');else url.searchParams.set('screen',next);
+    window.history.replaceState(null,'',url);
+  }
+
+  const hasFigures=Boolean(displayed&&currencies.some(currency=>
+    personalStatementRows(displayed.current,view,currency,english).some(row=>row.value!=='')));
+  async function exportReport(kind:StatementFileKind){
+    if(!hasFigures||loading||exporting)return;
+    setExporting(true);setError('');
+    try{
+      const fresh=await readReports({from,to});
+      if(active.current!==key)return;
+      setReports(fresh);
+      const rows=personalStatementExport(fresh.current,view,english,fresh.previous);
+      if(kind==='pdf'){
+        await new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())));
+        if(active.current===key)window.print();
+      }else{
+        await downloadStatementFile(rows,kind,`yaqeen-personal-statements-${view}-${from}-${to}`,view,english,()=>active.current===key);
+      }
+    }catch(cause){
+      if(active.current!==key)return;
+      const message=cause instanceof Error?cause.message:'';
+      if(message==='UNAUTHORIZED'||message==='UNAVAILABLE')setReports(null);
+      if(message!=='PERSONAL_EXPORT_DATA_REQUIRED')setError(message==='UNAUTHORIZED'?message:'EXPORT_FAILED');
+    }finally{setExporting(false);}
+  }
+
+  return <main className="fs-root fs-connected fs-connected-statements fs-personal-statements" dir={english?'ltr':'rtl'} lang={english?'en':'ar'}>
+    <div className="fs-surface" data-screen={view}>
+      <StatementReportHeader view={view} en={english} description={t('النطاق الشخصي · من الأرصدة والحركات والمستندات المثبتة','Personal scope · from verified balances, movements and documents')}
+        disabled={loading||exporting||!hasFigures} menuOpen={menuOpen} setMenuOpen={setMenuOpen}
+        onRefresh={()=>setRefresh(value=>value+1)} onExport={exportReport}/>
+      <div className="fs-filter-strip"><div className="fs-filters is-open">
+        <label>{t('من تاريخ','From date')}<input type="date" value={from} max={to} onChange={event=>setFrom(event.target.value)}/></label>
+        <label>{t('إلى تاريخ','To date')}<input type="date" value={to} min={from} max={riyadhToday()} onChange={event=>setTo(event.target.value)}/></label>
+        <span>{t('الفترة السابقة','Previous period')}{displayed?.previous?' · '+displayed.previous.from+' — '+displayed.previous.to:''}</span>
+      </div></div>
+      {displayed&&<p className="fs-personal-statement-print-context">{from} — {to}{displayed.previous&&' · '+displayed.previous.from+' — '+displayed.previous.to}</p>}
+      <nav className="fs-personal-statement-navigation" aria-label={t('القوائم المالية','Financial statements')}>
+        {(['overview',...views] as const).map(id=><button className="fs-outline" type="button" key={id} aria-current={view===id?'page':undefined}
+          onClick={()=>openView(id)}>{STATEMENT_HUB_TITLES[id][english?1:0]}</button>)}
+      </nav>
+      {loading&&<p className="fs-source-loading" role="status">{t('جارٍ التحقق من السجلات الشخصية…','Validating personal registers…')}</p>}
+      {!periodValid&&<p className="fs-source-note" role="status">{t('حدّد بداية ونهاية الفترة لعرض القوائم.','Choose a reporting period to view the statements.')}</p>}
+      {error&&<p className="fs-source-error" role="alert">{error==='UNAUTHORIZED'?t('سجّل الدخول مجددًا لعرض سجلاتك.','Sign in again to view your registers.'):
+        error==='EXPORT_FAILED'?t('تعذّر تجهيز التصدير بعد إعادة التحقق من المصدر.','The export could not be prepared after rechecking the source.'):
+        t('تعذّر التحقق من السجلات الشخصية لهذه الفترة.','The personal registers could not be verified for this period.')}</p>}
+      {displayed&&view==='overview'&&<>
+        {hasFigures&&currencies.map(currency=>{
+          const rows=personalStatementRows(displayed.current,view,currency,english).filter(row=>row.value!=='');
+          return rows.length>0&&<div className="fs-metrics five" key={currency}>
+            {rows.map(row=><Metric key={row.id} label={row.label} value={statementAmount(row.value)} unit={currency} change={null}/>)}
+          </div>;
+        })}
+        <div className="fs-index-layout"><div className="fs-statement-links">
+          {views.map(id=><ReportCard key={id} className="fs-statement-link" title={STATEMENT_HUB_TITLES[id][english?1:0]}>
+            <button className="fs-outline" type="button" onClick={()=>openView(id)}>{t('عرض القائمة','Open statement')}</button>
+          </ReportCard>)}
+        </div></div>
+      </>}
+      {displayed&&view!=='overview'&&<>
+        {!hasFigures&&<p className="fs-source-note" role="status">{t('لا توجد أرقام مثبتة لهذه القائمة في الفترة المحددة.','There are no verified figures for this statement in the selected period.')}</p>}
+        {currencies.map(currency=><PersonalCurrencyStatement key={[view,currency,from,to].join('|')} view={view} currency={currency}
+          reports={displayed} en={english}/>)}
+      </>}
+    </div>
+  </main>;
+}
+
+function PersonalCurrencyStatement({view,currency,reports,en}:{view:StatementView;currency:string;reports:Reports;en:boolean}){
+  const t=(ar:string,english:string)=>en?english:ar;
+  const rows=personalStatementRows(reports.current,view,currency,en);
+  const previous=reports.previous?personalStatementRows(reports.previous,view,currency,en):undefined;
+  const index=new Map(rows.map(row=>[row.id,row]));
+  const previousIndex=new Map(previous?.map(row=>[row.id,row]));
+  const metricIds=view==='income'?['INCOME','EXPENSE','net']:view==='position'?['assets','liabilities','net-worth']:['opening','OPERATING','movement','closing'];
+  const title=STATEMENT_HUB_TITLES[view][en?1:0]+' · '+currency;
+  const analysis=view==='income'?t('تغطي القائمة المستندات والعقود التي أمكن إثباتها وتصنيفها خلال الفترة.',
+    'The statement covers documents and contracts that could be verified and classified during the period.'):
+    view==='position'?t('تعرض القائمة الأرصدة في تاريخ نهاية الفترة، وتوضح الإيضاحات البند الذي لا يتوفر له دليل تاريخي.',
+      'Balances are shown at the end of the period. Notes identify individual items without historical evidence.'):
+      t('تُفصل الحركات غير المصنّفة عن الأنشطة المثبتة، وتُستبعد التحويلات الداخلية المطابقة من تصنيف النشاط.',
+      'Unclassified movements are separate from verified activities. Matched internal transfers are excluded from activity classification.');
+  const categories=(view==='income'?['INCOME','EXPENSE']:['OPERATING','INVESTING','FINANCING','UNCLASSIFIED'])
+    .flatMap(id=>{const row=index.get(id);return row?.value?[row]:[];});
+  const chartAvailable=categories.length>0&&categories.every(row=>Math.abs(Number(row.value))<=Number.MAX_SAFE_INTEGER);
+  const chartHasPrevious=chartAvailable&&categories.every(row=>{
+    const amount=previousIndex.get(row.id)?.value;
+    return Boolean(amount)&&Math.abs(Number(amount))<=Number.MAX_SAFE_INTEGER;
+  });
+  const assetParts=['cash','receivables','investments','other-assets'].map(id=>Number(index.get(id)?.value||NaN));
+  const assets=index.get('assets')?.value;
+  const showComposition=Boolean(assets&&Number(assets)>0)&&assetParts.every(value=>value>=0&&value<=Number.MAX_SAFE_INTEGER);
+
+  return <section className="fs-source-statements" data-statement-ready={view} aria-label={title}>
+    <div className="fs-metrics four">{metricIds.flatMap(id=>{
+      const metric=index.get(id);
+      if(!metric?.value)return [];
+      const trend=statementRowComparison(metric.value,previousIndex.get(id)?.value).change;
+      return [<Metric key={id} label={metric.label} value={statementAmount(metric.value)} unit={currency}
+        change={null} trend={trend?.percentage!==null?trend:undefined} icon={metric.icon}/>];
+    })}</div>
+    <StatementReportLayout view={view}>
+      <ReportCard className={view==='income'?'fs-income-main':undefined} title={title} icon="file">
+        <StatementReportTable view={view} rows={rows} previous={previous} en={en} caption={title} notes delta showKnownPrior/>
+      </ReportCard>
+      <div className="fs-stack">
+        {view==='position'&&showComposition&&assets&&<ReportCard title={t('تركيبة المركز المالي','Financial position composition')} icon="target">
+          <div className="fs-donut-legend">
+            <Donut value={statementAmount(assets)} label={t('إجمالي الأصول','Total assets')} parts={assetParts} colors={['#10243A','#C6A35D','#205347','#8B9FB3']}/>
+            <dl>{['cash','receivables','investments','other-assets'].map(id=>{
+              const row=index.get(id)!;
+              return <div key={id}><dt>{row.label}</dt><dd>{statementAmount(row.value)}</dd></div>;
+            })}</dl>
+          </div>
+        </ReportCard>}
+        {view!=='position'&&chartAvailable&&<ReportCard title={t('تحليل البنود المثبتة','Verified items analysis')}>
+          <ComboChart en={en} unit={currency} labels={categories.map(row=>row.label)} first={categories.map(row=>Number(row.value))}
+            second={chartHasPrevious?categories.map(row=>Number(previousIndex.get(row.id)?.value)):undefined}
+            names={[t('الفترة الحالية','Current period'),chartHasPrevious?t('الفترة السابقة','Previous period'):undefined]}/>
+        </ReportCard>}
+        <ReportCard title={t('ملخص وتحليلات','Summary & analysis')} icon="target"><p>{analysis}</p></ReportCard>
+      </div>
+    </StatementReportLayout>
+  </section>;
 }

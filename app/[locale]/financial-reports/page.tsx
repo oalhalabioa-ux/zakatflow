@@ -7,7 +7,10 @@ import {STATEMENT_HUB_TITLES,type StatementHubView} from '../../../lib/financial
 export const dynamic='force-dynamic';
 export default async function FinancialReportsPage({params,searchParams}:{params:Promise<{locale:string}>;searchParams:Promise<{screen?:string;organization?:string;scope?:string;level?:string}>}){
  const[{locale},q]=await Promise.all([params,searchParams]);await requireUser();
- if(q.scope==='PERSONAL')return <PersonalFinancialStatements english={locale==='en'}/>;
+ if(q.scope==='PERSONAL'){
+  const view=q.screen==='income'||q.screen==='position'||q.screen==='cash-flow'?q.screen:'overview';
+  return <PersonalFinancialStatements english={locale==='en'} initialView={view}/>;
+ }
  try{assertLiveStatements()}catch{notFound()}
  const initialGroup=q.level==='GROUP';
  return <FinancialStatementSource live key={`${q.organization??''}:${initialGroup}`} preferredOrg={q.organization} initialGroup={initialGroup} initialEnglish={locale==='en'} initialView={q.screen&&Object.hasOwn(STATEMENT_HUB_TITLES,q.screen)?q.screen as StatementHubView:'overview'}/>;
