@@ -71,7 +71,7 @@ const routeTargets = new Map([
 const moduleControls = {
   assets:['.assets-page','--brand-muted'],
   transactions:['.transactions-page','--tx-muted'],
-  liquidity:['.liquidity-page','--liq-muted'],
+  liquidity:['.finance-workspace[aria-busy="false"] .finance-metrics','--brand-muted'],
   vat:['.vat-page','--vat-muted'],
   'budget-planning':['.budget-plan','--brand-muted'],
   organizations:['.organizations-page','--org-muted'],
@@ -160,7 +160,14 @@ async function verifyWorkspaceRoutes({page,theme,appUrl,root,org,modulePalette})
       const query=new URLSearchParams(route==='assets/dashboard'||route.startsWith('settings')
         ? {scope:'ORGANIZATION',organization:org} : {scope:'PERSONAL'});
       try {
-        const response=await page.goto(`${appUrl}/${locale}/${route}?${query}`,{waitUntil:'domcontentloaded',timeout:12000});
+        const registerRead=route==='liquidity'?page.waitForResponse(response=>{
+          const url=new URL(response.url());
+          return url.pathname==='/api/financial-register'&&url.searchParams.get('scope')==='PERSONAL';
+        },{timeout:12000}):null;
+        const [response,personalRegister]=await Promise.all([
+          page.goto(`${appUrl}/${locale}/${route}?${query}`,{waitUntil:'domcontentloaded',timeout:12000}),
+          registerRead,
+        ]);
         assert.ok(response?.ok(),`HTTP ${response?.status()}`);
         const actual=new URL(page.url()).pathname;
         assert.ok((routeTargets.get(route)??[route]).some(target=>actual===`/${locale}/${target}`),`redirected to ${actual}`);
@@ -171,6 +178,14 @@ async function verifyWorkspaceRoutes({page,theme,appUrl,root,org,modulePalette})
         await module.waitFor({timeout:5000});
         const value=await module.evaluate((element,property)=>getComputedStyle(element).getPropertyValue(property).trim(),token);
         assert.equal(value,modulePalette[paletteKey??'muted'],token);
+        if(personalRegister) {
+          assert.equal(personalRegister.status(),200,'Personal liquidity must load its register');
+          assert.equal(new URL(page.url()).searchParams.get('scope'),'PERSONAL');
+          assert.equal(new URL(personalRegister.url()).searchParams.has('organization_id'),false);
+          const register=await personalRegister.json();
+          assert.deepEqual(register.organizationIds,[]);
+          assert.ok(register.accounts.every(account=>account.organizationId===null),'Personal liquidity must only return personal cash accounts');
+        }
         await verifyVisualFixes({page,workspace,route,theme,locale,width,root});
         verifiedRoutes.push({locale,width,route,actual});
       } catch(error) {
