@@ -26,7 +26,7 @@ const account=[
  {path:'account',marker:'.account-summary',reads:[api('/api/settings')],account:true},
 ];
 const personal=[...shared,
- {path:'financial-reports',marker:'.fs-personal-period small',reads:[api('/api/financial-reporting/personal')]},
+ {path:'financial-reports',marker:'.fs-personal-statements .fs-index-layout',reads:[api('/api/financial-reporting/personal')]},
  {path:'settings/personal-setup',marker:'.personal-setup-panel'},
  ...account,
 ];

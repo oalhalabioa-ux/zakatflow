@@ -191,12 +191,12 @@ async function verifyModulePalette({page,theme,appUrl,root,org}) {
     await page.setViewportSize({width,height:960});
     await page.goto(`${appUrl}/${locale}/financial-reports?scope=PERSONAL`);
     const workspace=page.locator(`.corp-shell.theme-${theme} .corp-content`);
-    const reportTab=workspace.locator('.fs-personal-tabs [aria-selected=true]');
+    const reportTab=workspace.locator('.fs-personal-statement-navigation [aria-current=page]');
     await reportTab.waitFor();
     const [reportColor]=await reportTab.evaluateAll(readColors);
     assert.deepEqual(reportColor,modulePalette
       ? {fg:'rgb(255, 255, 255)',bg:palettes[theme].selected}
-      : {fg:'rgb(16, 36, 58)',bg:'rgb(198, 163, 93)'},`${theme} personal report tab palette`);
+      : {fg:'rgb(16, 36, 58)',bg:'rgb(245, 235, 214)'},`${theme} personal report tab palette`);
     if(!modulePalette)continue;
     assert.ok(contrast(reportColor)>=4.5);
     const actionSurface=await workspace.evaluate(element=>getComputedStyle(element).getPropertyValue('--action-surface').trim());
