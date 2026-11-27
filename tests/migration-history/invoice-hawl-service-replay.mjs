@@ -30,10 +30,14 @@ set search_path=public,extensions;
 `
 await db.exec(migrationSetup)
 const dir=root+'/supabase/migrations'
+const invoiceMigration = '20261127033000_personal_invoice_hawl_assessment.sql'
+// This replay pins the source baseline before the consumer migration.
 for(const migration of (await readdir(dir)).filter(x=>x.endsWith('.sql')).sort()){
+ if (migration === invoiceMigration) break
  try { await db.exec(await readFile(dir+'/'+migration,'utf8')) }
  catch(error){ console.error(migration,error); throw error }
 }
+const invoiceSql = await readFile(dir+'/'+invoiceMigration,'utf8')
 async function loadService(){
 const built=await build({stdin:{contents:`export {calculateAndSaveAssessment,confirmAssessment} from './services/assessments.ts'; export {closeCycle} from './services/zakat-cycles.ts';`,resolveDir:root,sourcefile:'combined-test-entry.ts'},write:false,bundle:true,format:'esm',platform:'node',nodePaths:[root+'/node_modules'],tsconfig:root+'/tsconfig.json',plugins:[{name:'witness-environment',setup(b){
  b.onResolve({filter:/^\.\/(auth|reference-prices|nisab-evidence)$|^@\/lib\/zakat-view-refresh$/},x=>({path:x.path,namespace:'env'}))
@@ -96,6 +100,121 @@ function client(){
 const {calculateAndSaveAssessment,confirmAssessment,closeCycle}=await loadService()
 const start = '2024-02-03', originalDue = '2025-02-03';
 const netTotal = positions => positions.reduce((value, position) => value.plus(position.netBase), new Decimal(0)).toNumber();
+
+async function verifyPopulatedUpgrade(){
+ const actor = randomUUID(), gold = randomUUID(), bank = randomUUID();
+ const replaced = [
+  'private.personal_hawl_continuity(uuid,uuid,date)',
+  'public.personal_zakat_assessment_context(uuid,uuid,date)',
+  'public.save_zakat_assessment_snapshot(jsonb,jsonb,uuid)',
+  'public.close_zakat_cycle(uuid,uuid)'
+ ];
+ const added = ['private.personal_invoice_assessment_positions(uuid,uuid,date,jsonb)',
+  'public.personal_invoice_hawl_positions_at_cutoff(date)'];
+ const definitions = async () => (await db.query(`
+  select p.oid::regprocedure::text signature, pg_get_functiondef(p.oid) definition,
+    pg_get_userbyid(p.proowner) owner, p.proacl acl
+  from pg_proc p where p.oid in (select to_regprocedure(signature) from unnest($1::text[]) source(signature))
+  order by signature`,[replaced])).rows;
+ const state = async () => (await db.query(`
+  select jsonb_build_object(
+   'cycles',(select jsonb_agg(to_jsonb(c) order by id) from public.zakat_hawl_cycles c where c.user_id=$1),
+   'assessments',(select jsonb_agg(to_jsonb(a) order by id) from public.zakat_assessments a where a.user_id=$1),
+   'lines',(select jsonb_agg(to_jsonb(l) order by l.id) from public.zakat_assessment_lines l
+     join public.zakat_assessments a on a.id=l.assessment_id where a.user_id=$1),
+   'transactions',(select jsonb_agg(to_jsonb(t) order by id) from public.transactions t where t.user_id=$1),
+   'lots',(select jsonb_agg(to_jsonb(l) order by id) from public.lots l where l.user_id=$1),
+   'allocations',(select jsonb_agg(to_jsonb(x) order by id) from public.transaction_allocations x where x.user_id=$1),
+   'invoice',(select jsonb_agg(to_jsonb(d) order by id) from public.personal_income_documents d where d.owner_id=$1),
+   'terms',(select jsonb_agg(to_jsonb(h) order by h.id) from public.personal_invoice_hawl_events h
+     join public.personal_income_documents d on d.id=h.document_id where d.owner_id=$1)
+  ) state`,[actor])).rows[0].state;
+ const asOwner = async (run) => {
+  await db.exec('set role authenticated');
+  try { return await run(); } finally { await db.exec('reset role'); }
+ };
+ try {
+  const beforeDefinitions = await definitions();
+  assert.equal(beforeDefinitions.length,replaced.length);
+  await db.query('insert into auth.users(id,email) values($1,$2)',[actor,actor+'@invoice-upgrade.invalid']);
+  const {id:method} = (await db.query("update public.zakat_methods set calendar_type='GREGORIAN' where code='INDEPENDENT_LOTS' returning id")).rows[0];
+  await db.query(`insert into public.profiles(id,base_currency,zakat_method_id,nisab_standard)
+   values($1,'SAR',$2,'GOLD') on conflict(id) do update set base_currency='SAR',zakat_method_id=$2,nisab_standard='GOLD'`,[actor,method]);
+  await db.query(`insert into public.personal_income_issuers(owner_id,vat_number,address,valid_from,valid_until)
+   values($1,'300000000000003','Synthetic address','2023-01-01','2099-12-31')`,[actor]);
+  await db.query(`insert into public.asset_accounts(id,user_id,asset_type,name,currency,unit,ownership_scope,is_zakatable,metadata)
+   values($2,$1,'GOLD','Synthetic gold','SAR','g','PERSONAL',true,'{"karat":24}'),
+         ($3,$1,'BANK','Synthetic bank','SAR','SAR','PERSONAL',true,'{}')`,[actor,gold,bank]);
+  const movement = (await db.query(`insert into public.transactions(user_id,asset_account_id,transaction_type,transaction_date,quantity,currency,base_currency,base_value)
+   values($1,$2,'PURCHASE',$3,90,'SAR','SAR',36000) returning id`,[actor,gold,start])).rows[0].id;
+  await db.query(`insert into public.lots(user_id,asset_account_id,source_transaction_id,acquisition_date,hawl_start_date,
+   original_quantity,remaining_quantity,original_value_base,remaining_value_base) values($1,$2,$3,$4,$4,90,90,36000,36000)`,[actor,gold,movement,start]);
+  const cycle = (await db.query(`insert into public.zakat_hawl_cycles(user_id,cycle_no,nisab_standard,nisab_reached_date,
+   hawl_start_date,hawl_due_date,status,snapshot)
+   values($1,1,'GOLD',$2,$2,$3,'ACTIVE','{"personal_start_policy":"SETTLED_OPENING_V1"}') returning id`,[actor,start,originalDue])).rows[0].id;
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)",[actor]);
+  const invoiceId = await asOwner(async () => {
+   globalThis.qaWitnessUser = () => ({user:{id:actor},supabase:client()});
+   const saved = await calculateAndSaveAssessment({assessment_date:originalDue,nisab_standard:'GOLD',gold_price:400,silver_price:5});
+   assert.equal(saved.assessment.hawl_cycle_id,cycle);
+   await confirmAssessment(saved.assessment.id);
+   await db.exec("insert into public.personal_income_profiles(seller_name,vat_number,effective_from) values('Synthetic practice','300000000000003','2024-01-01')");
+   const invoice = (await db.query(`select to_jsonb(public.record_personal_income_document($1,'SIMPLIFIED','2025-02-04',
+    'Synthetic client','Synthetic service',null,10000,1500)) value`,[randomUUID()])).rows[0].value;
+   await db.query("select public.record_personal_invoice_hawl_event($1,$2,'2025-02-05','GOOD','2025-02-04')",[invoice.id,randomUUID()]);
+   await db.query('select public.transfer_personal_financial_account($1::jsonb)',[JSON.stringify({
+    action:'COLLECT',source_id:invoice.receivable_id,destination_id:bank,request_id:randomUUID(),
+    date:'2025-02-06',amount:4000,notes:'Synthetic pre-upgrade collection'
+   })]);
+   return invoice.id;
+  });
+  await db.query(`insert into public.zakat_hawl_cycles(user_id,cycle_no,nisab_standard,nisab_reached_date,
+   hawl_start_date,hawl_due_date,status,snapshot)
+   values($1,2,'GOLD',$2,$2,'2026-02-03','ACTIVE','{"syntheticExistingCycle":true}')`,[actor,originalDue]);
+  const cutoff='2025-02-06';
+  const source = () => asOwner(async () => (await db.query(
+   'select public.read_personal_invoice_hawl_at_cutoff($1,$2) value',[invoiceId,cutoff])).rows[0].value);
+  const priorSource = await source();
+  const priorState = await state();
+  assert.deepEqual(priorState.cycles.map(item=>item.status).sort(),['ACTIVE','CLOSED']);
+  assert.equal(Number(priorState.assessments[0].zakat_due),900);
+  assert.equal(priorState.transactions.length,4);
+  assert.equal(priorState.allocations.length,1);
+  assert.equal(Number(priorSource.netCollected),3478.26);
+  // Each stage commits separately to exercise the database state after an installed upgrade.
+  await db.exec('begin;\n'+invoiceSql+'\ncommit;');
+  assert.deepEqual(await state(),priorState);
+  assert.deepEqual(await source(),priorSource);
+  assert.deepEqual((await definitions()).map(({signature,owner,acl})=>({signature,owner,acl})),
+   beforeDefinitions.map(({signature,owner,acl})=>({signature,owner,acl})));
+  const roles = (await db.query(`select has_function_privilege('anon',signature,'execute') anon,
+   has_function_privilege('authenticated',signature,'execute') authenticated
+   from unnest($1::text[]) entry(signature)`,[added])).rows;
+  assert.deepEqual(roles,[{anon:false,authenticated:true},{anon:false,authenticated:true}]);
+  const context = await asOwner(async () => (await db.query(
+   'select public.personal_zakat_assessment_context(null,$1,$2) value',[method,cutoff])).rows[0].value);
+  assert.equal(netTotal(context.invoicePositions),10000);
+  assert.equal(Number(context.invoicePositions.find(item=>item.kind==='RECEIVABLE').netBase),6521.74);
+  // Reinstall the four previous definitions before removing the two unused new helpers.
+  await db.exec('begin');
+  for(const item of beforeDefinitions) await db.exec(item.definition);
+  for(const signature of added) await db.exec('drop function '+signature);
+  await db.exec('commit');
+  assert.deepEqual(await definitions(),beforeDefinitions);
+  assert.deepEqual(await state(),priorState);
+  assert.deepEqual(await source(),priorSource);
+  console.log('PASS populated #544 upgrade and function rollback preserve invoices, allocations, ledgers, assessments, open and closed cycles and RPC grants');
+ } finally {
+  await db.exec('reset request.jwt.claim.sub');
+ }
+}
+
+await verifyPopulatedUpgrade();
+if(process.argv.includes('--upgrade-only')){
+ await db.close();
+ process.exit(0);
+}
+await db.exec(invoiceSql);
 for(const code of ['INDEPENDENT_LOTS','UNIFIED_HAWL']){
  for(const scenario of ['CONTINUOUS_GOOD','BAD_TO_GOOD','NISAB_RECOVERY']){
   const reclassified = scenario !== 'CONTINUOUS_GOOD';
