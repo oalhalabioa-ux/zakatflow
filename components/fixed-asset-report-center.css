@@ -87,7 +87,7 @@
 .fixed-table-scroll :is(th, td) { padding: 12px 12px; min-height: 44px; vertical-align: middle; text-align: center; border-bottom: 1px solid var(--fixed-line); }
 .fixed-table-scroll :is(td, th)[data-column]:not([data-column="name"]):not([data-column="class"]) { white-space: nowrap; }
 .fixed-table-scroll :is(td, th):is([data-column="name"], [data-column="class"]) { white-space: normal; overflow-wrap: break-word; text-align: start; min-width: 130px; }
-.fixed-table-scroll :is(td, th):is([data-column="acquisition"], [data-column="date"]) { font-variant-numeric: tabular-nums; direction: ltr; }
+.fixed-table-scroll td:is([data-column="acquisition"], [data-column="date"]) { font-variant-numeric: tabular-nums; direction: ltr; }
 .fixed-table-scroll td:first-child { min-width: 116px; font-weight: 600; }
 .fixed-table-scroll tbody tr:nth-child(even) { background: var(--fixed-row-alt); }
 .fixed-table-scroll th button, .fixed-inline { border: none; background: none; color: inherit; font: inherit; cursor: pointer; padding: 4px; }
@@ -134,7 +134,7 @@
 .fixed-mobile-layout button[aria-pressed="true"] { background: var(--fixed-green); border-color: var(--fixed-green); color: var(--fixed-pale); }
 .fixed-mobile-layout button[aria-pressed="true"] svg { color: var(--fixed-pale); }
 .fixed-assets .fixed-table-scroll { min-width: 0; max-width: 100%; overscroll-behavior-x: contain; }
-.fixed-assets .fixed-table-scroll table { min-width: max-content; }
+.fixed-assets .fixed-table-scroll table { width: 100%; min-width: 100%; table-layout: auto; }
 .fixed-assets .fixed-table-scroll td[data-column="book"] .fixed-amount { font-weight: 700; }
 @media (max-width: 590px) {
  .fixed-assets-heading { align-items: flex-start; }
@@ -153,4 +153,10 @@
  .fixed-assets .fixed-table-scroll[data-mobile-layout="cards"] tr.fixed-empty { display: block; }
  .fixed-assets .fixed-table-scroll[data-mobile-layout="cards"] tr.fixed-empty td { display: block; border: 0; }
  .fixed-assets .fixed-table-scroll[data-mobile-layout="cards"] tr.fixed-empty td::before { display: none; }
+}
+
+/* Keep keyboard-accessible column sorting visible when its header has focus in mobile card mode. */
+@media (max-width: 590px) {
+ .fixed-assets .fixed-table-scroll[data-mobile-layout="cards"] thead:focus-within { position: static; display: block; width: auto; height: auto; margin: 0 0 8px; overflow: auto; clip-path: none; white-space: normal; }
+ .fixed-assets .fixed-table-scroll[data-mobile-layout="cards"] td:is([data-column="acquisition"],[data-column="date"]) { direction: inherit; }
 }
