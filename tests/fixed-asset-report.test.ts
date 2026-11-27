@@ -51,8 +51,35 @@ describe('fixed asset report read model', () => {
   };
   const report = build({...inputs, view: 'exits', to: '2026-06-01'});
   expect(report.summary[0]).toMatchObject({gross: '0', accumulated: '0', book: '0', depreciation: '0'});
-  expect(report.movements[0]).toMatchObject({cost: '20000', proceeds: '25000', gain: '5000', posted: true});
+  expect(report.movements[0]).toMatchObject({removedGross: '80000', removedDepreciation: '60000', cost: '20000', proceeds: '25000', gain: '5000', posted: true});
   expect(build({...inputs, view: 'exits', to: '2026-05-31'}).movements).toEqual([]);
+ });
+
+ it('uses the in-use balances at each partial disposal, retaining the recorded book value', () => {
+  const dep = operation('dep', 'machine', '2026-01-01', 'DEPRECIATION', {asset_effect_base: '-60000'});
+  const sale = operation('sale', 'machine', '2026-02-01', 'SALE', {cost_basis_base: '10000'});
+  const disposal = operation('out', 'machine', '2026-03-01', 'DISPOSAL', {cost_basis_base: '10000'});
+  const report = build({assets: [asset('machine')], view: 'exits',
+   lots: [lot('machine', '80000', '0', {remaining_quantity: '0'})],
+   operations: [disposal, dep, sale],
+   commands: [posted(dep, '80000', '20000'), posted(sale, '20000', '10000', '1', '0.5'), posted(disposal, '10000', '0', '0.5', '0')]});
+  expect(report.movements).toMatchObject([
+   {id: 'out', removedGross: '40000', removedDepreciation: '30000', cost: '10000'},
+   {id: 'sale', removedGross: '40000', removedDepreciation: '30000', cost: '10000'},
+  ]);
+ });
+
+ it('withholds the exit breakdown when opening balances or an unproven reduction obscure the basis', () => {
+  const disposal = operation('out', 'machine', '2026-03-01', 'DISPOSAL', {cost_basis_base: '20000'});
+  const inputs = {assets: [asset('machine')], view: 'exits' as const, operations: [disposal],
+   commands: [posted(disposal, '20000', '0', '1', '0')]};
+  const opening = lot('machine', '20000', '0', {remaining_quantity: '0'});
+  opening.source!.transaction_type = 'OPENING_BALANCE';
+  const unexplained = lot('machine', '80000', '0', {remaining_quantity: '0'});
+  for (const evidence of [opening, unexplained]) {
+   expect(build({...inputs, lots: [evidence]}).movements[0])
+    .toMatchObject({removedGross: null, removedDepreciation: null, cost: '20000'});
+  }
  });
 
  it('allocates accumulated depreciation on partial sale and excludes a reversed posting', () => {

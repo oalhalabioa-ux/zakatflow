@@ -48,29 +48,67 @@ function operationKind(tx: FixedOperation) {
  return kind === 'SALE' || kind === 'DISPOSAL' || kind === 'DEPRECIATION' ? kind : null;
 }
 
-function lotDepreciation(operations: FixedOperation[], commands: Map<string, FixedCommand>) {
+function lotDepreciation(operations: FixedOperation[], commands: Map<string, FixedCommand>, exitLots?: Map<string, FixedLot>) {
  const amounts = new Map<string, DepreciationEvidence>();
- const ordered = operations.map(tx => ({kind: operationKind(tx), command: commands.get(tx.id)}))
-  .sort((a, b) => (a.command?.applied_at ?? '').localeCompare(b.command?.applied_at ?? ''));
- for (const {kind, command} of ordered) {
-  if (!command || !Array.isArray(command.lot_states)) continue;
+ const exits = new Map<string, {gross: string; accumulated: string}>();
+ const ordered = operations.flatMap(tx => {
+  const command = commands.get(tx.id);
+  const kind = operationKind(tx);
+  return command && kind ? [{tx, kind, command}] : [];
+ }).sort((a, b) => a.command.applied_at.localeCompare(b.command.applied_at) || a.command.id.localeCompare(b.command.id));
+ for (const {tx, kind, command} of ordered) {
+  if (!Array.isArray(command.lot_states)) continue;
+  const isExit = kind !== 'DEPRECIATION';
+  let removedGross = zero(), removedDepreciation = zero(), removedBook = zero();
+  let complete = Boolean(exitLots && isExit && command.lot_states.length);
+  let removedQuantity = zero();
+  const seen = new Set<string>();
   for (const state of command.lot_states) {
    const amount = amounts.get(state.id) ?? {balance: zero(), valid: true};
    const quantity = new Money(state.quantity);
    const afterQuantity = new Money(state.after_quantity);
    const valueChange = new Money(state.value).sub(state.after_value);
-   if (quantity.lte(0) || afterQuantity.lt(0) || afterQuantity.gt(quantity) || valueChange.lt(0)) {
+   if (seen.has(state.id) || quantity.lte(0) || afterQuantity.lt(0) || afterQuantity.gt(quantity) || valueChange.lt(0)) {
     amount.valid = false;
-   } else if (kind === 'DEPRECIATION') {
+    complete = false;
+   } else if (!isExit) {
     if (!afterQuantity.eq(quantity)) amount.valid = false;
     amount.balance = amount.balance.add(valueChange);
    } else {
-    amount.balance = amount.balance.mul(afterQuantity).div(quantity);
+    const fraction = quantity.sub(afterQuantity).div(quantity);
+    const depreciation = amount.balance.mul(fraction);
+    if (exitLots && complete && fraction.gt(0)) {
+     removedQuantity = removedQuantity.add(quantity.sub(afterQuantity));
+     const lot = exitLots.get(state.id);
+     const gross = lot?.source?.transaction_type === 'PURCHASE' && lot.source.base_currency === tx.base_currency
+       && new Money(lot.original_quantity).gte(quantity)
+      ? new Money(lot.original_value_base).mul(quantity).div(lot.original_quantity) : null;
+     if (!gross || !amount.valid || gross.lt(amount.balance)
+       || gross.sub(amount.balance).sub(state.value).abs().gt(tolerance)
+       || gross.mul(fraction).sub(depreciation).sub(valueChange).abs().gt(tolerance)) {
+      complete = false;
+     } else {
+      removedGross = removedGross.add(gross.mul(fraction));
+      removedDepreciation = removedDepreciation.add(depreciation);
+      removedBook = removedBook.add(valueChange);
+     }
+    }
+    amount.balance = amount.balance.sub(depreciation);
    }
+   seen.add(state.id);
    amounts.set(state.id, amount);
   }
+  const exitBook = complete ? exitBookValue(tx) : null;
+  if (exitBook != null && removedQuantity.gt(0) && removedBook.sub(exitBook).abs().lte(tolerance)) {
+   exits.set(tx.id, {gross: removedGross.toDecimalPlaces(8).toString(), accumulated: removedDepreciation.toDecimalPlaces(8).toString()});
+  }
  }
- return amounts;
+ return {amounts, exits};
+}
+
+function exitBookValue(tx: FixedOperation) {
+ const effect = tx.metadata.asset_effect_base;
+ return tx.metadata.cost_basis_base ?? tx.metadata.disposed_cost_base ?? (effect == null ? null : new Money(effect).negated().toString());
 }
 
 function balances(lots: FixedLot[], evidence: Map<string, DepreciationEvidence>, currency: string) {
@@ -121,8 +159,9 @@ export function buildFixedAssetReport(input: {
   const allLots = lots.get(asset.id) ?? [];
   const recognized = allLots.filter(lot => !lot.metadata.recognition_pending && !lot.source?.metadata.asset_deleted);
   const assetOperations = operations.get(asset.id) ?? [];
-  const evidence = lotDepreciation(assetOperations, commands);
-  const current = recognized.length ? balances(recognized, evidence, currency) : {gross: null, accumulated: null, book: null};
+  const exitLots = !input.personal && input.view === 'exits' ? new Map(recognized.map(lot => [lot.id, lot])) : undefined;
+  const evidence = lotDepreciation(assetOperations, commands, exitLots);
+  const current = recognized.length ? balances(recognized, evidence.amounts, currency) : {gross: null, accumulated: null, book: null};
   const first = recognized.reduce<FixedLot | null>((earliest, lot) =>
    !earliest || lot.acquisition_date < earliest.acquisition_date ? lot : earliest, null);
   const state = recognized.length === 0 ? (allLots.some(lot => lot.metadata.recognition_pending) ? 'PENDING' : 'UNVERIFIED')
@@ -140,9 +179,11 @@ export function buildFixedAssetReport(input: {
    // Lifecycle commands only populate transaction_id after posting; keep uncovered effects unknown.
    const posted = input.personal || commands.has(tx.id);
    const cost = kind === 'DEPRECIATION' ? (effect == null ? null : new Money(effect).negated().toString())
-    : tx.metadata.cost_basis_base ?? tx.metadata.disposed_cost_base ?? (effect == null ? null : new Money(effect).negated().toString());
+    : exitBookValue(tx);
+   const split = matchingCurrency ? evidence.exits.get(tx.id) : undefined;
    movements.push({id: tx.id, assetId: asset.id, assetName: asset.name, reference: tx.reference, kind,
     date: tx.transaction_date, currency, organization: asset.organization_id, posted,
+    removedGross: split?.gross ?? null, removedDepreciation: split?.accumulated ?? null,
     cost: posted && matchingCurrency && cost != null ? String(cost) : null,
     proceeds: posted && matchingCurrency && kind === 'SALE' ? String(tx.base_value) : null,
     gain: posted && matchingCurrency && tx.metadata.realized_gain_base != null ? String(tx.metadata.realized_gain_base) : null,

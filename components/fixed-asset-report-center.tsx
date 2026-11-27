@@ -115,7 +115,9 @@ export default function FixedAssetReportCenter({ar, selection, catalog, organiza
  ] : [
   ['name', t('الأصل', 'Asset')], ['date', t('التاريخ', 'Date')], ['kind', t('الحركة', 'Movement')],
   ['cost', view === 'exits' ? t('الدفترية المستبعدة', 'Book value removed') : t('إهلاك مرحّل', 'Posted amount')],
-  ...(view === 'exits' ? [['proceeds', t('المقابل', 'Proceeds')], ['gain', t('نتيجة سند البيع', 'Recorded sale result')]] : []),
+  ...(view === 'exits' ? [
+   ...(!personal ? [['removedGross', t('التكلفة المستبعدة', 'Gross cost removed')], ['removedDepreciation', t('مجمع الإهلاك المستبعد', 'Accumulated depreciation removed')]] : []),
+   ['proceeds', t('المقابل', 'Proceeds')], ['gain', t('نتيجة سند البيع', 'Recorded sale result')]] : []),
   ['state', t('الحالة', 'Status')],
  ];
  const visible = columns.filter(([key]) => !hidden.includes(key));
@@ -131,6 +133,7 @@ export default function FixedAssetReportCenter({ar, selection, catalog, organiza
    accumulated: measure(row.accumulated, row.currency), book: measure(row.book, row.currency), state: stateLabel(row.state), source: row.sourceId ?? '',
   })) : report.movements.map(row => ({
    name: row.assetName, date: row.date, kind: kindLabel(row.kind), cost: measure(row.cost, row.currency), proceeds: measure(row.proceeds, row.currency),
+   removedGross: measure(row.removedGross, row.currency), removedDepreciation: measure(row.removedDepreciation, row.currency),
    gain: measure(row.gain, row.currency), state: row.posted ? t('مسجل', 'Recorded') : t('بحاجة إلى دليل', 'Unverified'), source: row.id,
   }));
   return [visible.map(([, label]) => label).concat(t('مرجع المصدر', 'Source ID')),
@@ -177,6 +180,7 @@ export default function FixedAssetReportCenter({ar, selection, catalog, organiza
   },
  })) : data?.movements.map(row => ({
   id: row.id, source: row.id, cells: {name: row.assetName, date: row.date, kind: kindLabel(row.kind), cost: amount(row.cost, row.currency),
+   removedGross: amount(row.removedGross, row.currency), removedDepreciation: amount(row.removedDepreciation, row.currency),
    proceeds: amount(row.proceeds, row.currency), gain: amount(row.gain, row.currency),
    state: <span data-state={row.posted ? 'ACTIVE' : 'UNVERIFIED'} className="fixed-state">{row.posted ? t('مسجل', 'Recorded') : t('بحاجة إلى دليل', 'Unverified')}</span>,
   },
