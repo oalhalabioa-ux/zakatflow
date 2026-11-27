@@ -19,6 +19,7 @@ do $$
 declare
  invoice public.personal_income_documents;
  precision_invoice public.personal_income_documents;
+ rounding_invoice public.personal_income_documents;
  bank uuid:='b4630400-0000-4000-8000-000000000003';
  payload jsonb;
  receipt jsonb;
@@ -26,6 +27,8 @@ declare
  final jsonb;
  entry jsonb;
  expected_net numeric;
+ first_rounding_entry jsonb;
+ second_rounding_entry jsonb;
  gross_seen numeric:=0;
  net_seen numeric:=0;
  vat_seen numeric:=0;
@@ -72,6 +75,23 @@ begin
  assert public.read_personal_invoice_collection_lots_at_cutoff(invoice.id,'2026-02-03')=final;
  assert (public.read_personal_invoice_collection_lots_at_cutoff(invoice.id,'2026-02-04')->'rows')=final->'rows';
  assert (public.personal_income_period('2026-02-01','2026-02-04')->>'count')::int=1;
+
+ -- Work 04's two same-day receipts share a posting timestamp and differ by one halala when the order changes.
+ rounding_invoice:=public.record_personal_income_document(gen_random_uuid(),'SIMPLIFIED','2026-02-01',
+   'Same-day rounding client','Consultation',null,10000,1500);
+ perform public.transfer_personal_financial_account(payload||jsonb_build_object('source_id',rounding_invoice.receivable_id,
+   'request_id',gen_random_uuid(),'amount',4000));
+ perform public.transfer_personal_financial_account(payload||jsonb_build_object('source_id',rounding_invoice.receivable_id,
+   'destination_id','b4630400-0000-4000-8000-000000000004','request_id',gen_random_uuid(),'amount',1000.08));
+ entry:=public.read_personal_invoice_collection_lots_at_cutoff(rounding_invoice.id,'2026-02-02');
+ assert entry->>'status'='VERIFIED' and (entry->>'netCollected')::numeric=4347.90;
+ first_rounding_entry:=entry->'rows'->0;
+ second_rounding_entry:=entry->'rows'->1;
+ assert first_rounding_entry->>'postedAt'=second_rounding_entry->>'postedAt';
+ assert (first_rounding_entry->>'roundingOrder')::int=1 and (second_rounding_entry->>'roundingOrder')::int=2;
+ assert (first_rounding_entry->>'outTransactionId')::uuid<(second_rounding_entry->>'outTransactionId')::uuid;
+ assert (first_rounding_entry->>'netCollected')::numeric=round((first_rounding_entry->>'grossCollected')::numeric*10000/11500,2);
+ assert (second_rounding_entry->>'netCollected')::numeric=4347.90-(first_rounding_entry->>'netCollected')::numeric;
 
  precision_invoice:=public.record_personal_income_document(gen_random_uuid(),'SIMPLIFIED','2026-02-01',
    'Fractional collection client','Consultation',null,10000,1500);

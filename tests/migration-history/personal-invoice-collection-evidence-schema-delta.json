@@ -4,7 +4,7 @@
     {
       "category": "function",
       "object_key": "public.read_personal_invoice_collection_lots_at_cutoff(p_document uuid, p_as_of date)",
-      "fingerprint": "0d9f599b141f2cb85f445eecafad0540"
+      "fingerprint": "7751573295ac1569880628e5ab8edc4f"
     }
   ]
 }

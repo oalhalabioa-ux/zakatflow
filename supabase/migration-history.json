@@ -2310,8 +2310,8 @@
       "path": "supabase/migrations/20261127021500_personal_invoice_collection_evidence.sql",
       "version": "20261127021500",
       "name": "personal_invoice_collection_evidence",
-      "expected_md5": "467296283dcf135ff6009404345fb604",
-      "file_sha256": "f9c1942d317bcafa3b8a6926a86bf11a58549d7f2a5caacec901dba39195a542",
+      "expected_md5": "8e52d531281a24dd880e1b5b8f16f2a2",
+      "file_sha256": "dceda325e1679cfe491eb204e5ce6c0e95f653f149ec67ca8643341db18aa7d5",
       "validation_project": "Disposable per-receipt invoice collection evidence, stable gross/net/VAT basis and ownership"
     }
   ]

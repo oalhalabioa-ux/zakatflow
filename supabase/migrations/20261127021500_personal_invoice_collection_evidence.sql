@@ -73,7 +73,8 @@ begin
       select 1 from public.lots extra where extra.source_transaction_id=receipt.id and extra.id<>l.id
     )
   ), cumulative as (
-    select v.*,sum(base_value) over(order by transaction_date,created_at,id rows unbounded preceding) gross_to_date
+    select v.*,row_number() over(order by transaction_date,created_at,id) receipt_order,
+      sum(base_value) over(order by transaction_date,created_at,id rows unbounded preceding) gross_to_date
     from verified v
   ), allocated as (
     select c.*,round(invoice.net_amount*gross_to_date/invoice.gross_amount,2)
@@ -86,7 +87,8 @@ begin
     coalesce(jsonb_agg(jsonb_build_object(
       'transferId',transfer_id,'outTransactionId',id,'inTransactionId',in_id,
       'sourceReceivableLotId',receivable_lot_id,'bankLotId',bank_lot_id,'bankAccountId',bank_account_id,
-      'collectedOn',transaction_date,'grossCollected',base_value,'netCollected',net_amount,'taxCollected',base_value-net_amount
+      'collectedOn',transaction_date,'postedAt',created_at,'roundingOrder',receipt_order,
+      'grossCollected',base_value,'netCollected',net_amount,'taxCollected',base_value-net_amount
     ) order by transaction_date,created_at,id),'[]'::jsonb)
     into expected_count,matched_count,unique_outflows,unique_receipts,unique_bank_lots,unique_transfers,gross_sum,subcent,receipt_rows
     from allocated;
