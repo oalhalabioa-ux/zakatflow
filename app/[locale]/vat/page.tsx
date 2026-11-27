@@ -1,4 +1,5 @@
 'use client';
+import PersonalIncomeWorkspace from '@/components/PersonalIncomeWorkspace';
 import TopbarCompanyLevel from '@/components/TopbarGroupSwitch';
 import WorkspaceOrganizationPicker from '@/components/WorkspaceOrganizationPicker';
 import {requestedOrganization as resolveRequestedOrganization,rememberedOrganization} from '@/lib/workspace-organization';
@@ -189,6 +190,7 @@ type VatPageProps = { params: Promise<{ locale: string }>; searchParams: Promise
 export default function VatManagement(props: VatPageProps) {
   const { locale } = use(props.params);
   const { scope } = use(props.searchParams);
+  if (scope === 'PERSONAL' && process.env.NEXT_PUBLIC_PERSONAL_INCOME === 'true') return <PersonalIncomeWorkspace ar={locale === 'ar'} />;
   if (scope === 'ORGANIZATION') return <OrganizationVatWorkspace {...props} />;
   const ar = locale === 'ar';
   return <main className="container vat-page" dir={ar ? 'rtl' : 'ltr'}>

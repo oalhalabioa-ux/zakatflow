@@ -1,0 +1,10 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.personal_hawl_continuity(p_cycle uuid, p_method uuid, p_cutoff date)",
+      "fingerprint": "cb8948bcd461b0e0e9ce7df1650cb577"
+    }
+  ]
+}

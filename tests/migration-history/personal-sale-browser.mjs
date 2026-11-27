@@ -5,6 +5,7 @@ import {execFileSync,spawn} from 'node:child_process';
 import {setTimeout as delay} from 'node:timers/promises';
 import {createClient} from '@supabase/supabase-js';
 import {createServerClient} from '@supabase/ssr';
+import {verifyInvoiceTerms} from './personal-invoice-terms-browser.mjs';
 
 const root = process.env.HISTORY_QA_WORKDIR;
 assert.ok(root && process.env.RUNNER_TEMP && root.startsWith(process.env.RUNNER_TEMP+'/'));
@@ -77,7 +78,7 @@ try {
   const fixture=await seed(owner.client,owner.user);
   server=spawn(process.execPath,['node_modules/next/dist/bin/next','dev','-H','127.0.0.1','-p','3000'],{
     env:{...process.env,NEXT_PUBLIC_SUPABASE_URL:status.API_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY:status.ANON_KEY,
-      NEXT_PUBLIC_APP_URL:app,NEXT_PUBLIC_APP_ENV:'test',NEXT_TELEMETRY_DISABLED:'1',SUPABASE_SERVICE_ROLE_KEY:'',RESEND_API_KEY:''},
+      NEXT_PUBLIC_PERSONAL_INCOME:'true',NEXT_PUBLIC_APP_URL:app,NEXT_PUBLIC_APP_ENV:'test',NEXT_TELEMETRY_DISABLED:'1',SUPABASE_SERVICE_ROLE_KEY:'',RESEND_API_KEY:''},
     stdio:'inherit',
   });
   let ready=false;
@@ -295,6 +296,7 @@ try {
   const foreign=await openContext(browser,other.cookies,{width:1440,height:960});
   const inaccessible=await foreign.request.get(app+'/api/transactions/'+corrected.id);
   assert.equal(inaccessible.status(),404);
+  await verifyInvoiceTerms({app,owner,ownerContext:context,otherContext:foreign,value});
   await foreign.close();
   await context.close();
   console.log('PASS authenticated AR mobile sale correction, one filter per field, saved balances, reload and user isolation');

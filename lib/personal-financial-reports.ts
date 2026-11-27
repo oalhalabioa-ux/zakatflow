@@ -17,6 +17,7 @@ export const PERSONAL_DEFAULT_CHART:ReadonlyArray<{id:PersonalCategory;code:stri
 ] as const;
 
 export type PersonalReport={
+ professionalIncome?:{currency:string;net:string;tax:string;count:number};
  scope:'PERSONAL';basis:'CURRENT_PERSONAL_REGISTER_ESTIMATE';asOf:string;from:string;to:string;baseCurrency:string;
  categories:Array<{id:PersonalCategory;code:string;ar:string;en:string;currency:string;amount:string;kind:'ASSET'|'LIABILITY'}>;
  positions:Array<{currency:string;cash:string;receivables:string;otherAssets:string;investments:string;liabilities:string;netWorth:string|null;complete:boolean;unreconciled:number;unallocated:string}>;
