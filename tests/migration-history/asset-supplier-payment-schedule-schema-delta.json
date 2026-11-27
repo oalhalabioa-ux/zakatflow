@@ -1,0 +1,170 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "private.asset_supplier_payment_schedules.acquired_on",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "private.asset_supplier_payment_schedules.asset_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.asset_supplier_payment_schedules.currency",
+      "fingerprint": "926c1cdecd24d6e669b1ade47f6a224e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.asset_supplier_payment_schedules.document_total",
+      "fingerprint": "a139b2cff82e67c9224ae20fd7e11e3e"
+    },
+    {
+      "category": "column",
+      "object_key": "private.asset_supplier_payment_schedules.event_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.asset_supplier_payment_schedules.first_due",
+      "fingerprint": "61948d6ec9949117a7066a8070022c24"
+    },
+    {
+      "category": "column",
+      "object_key": "private.asset_supplier_payment_schedules.obligation_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.asset_supplier_payment_schedules.organization_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.asset_supplier_payment_schedules.purchase_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "private.asset_supplier_payment_schedules.terms",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.asset_supplier_payment_schedules.asset_supplier_payment_schedu_obligation_id_organization_i_fkey",
+      "fingerprint": "21ec6a863a9f30e4f04a40231dd485ee"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.asset_supplier_payment_schedules.asset_supplier_payment_schedules_asset_id_fkey",
+      "fingerprint": "39ba71dd8e066598b6b61ef7df4b3f8d"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.asset_supplier_payment_schedules.asset_supplier_payment_schedules_asset_id_key",
+      "fingerprint": "10990ee3dc61b9ea09375275f08a5eb3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.asset_supplier_payment_schedules.asset_supplier_payment_schedules_currency_fkey",
+      "fingerprint": "0edbb66accb3ccfbaf03275bc21ee06d"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.asset_supplier_payment_schedules.asset_supplier_payment_schedules_document_total_check",
+      "fingerprint": "bc70c9a552c5ce583ef9856cb646d8bb"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.asset_supplier_payment_schedules.asset_supplier_payment_schedules_event_id_organization_id_fkey",
+      "fingerprint": "5fc73f459ce93d20406fc3a126dd99da"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.asset_supplier_payment_schedules.asset_supplier_payment_schedules_obligation_id_key",
+      "fingerprint": "c2aa4e28a5d7f08f7289c9f00a2998ef"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.asset_supplier_payment_schedules.asset_supplier_payment_schedules_pkey",
+      "fingerprint": "1e909a41847e2371a95110af439aa15e"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.asset_supplier_payment_schedules.asset_supplier_payment_schedules_purchase_id_fkey",
+      "fingerprint": "ce7e8a27d0d102e5870402873dfccaeb"
+    },
+    {
+      "category": "constraint",
+      "object_key": "private.asset_supplier_payment_schedules.asset_supplier_payment_schedules_purchase_id_key",
+      "fingerprint": "213b99c9105e05354c123bceab1744de"
+    },
+    {
+      "category": "function",
+      "object_key": "private.bind_asset_supplier_payment_schedule(p_purchase uuid, p_terms jsonb)",
+      "fingerprint": "e2a92b8a5bcfc2fba0cd9b897313dbd4"
+    },
+    {
+      "category": "function",
+      "object_key": "private.guard_asset_supplier_schedule_amount()",
+      "fingerprint": "0891d7b1d349a042559b3371c0b65249"
+    },
+    {
+      "category": "function",
+      "object_key": "private.guard_asset_supplier_schedule_post()",
+      "fingerprint": "b60083cd86491dfa8956966a71a2d44a"
+    },
+    {
+      "category": "function",
+      "object_key": "public.create_scheduled_supplier_asset(p_asset jsonb, p_request_id uuid, p_terms jsonb)",
+      "fingerprint": "f7594762d49543a911f883bd317950c8"
+    },
+    {
+      "category": "function",
+      "object_key": "public.read_asset_supplier_schedule(p_asset_id uuid)",
+      "fingerprint": "de3384a98b349792c0cf861aabb0911c"
+    },
+    {
+      "category": "index",
+      "object_key": "private.asset_supplier_payment_schedules.asset_supplier_payment_schedules_asset_id_key",
+      "fingerprint": "9a2ae32e176979d6a9e0f0ab772c86ce"
+    },
+    {
+      "category": "index",
+      "object_key": "private.asset_supplier_payment_schedules.asset_supplier_payment_schedules_obligation_id_key",
+      "fingerprint": "d2b068772f0847ec3a7af169f77be868"
+    },
+    {
+      "category": "index",
+      "object_key": "private.asset_supplier_payment_schedules.asset_supplier_payment_schedules_pkey",
+      "fingerprint": "7590df5974658964ee142674ad663c3b"
+    },
+    {
+      "category": "index",
+      "object_key": "private.asset_supplier_payment_schedules.asset_supplier_payment_schedules_purchase_id_key",
+      "fingerprint": "49cd6907493a6ad42b66c3f255dd19c9"
+    },
+    {
+      "category": "policy",
+      "object_key": "private.asset_supplier_payment_schedules.asset_supplier_payment_schedules_read",
+      "fingerprint": "4229e6fa6f08f52ad10487069235d91d"
+    },
+    {
+      "category": "rls",
+      "object_key": "private.asset_supplier_payment_schedules",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.financial_event_obligations.asset_supplier_schedule_amount_guard",
+      "fingerprint": "606e87710c5786377fbd7d77c71f9bf8"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.financial_events.asset_supplier_schedule_post_guard",
+      "fingerprint": "ecab8d097261dea66b2e928acfe93fc2"
+    }
+  ]
+}
