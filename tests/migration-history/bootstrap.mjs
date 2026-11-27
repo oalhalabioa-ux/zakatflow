@@ -32,6 +32,25 @@ try{
   console.log('PERSONAL_PURCHASE_FUNDING_FX '+JSON.stringify(evidence));
   await writeFile(new URL('tests/migration-history/personal-purchase-funding-result.json',root),JSON.stringify(evidence,null,2)+'\n');
  });
+ await check('registered two-currency group, dated FX evidence, ambiguity and source reversal',async()=>{
+  const output=sql(await load('tests/sql/v2-reporting-source-contracts.sql'));
+  const evidence=JSON.parse(output.split('\n').at(-1));
+  assert.equal(evidence.revaluation.adjustment,15);
+  assert.equal(evidence.revaluation.earlierReadUnchanged,true);
+  assert.equal(evidence.fxPolicy.selected,3.9);
+  assert.equal(evidence.personal.payableAtCutoff,70);
+  assert.equal(evidence.foreignTenantDenied,true);
+  assert.deepEqual([evidence.group.parentCurrency,evidence.group.subsidiaryCurrency,evidence.group.controlPercent],['USD','SAR',80]);
+  assert.deepEqual(evidence.group.rates,{prior:0.26,transaction:0.26,closing:0.28,reversal:0.24});
+  assert.equal(evidence.group.ambiguousBindingRejected,true);
+  assert.equal(evidence.group.sourceRollbackReconciled,true);
+  assert.equal(evidence.group.databaseRolledBack,true);
+  const ids=[evidence.group.parent,evidence.group.subsidiary];
+  assert.ok(ids.every(id=>/^[0-9a-f-]{36}$/.test(id)));
+  assert.equal(sql("select count(*) from public.organizations where id in ('"+ids.join("','")+"')"),'0');
+  await writeFile(new URL('tests/migration-history/v2-reporting-source-result.json',root),JSON.stringify(evidence,null,2)+'\n');
+  console.log('V2_REPORTING_SOURCE_CONTRACTS '+JSON.stringify(evidence));
+ });
  await check('all canonical migration versions applied to a fresh local database',async()=>{
   const versions=JSON.parse(sql("select coalesce(jsonb_agg(version order by version),'[]') from supabase_migrations.schema_migrations"));
   assert.deepEqual(versions,manifest.entries.map(x=>x.version).sort());
@@ -119,6 +138,8 @@ try{
    'personal-first-hawl-schema-delta',
    'personal-pooled-hawl-schema-delta',
    'personal-hawl-daily-continuity-schema-delta',
+   'v2-reporting-source-contracts-schema-delta',
+   'ambiguous-fx-revaluation-schema-delta',
   ];
   const deltas=await Promise.all(deltaNames.map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
   for(const delta of deltas){
