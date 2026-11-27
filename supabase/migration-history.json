@@ -2321,6 +2321,14 @@
       "expected_md5": "8e52d531281a24dd880e1b5b8f16f2a2",
       "file_sha256": "dceda325e1679cfe491eb204e5ce6c0e95f653f149ec67ca8643341db18aa7d5",
       "validation_project": "Disposable per-receipt invoice collection evidence, stable gross/net/VAT basis and ownership"
+    },
+    {
+      "path": "supabase/migrations/20261127033000_personal_invoice_hawl_assessment.sql",
+      "version": "20261127033000",
+      "name": "personal_invoice_hawl_assessment",
+      "expected_md5": "1397168a8bbbc52cf81a09e7f1186774",
+      "file_sha256": "1c8c9abfba6b570fc327fe9a4e5a6be8ac45ed0bf8fc81372dac3d7682280461",
+      "validation_project": "Disposable first personal Hawl calculation, dated invoice and FIFO receipt basis, snapshot validation and final coverage in both methods"
     }
   ]
 }

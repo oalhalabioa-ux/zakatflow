@@ -21,6 +21,10 @@ try{
  await check('personal Hawl cutoff retains only assets included on that date',async()=>{
   sql(await load('tests/sql/personal-hawl-cutoff-asset-scope.sql'));
  });
+ await check('invoice net principal and FIFO descendants stay reconciled at historical cutoffs',async()=>{
+  const output=sql(await load('tests/sql/personal-invoice-hawl-positions.sql'));
+  assert.match(output,/"fullNet": 10000/);
+ });
  await check('invoice cash receipt lots prove the original gross/net/VAT split and cutoff',async()=>{
   sql(await load('tests/sql/personal-invoice-collection-evidence.sql'));
  });
@@ -140,6 +144,7 @@ try{
    'personal-income-receivable-cutoff-schema-delta',
    'personal-invoice-hawl-evidence-schema-delta',
    'personal-invoice-collection-evidence-schema-delta',
+   'personal-invoice-hawl-assessment-schema-delta',
   ];
   const deltas=await Promise.all(deltaNames.map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
   for(const delta of deltas){
