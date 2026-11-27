@@ -19,6 +19,8 @@ const byMetric: Record<FixedMetric, [string, string]> = {
  maintenance: ['صيانة الفترة', 'Period maintenance'],
  improvements: ['التحسينات الرأسمالية', 'Capital improvements'],
 };
+const metricIcons = {gross: 'details', accumulated: 'history', book: 'trend', depreciation: 'operations', maintenance: 'history', improvements: 'plus'} as const;
+const viewIcons = {register: 'details', depreciation: 'history', exits: 'reverse'} as const;
 const views = [
  ['register', 'سجل الأصول', 'Asset register'],
  ['depreciation', 'الإهلاك المرحّل', 'Posted depreciation'],
@@ -44,6 +46,7 @@ export default function FixedAssetReportCenter({ar, selection, catalog, organiza
  const [offset, setOffset] = useState(0);
  const [sort, setSort] = useState({column: 'name', order: 'asc'});
  const [hidden, setHidden] = useState<string[]>([]);
+ const [fullMobileTable, setFullMobileTable] = useState(false);
  const [source, setSource] = useState<string | null>(null);
  const [revision, setRevision] = useState(0);
  const [exporting, setExporting] = useState(false);
@@ -101,7 +104,7 @@ export default function FixedAssetReportCenter({ar, selection, catalog, organiza
  const formatter = useMemo(() => new Intl.NumberFormat(ar ? 'ar-SA' : 'en-GB', {maximumFractionDigits: 2}), [ar]);
  const currencyText = (currency: string) => ar && currency === 'SAR' ? 'ر.س' : currency;
  const amount = (value: string | null, currency: string) => value == null ? '—' : (
-  <bdi className="fixed-amount">{formatter.format(value as `${number}`)} <small>{currencyText(currency)}</small></bdi>
+  <bdi className="fixed-amount" dir="ltr">{formatter.format(value as `${number}`)} <small>{currencyText(currency)}</small></bdi>
  );
  const kindLabel = (kind: string) => kind === 'SALE' ? t('بيع', 'Sale') : kind === 'DISPOSAL' ? t('استبعاد', 'Disposal') : t('إهلاك', 'Depreciation');
  const stateLabel = (state: string) => state === 'ACTIVE' ? t('قائم', 'In register') : state === 'EXITED' ? t('خارج السجل', 'Exited') :
@@ -188,20 +191,20 @@ export default function FixedAssetReportCenter({ar, selection, catalog, organiza
  return <section className="fixed-assets" aria-labelledby="fixed-assets-title">
   <header className="fixed-assets-heading">
    <div className="fixed-heading-icon" aria-hidden="true"><ActionIconGlyph name="details"/></div>
-   <div><p className="fixed-scope">{scopeLabel}</p><h2 id="fixed-assets-title">{t('مركز إدارة وتقارير الأصول الثابتة', 'Fixed assets management & reporting')}</h2></div>
+   <div className="fixed-heading-copy"><p className="fixed-scope">{scopeLabel}</p><h2 id="fixed-assets-title">{t('مركز إدارة وتقارير الأصول الثابتة', 'Fixed assets management & reporting')}</h2><p className="fixed-heading-description">{t('سجل الأصول والإهلاك المرحّل وحركات الاستبعاد من مصادرها المعتمدة.', 'Asset register, posted depreciation and disposal movements from their authorized sources.')}</p></div>
   </header>
   {!scopeParams && dateValid && <p className="fixed-message">{t('اختر المؤسسة من الشريط العلوي لعرض أصولها.', 'Choose an organization from the top bar to view its assets.')}</p>}
   {data?.summary.map(summary => <div className="fixed-kpi-group" key={summary.currency}>
    <div className="fixed-kpi-meta"><strong>{summary.currency}</strong><span>{formatter.format(summary.recognized)} {t('أصل مسجل', 'recorded assets')}</span></div>
    <div className="fixed-kpis">{Object.keys(byMetric).map(metric => {
     const key = metric as FixedMetric;
-    return <div className="fixed-kpi" key={key} data-key={key}><span>{byMetric[key][ar ? 0 : 1]}</span>
+    return <div className="fixed-kpi" key={key} data-key={key}><span className="fixed-kpi-label"><ActionIconGlyph name={metricIcons[key]}/><span>{byMetric[key][ar ? 0 : 1]}</span></span>
      <strong>{amount(summary[key], summary.currency)}</strong></div>;
    })}</div>
   </div>)}
   <div className="fixed-workbench">
    <nav className="fixed-views" aria-label={t('أقسام مركز الأصول', 'Fixed asset reports')}>
-    {views.map(([key, label, en]) => <button type="button" key={key} aria-pressed={view === key} onClick={() => selectView(key)}>{ar ? label : en}</button>)}
+    {views.map(([key, label, en]) => <button type="button" key={key} aria-pressed={view === key} onClick={() => selectView(key)}><ActionIconGlyph name={viewIcons[key]}/><span>{ar ? label : en}</span></button>)}
    </nav>
    <div className="fixed-controls">
     <label className="fixed-search">{t('بحث بالأصل', 'Find an asset')}<input type="search" value={search} maxLength={120} onChange={event => setSearch(event.target.value)}/></label>
@@ -233,15 +236,15 @@ export default function FixedAssetReportCenter({ar, selection, catalog, organiza
      t('تعذر تحميل التقرير.', 'Unable to load the report.')} <button className="fixed-inline" onClick={() => setRevision(value => value + 1)}>{t('إعادة المحاولة', 'Retry')}</button></p>}
    {view === 'exits' && <p className="fixed-caption">{t('راجع مصاريف البيع والتسويات المرتبطة في السند الأصلي.', 'Review selling costs and related settlements in the source voucher.')}</p>}
    {exportError && <p role="alert" className="fixed-message">{t('تعذر تنزيل التقرير.', 'Unable to download the report.')}</p>}
-   {data && <><div className="fixed-table-scroll" tabIndex={0} aria-label={t('جدول الأصول', 'Asset table')}>
-    <table><thead><tr>{visible.map(([key, label]) => {
+   {data && <><div className="fixed-mobile-layout"><button type="button" aria-pressed={fullMobileTable} onClick={() => setFullMobileTable(value => !value)}><ActionIconGlyph name="details"/>{fullMobileTable ? t('عرض البطاقات', 'Card view') : t('عرض الجدول الكامل', 'Full table view')}</button></div><div className="fixed-table-scroll" data-mobile-layout={fullMobileTable ? 'table' : 'cards'} tabIndex={0} aria-label={t('جدول الأصول', 'Asset table')}>
+    <table role="table"><thead role="rowgroup"><tr role="row">{visible.map(([key, label]) => {
      const sortable = view === 'register' && (key === 'name' || key === 'acquisition');
-     return <th key={key} scope="col" aria-sort={sortable ? sort.column === key ? sort.order === 'asc' ? 'ascending' : 'descending' : 'none' : undefined}>
+     return <th key={key} scope="col" role="columnheader" data-column={key} aria-sort={sortable ? sort.column === key ? sort.order === 'asc' ? 'ascending' : 'descending' : 'none' : undefined}>
       {sortable ? <button type="button" onClick={() => sortBy(key)}>{label} {sort.column === key && (sort.order === 'asc' ? '↑' : '↓')}</button> : label}</th>;
-    })}<th scope="col">{t('المصدر', 'Source')}</th></tr></thead>
-     <tbody>{records?.map(row => <tr key={row.id}>{visible.map(([key]) => <td key={key}>{row.cells[key as keyof typeof row.cells]}</td>)}
-      <td>{row.source ? <ActionButton icon="details" label={t('فتح السند الأصلي', 'Open source voucher')} onClick={() => setSource(row.source)}/> : '—'}</td></tr>)}
-      {!data.total && <tr><td colSpan={visible.length + 1}>{t('لا توجد أصول أو حركات مطابقة.', 'No assets or movements match the filters.')}</td></tr>}
+    })}<th scope="col" role="columnheader" data-column="source">{t('المصدر', 'Source')}</th></tr></thead>
+     <tbody role="rowgroup">{records?.map(row => <tr role="row" key={row.id}>{visible.map(([key, label]) => <td key={key} role="cell" data-column={key} data-label={label}>{row.cells[key as keyof typeof row.cells]}</td>)}
+      <td role="cell" data-column="source" data-label={t('المصدر', 'Source')}>{row.source ? <ActionButton icon="details" label={t('فتح السند الأصلي', 'Open source voucher')} onClick={() => setSource(row.source)}/> : '—'}</td></tr>)}
+      {!data.total && <tr role="row" className="fixed-empty"><td role="cell" colSpan={visible.length + 1}>{t('لا توجد أصول أو حركات مطابقة.', 'No assets or movements match the filters.')}</td></tr>}
      </tbody></table></div>
     {data.total > 0 && <footer className="fixed-pagination"><span>{formatter.format(offset + 1)}–{formatter.format(Math.min(offset + 25, data.total))} / {formatter.format(data.total)}</span>
      <button type="button" disabled={offset === 0} onClick={() => setOffset(value => Math.max(0, value - 25))}>{t('السابق', 'Previous')}</button>
