@@ -15,6 +15,9 @@ const sql=input=>execFileSync('docker',['exec','-i','supabase_db_migration-histo
 const checks=[];const check=async(name,run)=>{await run();checks.push({name,status:'passed'});console.log('PASS '+name)};
 try{
  const manifest=await verifyFiles();
+ await check('invoice cash receipt lots prove the original gross/net/VAT split and cutoff',async()=>{
+  sql(await load('tests/sql/personal-invoice-collection-evidence.sql'));
+ });
  await check('invoice Hawl due/classification and verified net collection respect historical cutoffs',async()=>{
   sql(await load('tests/sql/personal-invoice-hawl-evidence.sql'));
  });
@@ -129,6 +132,7 @@ try{
    'personal-income-schema-delta',
    'personal-income-receivable-cutoff-schema-delta',
    'personal-invoice-hawl-evidence-schema-delta',
+   'personal-invoice-collection-evidence-schema-delta',
   ];
   const deltas=await Promise.all(deltaNames.map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
   for(const delta of deltas){
