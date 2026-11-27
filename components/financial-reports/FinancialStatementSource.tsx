@@ -1,5 +1,6 @@
 'use client';
 import GroupSourceReview from './GroupSourceReview';
+import GroupRevaluationReview from './GroupRevaluationReview';
 import ApprovedGroupAdjustments from './ApprovedGroupAdjustments';
 import {CostCenterStatements} from './CostCenterStatements';
 import {useCostCenterIncome,CostCenterPicker,CostCenterReport} from './CostCenterIncome';
@@ -212,7 +213,7 @@ export default function FinancialStatementSource({initialView='income',initialEn
     </li>)}</ul>
    </div>}
   </div></div>}
-  {live&&!scopeReady&&reportScope==='GROUP_WITH_SUBSIDIARIES'&&<>{periodFilters}<GroupSourceReview organization={organization} from={from} to={to} refresh={refresh} en={en} onRefresh={()=>setRefresh(v=>v+1)}/><ApprovedGroupAdjustments organization={organization} from={from} to={to} refresh={refresh} en={en}/></>}
+  {live&&!scopeReady&&reportScope==='GROUP_WITH_SUBSIDIARIES'&&<>{periodFilters}<GroupSourceReview organization={organization} from={from} to={to} refresh={refresh} en={en} onRefresh={()=>setRefresh(v=>v+1)}/><GroupRevaluationReview key={`${organization}/${from}/${to}/${refresh}/${en}`} organization={organization} from={from} to={to} en={en}/><ApprovedGroupAdjustments organization={organization} from={from} to={to} refresh={refresh} en={en}/></>}
   {scopeReady&&<>
   {!centerSelected&&currentDraft&&<label className="ob-draft-mode"><input type="checkbox" checked={displayDraft} disabled={!ready} onChange={e=>{setPreferDraft(e.target.checked);setExportOpen(false)}}/>{t('عرض معاينة المسودة الافتتاحية المحفوظة (غير معتمدة)','Show saved opening draft preview (unapproved)')}{!ready&&<small>{t('القوائم الرسمية غير متاحة بعد','Official statements are not yet available')}</small>}</label>}
   {!centerSelected&&draftLoading&&!currentDraft&&<p className="ob-draft-loading" role="status">{t('جارٍ فحص وجود مسودة افتتاحية محفوظة…','Checking for a saved opening draft…')}</p>}

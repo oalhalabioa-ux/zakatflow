@@ -7,18 +7,22 @@ do $fixture$
 declare
  actor uuid:=gen_random_uuid(); stranger uuid:=gen_random_uuid(); org uuid:=gen_random_uuid();
  bank uuid:=gen_random_uuid(); party uuid:=gen_random_uuid(); gain_class uuid:=gen_random_uuid(); bank_personal uuid;
+ parent_org uuid:=gen_random_uuid(); assessment uuid; group_scope jsonb; group_rates jsonb;
  as_of date:='2026-03-31'; debt_event uuid; obligation uuid; adjustment uuid; adj_line uuid; reversal uuid;
  debt jsonb; source jsonb; terms jsonb; ws jsonb; pol jsonb; entries jsonb; rules jsonb; line jsonb; raw jsonb;
  fx public.organization_reporting_fx_policies%rowtype; binding public.financial_fx_revaluation_evidence%rowtype;
  classified public.personal_income_expense_documents%rowtype; deposit uuid; unlabeled uuid; payable uuid; receivable uuid;
  rec jsonb; before_fx jsonb; after_fx jsonb; debt_class uuid; payment jsonb; personal_raw jsonb;
+ loan_input jsonb; second_loan jsonb; second_obligation uuid; reversal_line uuid; source_reversal jsonb;
 begin
  insert into auth.users(id,email,email_confirmed_at) values
  (actor,actor||'@sources.invalid',now()),(stranger,stranger||'@sources.invalid',now());
  perform set_config('request.jwt.claim.sub',actor::text,true);
- insert into public.organizations(id,owner_user_id,name,base_currency) values(org,actor,'Synthetic Work 03 sources','SAR');
+ insert into public.organizations(id,owner_user_id,name,base_currency,approval_policy)
+ values(org,actor,'Synthetic Work 03 sources','SAR','OWNER_CONTROLLED'),
+       (parent_org,actor,'Synthetic Work 03 parent','USD','OWNER_CONTROLLED');
  insert into public.organization_members(organization_id,user_id,role,status)
-  values(org,actor,'OWNER','ACTIVE') on conflict do nothing;
+  values(org,actor,'OWNER','ACTIVE'),(parent_org,actor,'OWNER','ACTIVE') on conflict do nothing;
  insert into public.liquidity_accounts(id,organization_id,name,account_type,currency,current_balance,current_balance_base,created_by,metadata)
  values(bank,org,'Fixture bank','BANK','USD',1000,3750,actor,'{"opening_date":"2026-01-01","opening_balance":1000,"opening_fx_rate":3.75}');
  insert into public.liquidity_counterparties(id,organization_id,name,party_type,created_by)
@@ -29,8 +33,34 @@ begin
  values(org,'USD','SAR','2026-03-31',3.9,'Synthetic approved feed'),
        (org,'USD','SAR','2026-04-30',9,'Synthetic approved feed'),
        (org,'USD','SAR','2026-03-31',4.2,'Unapproved source'),
-       (org,'SAR','USD','2026-02-28',0.25,'Synthetic inverse');
+       (org,'SAR','USD','2026-02-28',0.25,'Synthetic inverse'),
+       (org,'SAR','USD','2025-12-31',0.26,'Synthetic group translation'),
+       (org,'SAR','USD','2026-02-10',0.26,'Synthetic group translation'),
+       (org,'SAR','USD','2026-03-31',0.28,'Synthetic group translation'),
+       (org,'SAR','USD','2026-04-01',0.24,'Synthetic group translation');
  set local role authenticated;
+ assessment:=public.financial_group_control_propose(parent_org,org,'2026-01-01',null,80,80,'VOTING',
+   'QA synthetic signed control record','Synthetic two-currency group',gen_random_uuid());
+ perform public.financial_group_control_approve(assessment,'Approve synthetic parent control');
+ group_scope:=public.financial_group_registered_scope(parent_org,'2026-01-01',as_of);
+ if group_scope->'registry'->>'complete' is distinct from 'true'
+   or jsonb_array_length(group_scope->'expectedOrganizationIds')<>2
+   or not (group_scope->'expectedOrganizationIds' ? org::text)
+   or not (group_scope->'expectedOrganizationIds' ? parent_org::text)
+  then raise exception 'Synthetic group registry incomplete';end if;
+ perform public.approve_organization_reporting_fx_policy(org,'SAR','USD','PRIOR_CLOSING','2025-12-31','2026-12-31',
+  'Synthetic group translation','ORGANIZATION','EXACT_DATE',false,'Approve synthetic prior closing quote');
+ perform public.approve_organization_reporting_fx_policy(org,'SAR','USD','TRANSACTION','2026-01-01','2026-12-31',
+  'Synthetic group translation','ORGANIZATION','EXACT_DATE',false,'Approve synthetic transaction quotes');
+ perform public.approve_organization_reporting_fx_policy(org,'SAR','USD','CLOSING','2026-01-01','2026-12-31',
+  'Synthetic group translation','ORGANIZATION','EXACT_DATE',false,'Approve synthetic closing quote');
+ group_rates:=jsonb_build_object(
+  'prior',(public.resolve_organization_reporting_fx(org,'SAR','USD','PRIOR_CLOSING','2025-12-31')->>'rate')::numeric,
+  'transaction',(public.resolve_organization_reporting_fx(org,'SAR','USD','TRANSACTION','2026-02-10')->>'rate')::numeric,
+  'closing',(public.resolve_organization_reporting_fx(org,'SAR','USD','CLOSING',as_of)->>'rate')::numeric,
+  'reversal',(public.resolve_organization_reporting_fx(org,'SAR','USD','TRANSACTION','2026-04-01')->>'rate')::numeric);
+ if group_rates <> '{"prior":0.26,"transaction":0.26,"closing":0.28,"reversal":0.24}'::jsonb then
+  raise exception 'Synthetic group quotes failed policy resolution';end if;
  perform public.save_financial_fiscal_calendar(org,1,1,'3300',0,'Synthetic schedule');
  perform public.save_financial_chart_account(org,'120001','1200','قرض الاختبار','Fixture foreign loan','DEBIT',true,true,0,'Synthetic debt leaf');
  perform public.save_financial_chart_account(org,'410001','4100','فرق صرف الاختبار','Fixture FX gain','CREDIT',true,true,0,'Synthetic FX leaf');
@@ -43,10 +73,11 @@ begin
  ws:=public.save_financial_opening(org,'2026-01-01',0,ws->'source'->>'revision',entries,'Synthetic balancing capital');
  perform public.approve_financial_opening((ws->>'id')::uuid,(ws->>'version')::int);
 
- debt:=public.create_debt_contract(jsonb_build_object('organization_id',org,'request_id',gen_random_uuid(),'kind','LOAN','mode','NEW','side','RECEIVABLE',
+ loan_input:=jsonb_build_object('organization_id',org,'kind','LOAN','mode','NEW','side','RECEIVABLE',
  'counterparty_id',party,'entity_id',null,'account_id',bank,'category','O_AR_LOAN','description','Synthetic foreign loan','reference','QA-USD',
  'date','2026-02-10','currency','USD','exchange_rate',3.75,'principal',100,
- 'schedule',jsonb_build_array(jsonb_build_object('amount',100,'due_date','2026-12-01'))));
+ 'schedule',jsonb_build_array(jsonb_build_object('amount',100,'due_date','2026-12-01')));
+ debt:=public.create_debt_contract(loan_input||jsonb_build_object('request_id',gen_random_uuid()));
  debt_event:=(debt->>'eventId')::uuid;
  select id into strict obligation from public.financial_event_obligations where event_id=debt_event;
  select classification_id into strict debt_class from public.financial_event_lines where event_id=debt_event;
@@ -112,11 +143,55 @@ begin
    and e->>'reversesEventId'=adjustment::text and e->'lines'->0->>'baseAmount'='15.0000')
   then raise exception 'Reversal absent in V2 trial source'; end if;
 
+ -- A second debt supplies an independent FK target for the rejected historical evidence.
+ second_loan:=public.create_debt_contract(loan_input||jsonb_build_object('request_id',gen_random_uuid(),
+  'date','2026-04-02','reference','QA-USD-2'));
+ select id into strict second_obligation from public.financial_event_obligations where event_id=(second_loan->>'eventId')::uuid;
+ select id into strict reversal_line from public.financial_event_lines where event_id=reversal;
+ begin
+  -- Privileged seed of ambiguous legacy data. The posted binder never emits this row.
+  reset role;
+  insert into public.financial_fx_revaluation_evidence(organization_id,journal_id,line_id,obligation_id,document_module,
+    document_id,debt_account_id,debt_side,offset_account_id,posting_rule_id,cutoff,posted_base_amount,quote_evidence,bound_by)
+  values(org,adjustment,reversal_line,second_obligation,'debt_contracts',(second_loan->>'id')::uuid,
+   binding.debt_account_id,binding.debt_side,binding.offset_account_id,binding.posting_rule_id,'2026-04-02',
+   binding.posted_base_amount,binding.quote_evidence,actor);
+  set local role authenticated;
+  if public.read_financial_fx_revaluation(org,adjustment,as_of) is distinct from before_fx then
+   raise exception 'Later evidence changed earlier cutoff';
+  end if;
+  perform public.read_financial_fx_revaluation(org,adjustment,'2026-04-02');
+  raise exception 'Ambiguous journal evidence returned a row';
+ exception when others then
+  if sqlerrm<>'REPORTING_FX_REVALUATION_AMBIGUOUS' then raise;end if;
+ end;
+ if public.read_financial_fx_revaluation(org,adjustment,'2026-04-02')->'evidence'->>'id' is distinct from binding.id::text
+   or public.read_financial_fx_revaluation(org,adjustment,'2026-03-30') is not null then
+  raise exception 'Single binding or empty cutoff contract changed';
+ end if;
+
+ source_reversal:=public.prepare_debt_operation(jsonb_build_object('organization_id',org,'request_id',gen_random_uuid(),
+  'kind','REVERSE','target_id',debt_event,'date','2026-04-03','reason','Synthetic cleanup from the source debt'));
+ perform public.approve_financial_event((source_reversal->>'eventId')::uuid,'Approve synthetic debt unwind');
+ perform public.post_debt_operation((source_reversal->>'id')::uuid);
+ perform public.post_debt_operation((source_reversal->>'id')::uuid);
+ if (select status from public.financial_events where id=debt_event) is distinct from 'REVERSED'
+   or (select current_balance from public.liquidity_accounts where id=bank) is distinct from 1000::numeric
+   or exists(select 1 from public.financial_counterparty_open_items where event_id=debt_event)
+   or exists(select 1 from public.liquidity_flows where source_module='DEBT_CONTRACTS' and source_record_id=obligation)
+   or public.read_financial_fx_revaluation(org,adjustment,as_of) is distinct from before_fx then
+  raise exception 'Synthetic debt cleanup did not restore the source books and preserve the earlier FX evidence';
+ end if;
+
  perform set_config('request.jwt.claim.sub',stranger::text,true);
  begin
   perform public.resolve_organization_reporting_fx(org,'USD','SAR','CLOSING',as_of);
   raise exception 'Outside organization read accepted';
  exception when others then if sqlerrm<>'REPORTING_FX_POLICY_DENIED' then raise;end if;end;
+ begin
+  perform public.read_financial_fx_revaluation(org,adjustment,as_of);
+  raise exception 'Outside organization revaluation read accepted';
+ exception when others then if sqlerrm<>'REPORTING_FX_BIND_DENIED' then raise;end if;end;
  if exists(select 1 from public.financial_fx_revaluation_evidence where organization_id=org) then
   raise exception 'Outside organization evidence visible';end if;
  perform set_config('request.jwt.claim.sub',actor::text,true);
@@ -157,6 +232,9 @@ begin
   'fxPolicy',jsonb_build_object('organization',org,'pair','USD/SAR','selected',3.9,'source','Synthetic approved feed','basis','EXACT_DATE','inverseTransaction',4),
   'personal',jsonb_build_object('explicitIncome',25,'unclassifiedCash',28,'reversal',-25,
     'payableAtCutoff',70,'payableAfterPayment',50,'receivableAtCutoff',80,'coverage','PARTIAL'),
+  'group',jsonb_build_object('parent',parent_org,'parentCurrency','USD','subsidiary',org,'subsidiaryCurrency','SAR',
+   'controlAssessment',assessment,'controlPercent',80,'cutoff',as_of,'rates',group_rates,'sourceRollbackReconciled',true,
+   'ambiguousBindingRejected',true,'databaseRolledBack',true),
   'foreignTenantDenied',true));
 end $fixture$;
 reset role;

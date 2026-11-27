@@ -39,18 +39,25 @@ jobs:
       - name: Rehearse pre-traffic rollback and reapplication of the four candidate migrations
         run: |
           psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -X -1 -v ON_ERROR_STOP=1 \
+            -f supabase/release/personal-first-hawl/rollback-before-use.sql \
             -f supabase/release/assets-final-integration/rollback-empty.sql \
             -f supabase/migrations/20261124170000_personal_asset_exit_requests.sql \
             -f supabase/migrations/20261124171000_personal_gold_receipt_hawl_sources.sql \
             -f supabase/migrations/20261124172000_personal_gold_receipt_remaining.sql \
             -f supabase/migrations/20261124173000_gold_receipt_assessment_components.sql \
+            -f supabase/migrations/20261126175500_personal_first_hawl_start.sql \
             -c "NOTIFY pgrst, 'reload schema'"
           psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -X -v ON_ERROR_STOP=1 \
-            -f tests/assets-v2/gold-only-final-coverage.sql
+            -f tests/assets-v2/gold-only-final-coverage.sql \
+            -f tests/assets-v2/personal-first-hawl.sql
+      - name: Restore the full candidate schema after the legacy rollback rehearsal
+        run: npx --yes supabase@2.122.0 db reset --local --no-seed --workdir "$ASSET_QA_ROOT"
       - name: Verify receipt hawl provenance without changing the financial ledger
         run: NODE_PATH="$RUNNER_TEMP/assets-tools/node_modules" node tests/assets-v2/sale-hawl-baseline.cjs --capture-sources
       - name: Enable the canonical gold entry points on disposable QA
         run: psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -X -v ON_ERROR_STOP=1 -f tests/sql/personal-gold-release-disabled.sql -f supabase/release/personal-gold-sales/enable.sql
+      - name: Verify first-cycle review controls in Arabic and English
+        run: node tests/assets-v2/first-cycle-browser.mjs
       - name: Verify source reconciliation, isolation and responsive card
         run: node tests/assets-v2/statement-browser.mjs
       - name: Upload Arabic and English review images

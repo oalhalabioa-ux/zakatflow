@@ -1,0 +1,10 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "public.read_financial_fx_revaluation(p_org uuid, p_journal uuid, p_as_of date)",
+      "fingerprint": "c5864fb648f6dffc01720b224a5d7f5e"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 import {z} from 'zod';
 import {requireUser} from './auth';
-import {liveStatementSource} from './financial-statement-live';
+import {liveStatementContext,liveStatementSource} from './financial-statement-live';
 import {liveRegisteredGroupControl} from './financial-group-registered-source';
 import {readInstitutionalSource} from './reporting-source-contracts';
 import {normalizeStatementSource,statementQuery,type StatementSourceSnapshot} from '../lib/financial-statement-source';
@@ -11,6 +11,34 @@ import {assertStableFinancialReplay} from '../lib/financial-source-replay';
 
 const inputSchema=z.object({query:statementQuery,member:z.string().uuid(),journal:z.string().uuid(),
  translation:z.literal('NON_HYPERINFLATIONARY').optional()}).strict();
+const journalLimit=500;
+const journalEvidence=z.array(z.object({organization_id:z.string().uuid(),journal_id:z.string().uuid(),cutoff:z.string().date()}));
+
+export async function listGroupV2Revaluations(input:unknown){
+ const query=statementQuery.parse(input);
+ const control=await liveRegisteredGroupControl(query);
+ const {supabase}=await requireUser();
+ const {data,error}=await supabase.from('financial_fx_revaluation_evidence')
+  .select('organization_id,journal_id,cutoff').in('organization_id',control.expectedOrganizationIds)
+  .gte('cutoff',query.from).lte('cutoff',query.to)
+  .order('cutoff',{ascending:false}).order('organization_id').order('journal_id').limit(journalLimit+1);
+ const parsed=journalEvidence.safeParse(data);
+ if(error||!parsed.success||parsed.data.length>journalLimit)throw Error('REPORTING_GROUP_REVALUATION_LIST_UNAVAILABLE');
+ const names=new Map((await liveStatementContext()).map(row=>[row.organizationId,row.name]));
+ const choices=new Map<string,{organization:string;name:string;journal:string;cutoff:string}>();
+ const ambiguous=new Set<string>();
+ for(const row of parsed.data){
+  const name=names.get(row.organization_id);
+  if(!name||!control.expectedOrganizationIds.includes(row.organization_id))throw Error('REPORTING_ACCESS_DENIED');
+  const key=row.organization_id+'/'+row.journal_id;
+  if(choices.has(key))ambiguous.add(key);
+  choices.set(key,{organization:row.organization_id,name,journal:row.journal_id,cutoff:row.cutoff});
+ }
+ assertStableFinancialReplay(control,await liveRegisteredGroupControl(query));
+ return{status:'V2_GROUP_REVALUATION_LIST' as const,query,
+  choices:[...choices].filter(([key])=>!ambiguous.has(key)).map(([,choice])=>choice),ambiguousJournals:ambiguous.size};
+}
+
 // The compiled ledger has optional TypeScript fields that are absent at the JSON API boundary.
 function statementReplayValue(snapshot:StatementSourceSnapshot):unknown {
  return JSON.parse(JSON.stringify(snapshot));
