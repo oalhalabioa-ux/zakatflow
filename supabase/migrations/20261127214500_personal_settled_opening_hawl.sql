@@ -106,7 +106,16 @@ begin
   join public.lots l on l.id=opening.lot_id
   join public.asset_accounts asset on asset.id=l.asset_account_id
   where l.acquisition_date<=a.assessment_date and l.remaining_quantity>0
-   and (l.remaining_value_base>0 or asset.asset_type in ('GOLD','SILVER'))
+   and case
+    when asset.asset_type in ('GOLD','SILVER') then true
+    when asset.asset_type in ('CASH','BANK') then l.remaining_value_base>0
+    -- For other assets, an explicit zero market price overrides book value.
+    else coalesce(
+     (coalesce(asset.metadata->>'market_price_per_unit',asset.metadata->>'market_price',
+      asset.metadata->>'market_value',asset.metadata->>'estimated_value'))::numeric,
+     l.remaining_value_base
+    )>0
+   end
    and not exists(
     select 1 from public.zakat_assessment_lines al
     where al.assessment_id=a.id and al.lot_id=l.id and al.quantity=l.remaining_quantity

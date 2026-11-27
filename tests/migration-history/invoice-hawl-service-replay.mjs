@@ -230,6 +230,12 @@ for(const code of ['INDEPENDENT_LOTS','UNIFIED_HAWL']){
    values($1,$2,'OPENING_BALANCE','2024-02-03',90,'SAR','SAR',36000) returning id`,[actor,gold])).rows[0];
   const {id:lot}=(await db.query(`insert into public.lots(user_id,asset_account_id,source_transaction_id,acquisition_date,original_quantity,remaining_quantity,original_value_base,remaining_value_base)
    values($1,$2,$3,'2024-02-03',90,90,36000,36000) returning id`,[actor,gold,movement])).rows[0];
+  const {id:inventory}=(await db.query(`insert into public.asset_accounts(user_id,asset_type,name,currency,unit,ownership_scope,is_zakatable,metadata)
+   values($1,'INVENTORY','Synthetic zero-market-price opening stock','SAR','unit','PERSONAL',true,'{"market_price_per_unit":0}') returning id`,[actor])).rows[0];
+  const {id:inventoryMovement}=(await db.query(`insert into public.transactions(user_id,asset_account_id,transaction_type,transaction_date,quantity,currency,base_currency,base_value)
+   values($1,$2,'OPENING_BALANCE','2024-02-03',1,'SAR','SAR',100) returning id`,[actor,inventory])).rows[0];
+  await db.query(`insert into public.lots(user_id,asset_account_id,source_transaction_id,acquisition_date,original_quantity,remaining_quantity,original_value_base,remaining_value_base)
+   values($1,$2,$3,'2024-02-03',1,1,100,100)`,[actor,inventory,inventoryMovement]);
   const earlyDay='2025-01-22', dueDay='2025-01-23';
   const {id:cycle}=(await db.query(`insert into public.zakat_hawl_cycles(user_id,cycle_no,nisab_standard,nisab_reached_date,hawl_start_date,hawl_due_date,status,snapshot)
    values($1,1,'GOLD','2024-02-03','2024-02-03',$2,'ACTIVE',
@@ -273,7 +279,7 @@ for(const code of ['INDEPENDENT_LOTS','UNIFIED_HAWL']){
   assert.equal(covered.covered_through,dueDay);
   assert.ok(covered.hawl_due_date>dueDay);
   assert.equal((await db.query('select hawl_start_date from public.lots where id=$1',[lot])).rows[0].hawl_start_date,null);
-  console.log(JSON.stringify({code,scenario:'SETTLED_OPENING',due:dueDay,eligible:36000,final:900,earlyCloseRejected:true,omittedOpeningCloseRejected:true,originalLotPreserved:true}));
+  console.log(JSON.stringify({code,scenario:'SETTLED_OPENING',due:dueDay,eligible:36000,final:900,earlyCloseRejected:true,omittedOpeningCloseRejected:true,zeroMarketValueAllowed:true,originalLotPreserved:true}));
  }catch(e){
   console.error('FAIL',code,'SETTLED_OPENING',e.message,e.code,e.where,e.detail);
   process.exitCode=1;
