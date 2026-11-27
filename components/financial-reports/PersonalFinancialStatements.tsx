@@ -67,7 +67,7 @@ export default function PersonalFinancialStatements({english=false,initialView='
   function openView(next:PersonalStatementView){
     setView(next);setMenuOpen(false);
     const url=new URL(window.location.href);
-    if(next==='overview')url.searchParams.delete('screen');else url.searchParams.set('screen',next);
+    if(next==='overview')url.searchParams.delete('personalStatement');else url.searchParams.set('personalStatement',next);
     window.history.replaceState(null,'',url);
   }
 

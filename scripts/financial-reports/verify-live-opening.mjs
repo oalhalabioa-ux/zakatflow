@@ -518,11 +518,19 @@ try{
  });
  for(const lang of ['ar','en'])await check('Personal cash flow exports the signed-in register in CSV, XLSX and PDF '+lang,async()=>{
   const arabic=lang==='ar';
-  await page.goto(app+'/'+lang+'/financial-reports?scope=PERSONAL&screen=cash-flow');
+  const reportRead=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/financial-reporting/personal');
+  await page.goto(app+'/'+lang+'/financial-reports?scope=PERSONAL&personalStatement=cash-flow');
+  const response=await reportRead;
+  assert.equal(response.status(),200,await response.text());
+  const personal=await response.json();
+  assert.ok(personal.cashAccounts.some(account=>account.name==='Owner QA personal cash'));
   const report=page.locator('.fs-personal-statements');
   const cash=report.locator('[data-statement-ready="cash-flow"]');
   const owner=cash.getByText('Owner QA personal cash',{exact:true});
   await owner.waitFor();
+  await page.reload();
+  await owner.waitFor();
+  assert.equal(new URL(page.url()).searchParams.get('personalStatement'),'cash-flow');
   assert.equal(await report.getAttribute('dir'),arabic?'rtl':'ltr');
   assert.equal(await cash.getByText('Other QA personal cash',{exact:true}).count(),0);
   const exportButton=report.getByRole('button',{name:arabic?'تصدير التقرير':'Export report',exact:true});
