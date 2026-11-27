@@ -2305,6 +2305,14 @@
       "expected_md5": "b3499b5b86b5155632413b62408e52bc",
       "file_sha256": "a06d9b7c11c4214af8d8c22c2a2f80e91fc66aed4b6194552b83e9e3070e79a4",
       "validation_project": "Disposable recognized invoice due/classification evidence and verified net receipt allocation at cutoff"
+    },
+    {
+      "path": "supabase/migrations/20261127021500_personal_invoice_collection_evidence.sql",
+      "version": "20261127021500",
+      "name": "personal_invoice_collection_evidence",
+      "expected_md5": "8e52d531281a24dd880e1b5b8f16f2a2",
+      "file_sha256": "dceda325e1679cfe491eb204e5ce6c0e95f653f149ec67ca8643341db18aa7d5",
+      "validation_project": "Disposable per-receipt invoice collection evidence, stable gross/net/VAT basis and ownership"
     }
   ]
 }
