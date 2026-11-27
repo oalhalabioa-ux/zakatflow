@@ -23,3 +23,14 @@ describe('personal estimate exports',()=>{
  it('does not allow wrong source, unsupported views or fabricated income',()=>{expect(()=>personalFinancialExportRows({...base,scope:'ORGANIZATION'} as unknown as PersonalReport,'position',true)).toThrow('PERSONAL_EXPORT_SCOPE_INVALID');expect(()=>personalFinancialExportRows(base,'income',true)).toThrow('PERSONAL_EXPORT_INCOME_EVIDENCE_REQUIRED');expect(()=>personalFinancialExportRows(base,'unknown' as never,true)).toThrow('PERSONAL_EXPORT_VIEW_INVALID')});
  it('generates the same codes and labels in both language variants',()=>{const ar=personalFinancialExportRows(base,'accounts',false),en=personalFinancialExportRows(base,'accounts',true);expect(ar.find(row=>row[0]==='1000')?.[1]).toBe('النقد والبنوك');expect(en.find(row=>row[0]==='1000')?.[1]).toBe('Cash and banks')});
 });
+
+describe('reports without exportable rows',()=>{
+ const empty={...base,positions:[],cashAccounts:[],cashTransferReconciliation:[],categories:[]};
+ it.each(['overview','position','cash','accounts'] as const)('rejects a %s export that would contain metadata and headings only',view=>{
+  expect(()=>personalFinancialExportRows(empty,view,false)).toThrow('PERSONAL_EXPORT_DATA_REQUIRED');
+ });
+ it('keeps exports available for an authorized historical balance without current accounts',()=>{
+  const historical={...empty,historicalPosition:[{currency:'SAR',cash:null,receivables:'80.00',liabilities:null,supplierAdvances:null,customerAdvances:null}]};
+  expect(personalFinancialExportRows(historical,'position',true)).toContainEqual(['SAR','','80.00','','','']);
+ });
+});

@@ -175,3 +175,29 @@
  .fs-connected :is([data-statement-ready="trial-balance"],[data-statement-ready="general-ledger"]) .fs-card{break-inside:auto}
  .fs-connected :is([data-statement-ready="trial-balance"],[data-statement-ready="general-ledger"]) .fs-table{min-width:0}
 }
+
+.fs-personal-statements .fs-personal-statement-navigation{
+ display:flex;flex-wrap:wrap;gap:8px;order:2
+}
+.fs-personal-statements .fs-index-layout{grid-template-columns:minmax(0,1fr)}
+.fs-personal-statements .fs-personal-statement-navigation [aria-current=page]{
+ border-color:#c6a35d;background:#f5ebd6
+}
+.fs-personal-statements .fs-personal-statement-print-context{display:none}
+.fs-personal-statements .fs-source-statement-table .fs-table td:nth-child(2){
+ text-align:start;white-space:normal;overflow-wrap:anywhere;min-width:152px
+}
+@media(max-width:700px){
+ .fs-connected-statements.fs-personal-statements .fs-surface .fs-source-statement-table .fs-table{min-width:690px!important}
+ .fs-connected-statements.fs-personal-statements .fs-surface .fs-source-statement-table .fs-table th:first-child{width:25%}
+ .fs-connected-statements.fs-personal-statements .fs-source-statement-table .fs-table :is(td,th){display:table-cell!important}
+}
+@media print{
+ .corp-shell:has(.fs-personal-statements) :is(.corp-sidebar,.corp-topbar,.corp-workspace>.footer),
+ .fs-personal-statements :is(.fs-personal-statement-navigation,.fs-filter-strip){display:none!important}
+ .corp-shell:has(.fs-personal-statements) .corp-workspace{margin:0!important}
+ .fs-personal-statements .fs-personal-statement-print-context{display:block}
+ .fs-connected-statements.fs-personal-statements .fs-surface .fs-source-statement-table .fs-table{min-width:0!important}
+ .fs-connected-statements.fs-personal-statements .fs-source-statement-table .fs-table :is(td,th){display:table-cell!important}
+ .fs-personal-statements .fs-source-statement-table .fs-table td:nth-child(2){min-width:0}
+}

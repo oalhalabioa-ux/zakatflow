@@ -2,10 +2,26 @@ import type {PersonalReport} from './personal-financial-reports';
 
 export type PersonalExportView='overview'|'position'|'cash'|'accounts'|'income';
 
+export function hasPersonalFinancialExportData(report:PersonalReport,view:PersonalExportView):boolean{
+ const hasPosition=Boolean(report.positions.length||report.historicalPosition?.length||
+  report.historicalAssetValuations?.length||report.cutoffSources?.rows.length);
+ const hasCash=Boolean(report.cashAccounts.length||report.cashTransferReconciliation?.length||
+  report.cashByActivity?.length||report.purchaseFunding?.length);
+ switch(view){
+  case 'overview':return hasPosition||hasCash;
+  case 'position':return hasPosition;
+  case 'cash':return hasCash;
+  case 'accounts':return report.categories.length>0;
+  case 'income':return Boolean(report.recognizedIncome?.length||report.classifiedActivity?.rows.length);
+ }
+}
+
 /** Export from one authorized snapshot. Never synthesize income or aggregate currencies. */
 export function personalFinancialExportRows(report:PersonalReport,view:PersonalExportView,en:boolean):string[][]{
  if(report.scope!=='PERSONAL'||report.basis!=='CURRENT_PERSONAL_REGISTER_ESTIMATE')throw Error('PERSONAL_EXPORT_SCOPE_INVALID');
  if(!['overview','position','cash','accounts','income'].includes(view))throw Error('PERSONAL_EXPORT_VIEW_INVALID');
+ if(!hasPersonalFinancialExportData(report,view))
+  throw Error(view==='income'?'PERSONAL_EXPORT_INCOME_EVIDENCE_REQUIRED':'PERSONAL_EXPORT_DATA_REQUIRED');
  const t=(ar:string,english:string)=>en?english:ar;
  const rows:string[][]=[
   [t('الجهة','Scope'),t('شخصي فقط','Personal only')],
@@ -55,7 +71,6 @@ export function personalFinancialExportRows(report:PersonalReport,view:PersonalE
  if(view==='income'){
   const income=report.recognizedIncome??[];
   const classified=report.classifiedActivity?.rows??[];
-  if(!income.length&&!classified.length)throw Error('PERSONAL_EXPORT_INCOME_EVIDENCE_REQUIRED');
   if(income.length){
    rows.push([t('دخل وتكاليف العقود المسجلة · تغطية جزئية','Recognized contract income and costs · partial coverage')]);
    rows.push([t('التاريخ','Date'),t('التصنيف','Category'),t('العملة','Currency'),t('المبلغ','Amount'),t('المصدر','Source')]);
