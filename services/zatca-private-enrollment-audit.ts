@@ -6,7 +6,7 @@ import { createVerifiedEnrollmentSession, enrollmentTokenSchema, enrollmentFailu
 const uuid=z.string().uuid(),pin=z.string().regex(/^[a-f0-9]{64}$/);
 const scopeSchema=z.object({organizationId:uuid,connectionId:uuid,unitId:uuid,environment:z.enum(['SIMULATION','PRODUCTION'])}).strict();
 export const zatcaResponseVerificationEvidenceSchema=z.object({stage:z.literal('ONBOARDING_CANDIDATE_ONLY'),
-  identity:z.object({stage:z.literal('ONBOARDING_IDENTITY_PREFLIGHT_ONLY'),scope:scopeSchema,profile:z.literal('ZAKATFLOW_SAN_DIRECTORY_V1'),
+  identity:z.object({stage:z.literal('ONBOARDING_IDENTITY_PREFLIGHT_ONLY'),scope:scopeSchema,profile:z.literal('ZAKATFLOW_SAN_DIRECTORY_V2'),
     certificateFingerprintSha256:pin,expectedIdentitySha256:pin,csrSha256:pin,publicKeySpkiSha256:pin}).strict(),
   path:z.object({stage:z.literal('CERTIFICATE_PATH_CHECK_ONLY'),environment:z.enum(['SIMULATION','PRODUCTION']),certificateFingerprintSha256:pin,
     anchorFingerprintSha256:pin,issuerFingerprintsSha256:z.array(pin).min(1).max(5),crlFingerprintsSha256:z.array(pin).min(1).max(6),

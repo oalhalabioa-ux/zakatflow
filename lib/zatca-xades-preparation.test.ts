@@ -53,6 +53,9 @@ describe('isolated XAdES signed XML preparation', () => {
       const values: Buffer[] = [];
       for (let i = 0; i < bytes.length;) { i++; const size = bytes[i++]; values.push(bytes.subarray(i, i + size)); i += size; }
       expect(values[3].toString()).toBe('230.00');
+      const issueDate = /<cbc:IssueDate>([^<]+)<\/cbc:IssueDate>/.exec(result.xml)![1];
+      const issueTime = /<cbc:IssueTime>([^<]+)<\/cbc:IssueTime>/.exec(result.xml)![1];
+      expect(values[2].toString()).toBe(`${issueDate}T${issueTime}`);
       expect(values[4].toString()).toBe('30.00');
       expect(values[5]).toEqual(Buffer.from(result.invoiceHashBase64, 'base64'));
       if (process.env.ZATCA_NATIVE_XMLSEC === '1') { const verified = nativeVerify(result.xml); expect(verified.status, verified.stderr).toBe(0); }

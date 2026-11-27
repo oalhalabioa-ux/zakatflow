@@ -1,0 +1,72 @@
+{
+  "releaseReady": false,
+  "cases": [
+    {
+      "document": "INVOICE",
+      "oldTimestamp": "2026-11-19T09:29:15+03:00",
+      "newTimestamp": "2026-11-19T09:29:15",
+      "invoiceHashUnchanged": true,
+      "signedInfoVerified": true,
+      "signedPropertiesVerified": true,
+      "sdkExit": 0,
+      "sdkGlobal": [
+        "FAILED"
+      ],
+      "timestampWarningRemoved": true,
+      "stages": {
+        "XSD": "FAILED",
+        "EN": "PASSED",
+        "KSA": "PASSED",
+        "QR": "FAILED",
+        "SIGNATURE": "FAILED",
+        "PIH": "PASSED"
+      }
+    },
+    {
+      "document": "CREDIT_NOTE",
+      "oldTimestamp": "2026-11-19T09:29:15+03:00",
+      "newTimestamp": "2026-11-19T09:29:15",
+      "invoiceHashUnchanged": true,
+      "signedInfoVerified": true,
+      "signedPropertiesVerified": true,
+      "sdkExit": 0,
+      "sdkGlobal": [
+        "FAILED"
+      ],
+      "timestampWarningRemoved": true,
+      "stages": {
+        "XSD": "FAILED",
+        "EN": "PASSED",
+        "KSA": "PASSED",
+        "QR": "FAILED",
+        "SIGNATURE": "FAILED",
+        "PIH": "PASSED"
+      }
+    },
+    {
+      "document": "DEBIT_NOTE",
+      "oldTimestamp": "2026-11-19T09:29:15+03:00",
+      "newTimestamp": "2026-11-19T09:29:15",
+      "invoiceHashUnchanged": true,
+      "signedInfoVerified": true,
+      "signedPropertiesVerified": true,
+      "sdkExit": 0,
+      "sdkGlobal": [
+        "FAILED"
+      ],
+      "timestampWarningRemoved": true,
+      "stages": {
+        "XSD": "FAILED",
+        "EN": "PASSED",
+        "KSA": "PASSED",
+        "QR": "FAILED",
+        "SIGNATURE": "FAILED",
+        "PIH": "PASSED"
+      }
+    }
+  ],
+  "sourceBase": "b1386bfb15bd14467a22a3c66b964f83985c3a2d",
+  "scope": "SYNTHETIC_QR_TIMESTAMP_REGRESSION",
+  "method": "QR-only projection of the preparer timestamp change onto the three saved synthetic application artifacts; actual preparer assertions cover all three document types",
+  "authorityRequests": false
+}

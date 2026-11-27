@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createVerifiedZatcaEnrollmentReader } from './zatca-private-enrollment-reader';
 
 const enabled = process.env.ZATCA_PRIVATE_READER_SQL_QA === '1';
+const syntheticKeyArn = 'arn:aws:kms:eu-central-1:123456789012:key/e800b1c2-df4a-4a79-9b91-4a451ce2858e';
 let pool: Pool, actorA: Record<string, string>, actorB: Record<string, string>;
 const target = (f: Record<string, string>) => ({ organizationId: f.org, connectionId: f.connection, environment: 'SIMULATION' });
 function source() {
@@ -31,7 +32,7 @@ beforeAll(async () => {
   actorA = source(); actorB = source();
   for (const f of [actorA, actorB]) {
     // SQL storage fixture only: native CSR/certificate validation has its own suite.
-    await pool.query("update public.vat_einvoice_connections set status='KEY_READY',credentials_secret_arn=null,egs_serial_number='1-QA|2-1|3-unit' where id=$1", [f.connection]);
+    await pool.query("update public.vat_einvoice_connections set status='KEY_READY',credentials_secret_arn=null,egs_serial_number='1-QA|2-1|3-unit',kms_key_arn=$2 where id=$1", [f.connection, syntheticKeyArn]);
     await pool.query('begin');
     await pool.query("select set_config('request.jwt.claim.sub',$1,true)", [f.actor]);
     const e = await pool.query("select row_to_json(r) as row from zatca_preparation.begin_initial_enrollment($1,'SIMULATION',$2,gen_random_uuid(),'MAA=','MAA=','qa@example.invalid') r", [f.org, f.connection]);
@@ -48,6 +49,7 @@ describe.skipIf(!enabled)('private pg reader disposable session and revocation i
       + "set_config('request.jwt.claim',$2,false),set_config('request.jwt.claim.role','service_role',false),set_config('request.jwt.claim.email','old@example.invalid',false)",
       [actorB.actor, JSON.stringify({ sub: actorB.actor, role: 'service_role', email: 'old@example.invalid' })]);
     const result = await reader().loadOriginalEnrollment('SYNTHETIC.A', target(actorA));
+    expect(result.kmsKeyArn).toBe(syntheticKeyArn);
     expect(result.actorId).toBe(actorA.actor); expect(result.enrollmentId).toBe(actorA.enrollment);
     expect(result.csrPem).toBe('-----BEGIN CERTIFICATE REQUEST-----\nMAA=\n-----END CERTIFICATE REQUEST-----\n');
     expect(await cleanContext()).toBe(pid);

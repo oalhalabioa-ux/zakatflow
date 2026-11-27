@@ -47,8 +47,35 @@ describe('ZATCA CSR creation', () => {
       expect(validation.status, `${validation.stderr}\n${asn.stdout}`).toBe(0);
       expect(validation.stdout).toContain('PREZATCA-Code-Signing');
       expect(validation.stdout).toContain('300000000000003');
+      const subject = spawnSync('openssl', ['req', '-in', requestPath, '-noout', '-subject', '-nameopt', 'RFC2253'], { encoding: 'utf8' });
+      expect(subject.status, subject.stderr).toBe(0);
+      expect(subject.stdout).toContain('CN=Customer Point of Sale');
+      expect(subject.stdout).not.toContain('CN=PREZATCA-Code-Signing');
     } finally {
       rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it.each(['SIMULATION', 'PRODUCTION'] as const)('binds the supplied common name independently of the %s template', async environment => {
+    const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'secp256k1' });
+    const fields = { environment, commonName: 'QA Unit 01', taxpayerVatNumber: '399999999900003',
+      branchName: 'Riyadh QA', organizationName: 'Yaqeen Synthetic Company',
+      serialNumber: '1-YaqeenQA|2-1.0|3-12345678-1234-4234-8234-123456789012', invoiceType: '1100',
+      registeredAddress: 'RRRD2929', businessCategory: 'Software', email: 'qa@example.invalid' };
+    const spki = publicKey.export({ format: 'der', type: 'spki' });
+    const signingInputs: Buffer[] = [];
+    const signer = async (bytes: Buffer) => { signingInputs.push(Buffer.from(bytes)); return sign('sha256', bytes, privateKey); };
+    await createZatcaCsr(fields, spki, signer);
+    await createZatcaCsr({ ...fields, commonName: 'QA Unit 02' }, spki, signer);
+    expect(signingInputs[0].equals(signingInputs[1])).toBe(false);
+    for (const [index, bytes] of signingInputs.entries()) {
+      // Exact commonName OID + UTF8String attribute, not a match elsewhere in DER.
+      const name = Buffer.from(`QA Unit 0${index + 1}`);
+      expect(bytes.includes(Buffer.concat([Buffer.from([0x06, 0x03, 0x55, 0x04, 0x03, 0x0c, name.length]), name]))).toBe(true);
+      expect(bytes.includes(Buffer.from(environment === 'SIMULATION' ? 'PREZATCA-Code-Signing' : 'ZATCA-Code-Signing'))).toBe(true);
+      const serial = Buffer.from(fields.serialNumber);
+      expect(bytes.includes(Buffer.concat([Buffer.from([0x06, 0x03, 0x55, 0x04, 0x04, 0x0c, serial.length]), serial]))).toBe(true);
+      expect(bytes.includes(Buffer.from([0x06, 0x03, 0x55, 0x04, 0x05]))).toBe(false);
     }
   });
 

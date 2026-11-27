@@ -69,7 +69,9 @@ export async function createZatcaCsr(
   publicKeyInfo: Buffer,
   sign: (requestInfoDer: Buffer) => Promise<Buffer>,
 ) {
-  const commonName = fields.environment === 'SIMULATION' ? 'PREZATCA-Code-Signing' : fields.commonName;
+  // CN identifies the taxpayer's solution unit in every environment. The
+  // simulation marker belongs only in the certificate-template extension.
+  const commonName = fields.commonName;
   const templateName = fields.environment === 'SIMULATION' ? 'PREZATCA-Code-Signing' : 'ZATCA-Code-Signing';
   const name = relativeName([
     ['2.5.4.6', 'SA', 'printable'],
@@ -82,7 +84,8 @@ export async function createZatcaCsr(
   // ZATCA's CSR SAN uses a directoryName containing the EGS serial, VAT ID,
   // invoice functionality map, branch location, and industry.
   const sanName = relativeName([
-    ['2.5.4.5', fields.serialNumber, 'utf8'],
+    // ZATCA SDK 3.4.8 uses SAN directoryName SN (surname), not serialNumber.
+    ['2.5.4.4', fields.serialNumber, 'utf8'],
     ['0.9.2342.19200300.100.1.1', fields.taxpayerVatNumber, 'utf8'],
     ['2.5.4.12', fields.invoiceType, 'utf8'],
     ['2.5.4.26', fields.registeredAddress, 'utf8'],

@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-19",
+  "sourceBase": "21126a79f681683490081167deabf6a9da084653",
+  "sourceSha256": {
+    "lib/vat-zatca-csr.ts": "bb9ae64f9b778bb6aa762575effb4810161ec42a5bef815ba60fd8314ad80151",
+    "lib/zatca-onboarding-identity.ts": "9372fc8941e792bc1d27121d522e87520c093ccbf5130143c1df04ee99a2d100"
+  },
+  "scope": "SYNTHETIC_CSR_SDK348_IDENTITY_REFERENCE_ONLY",
+  "jarSha256": "48abeb828d453ef6fafba792fddbbb2701da5c7018c24bde918853e80ff5d530",
+  "authorityRequests": false,
+  "awsRequests": false,
+  "databaseWrites": false,
+  "releaseReady": false,
+  "temporaryMaterialRemoved": true,
+  "cases": [
+    {
+      "environment": "SIMULATION",
+      "sdkVersion": "3.4.8",
+      "subjectIdentityMatches": true,
+      "publicKeyMatches": true,
+      "sanMatches": true,
+      "templateMatches": true,
+      "signaturesVerified": true,
+      "templateEncodings": {
+        "sdk": "UTF8String",
+        "application": "PrintableString"
+      },
+      "requesterEmailDifference": "Application CSR additionally retains its explicitly saved requester email; certificate may omit it."
+    },
+    {
+      "environment": "PRODUCTION",
+      "sdkVersion": "3.4.8",
+      "subjectIdentityMatches": true,
+      "publicKeyMatches": true,
+      "sanMatches": true,
+      "templateMatches": true,
+      "signaturesVerified": true,
+      "templateEncodings": {
+        "sdk": "UTF8String",
+        "application": "PrintableString"
+      },
+      "requesterEmailDifference": "Application CSR additionally retains its explicitly saved requester email; certificate may omit it."
+    }
+  ],
+  "byteIdentical": false,
+  "remainingDifferences": [
+    "SDK template extension is UTF8String; application retains PrintableString as specified by authority simulation instructions.",
+    "Application CSR includes the explicitly saved requester email; SDK control does not."
+  ],
+  "scopeLimit": "Offline semantic CSR identity comparison only. No CA acceptance, certificate issuance, invoice-signature profile acceptance or production readiness."
+}

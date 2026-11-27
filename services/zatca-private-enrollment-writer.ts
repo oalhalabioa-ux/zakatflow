@@ -57,7 +57,7 @@ export function createVerifiedZatcaEnrollmentWriter(auth: Pick<SupabaseClient['a
         const pem = /^-----BEGIN CERTIFICATE REQUEST-----\r?\n([A-Za-z0-9+/=\r\n]+)\r?\n-----END CERTIFICATE REQUEST-----\r?\n?$/.exec(original.csrPem);
         if (!pem) fail('ORIGINAL_CSR_INVALID');
         const csr = Buffer.from(pem[1].replace(/[\r\n]/g, ''), 'base64');
-        const expectedValue = { ...target, unitId: c.id, profile: 'ZAKATFLOW_SAN_DIRECTORY_V1',
+        const expectedValue = { ...target, unitId: c.id, profile: 'ZAKATFLOW_SAN_DIRECTORY_V2',
           csrSha256: createHash('sha256').update(csr).digest('hex'), kmsPublicKeySpkiBase64: original.kmsPublicKeySpkiBase64,
           taxpayerVatNumber: c.taxpayer_vat_number, commonName: c.common_name, branchName: c.branch_name,
           legalName: c.legal_name, egsSerialNumber: c.egs_serial_number, invoiceType: c.invoice_type,

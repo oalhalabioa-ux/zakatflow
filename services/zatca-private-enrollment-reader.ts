@@ -9,7 +9,8 @@ const targetSchema = z.object({ organizationId: z.string().uuid(), connectionId:
   environment: z.enum(['SIMULATION', 'PRODUCTION']) }).strict();
 const membershipSchema = z.object({ role: z.enum(['OWNER', 'ADMIN']), status: z.literal('ACTIVE') }).strict();
 const connectionSchema = z.object({ id: z.string().uuid(), organization_id: z.string().uuid(),
-  environment: z.enum(['SIMULATION', 'PRODUCTION']), unit_stamp: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
+  environment: z.enum(['SIMULATION', 'PRODUCTION']), unit_stamp: z.string().regex(/^[a-f0-9]{64}$/),
+  kms_key_arn: z.string().regex(/^arn:aws:kms:[a-z0-9-]+:[0-9]{12}:key\/[a-f0-9-]{36}$/) }).strict();
 const enrollmentSchema = z.object({ enrollment_id: z.string().uuid(), organization_id: z.string().uuid(),
   environment: z.enum(['SIMULATION', 'PRODUCTION']), connection_id: z.string().uuid(),
   unit_stamp: z.string().regex(/^[a-f0-9]{64}$/), enrollment_digest: z.string().regex(/^[a-f0-9]{64}$/),
@@ -37,7 +38,7 @@ export function createVerifiedZatcaEnrollmentReader(
         const membership = await client.query('select role,status from public.organization_members where organization_id=$1 and user_id=$2 for share',
           [target.organizationId, actor]);
         if (membership.rowCount !== 1 || !membershipSchema.safeParse(membership.rows[0]).success) fail('ORGANIZATION_ADMIN_REQUIRED');
-        const connectionResult = await client.query('select c.id,c.organization_id,c.environment,'
+        const connectionResult = await client.query('select c.id,c.organization_id,c.environment,c.kms_key_arn,'
           + 'zatca_preparation.enrollment_unit_stamp(to_jsonb(c)) as unit_stamp from public.vat_einvoice_connections c '
           + 'where c.organization_id=$1 and c.id=$2 and c.environment=$3 for share',
         [target.organizationId, target.connectionId, target.environment]);
@@ -63,7 +64,7 @@ export function createVerifiedZatcaEnrollmentReader(
         if (csr.toString('base64') !== e.csr_der_base64 || createHash('sha256').update(csr).digest('hex') !== saved.csrSha256)
           fail('ENROLLMENT_READ_INTEGRITY_INVALID');
         return { stage: 'AUTHORIZED_ENROLLMENT_READ_ONLY' as const, actorId: actor,
-          enrollmentId: e.enrollment_id, enrollmentDigest: e.enrollment_digest,
+          enrollmentId: e.enrollment_id, enrollmentDigest: e.enrollment_digest, kmsKeyArn: connection.data.kms_key_arn,
           csrPem: '-----BEGIN CERTIFICATE REQUEST-----\n' + e.csr_der_base64.match(/.{1,64}/g)!.join('\n') + '\n-----END CERTIFICATE REQUEST-----\n',
           savedUnit: saved };
       });

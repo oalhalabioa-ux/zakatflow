@@ -4,6 +4,7 @@ import type { KMSClient } from '@aws-sdk/client-kms';
 import { createZatcaKmsSigner } from './zatca-kms-signer';
 import { inspectZatcaOriginalCsr, inspectZatcaOnboardingIdentity, verifyZatcaOnboardingCandidate, zatcaSavedUnitIdentitySchema } from './zatca-onboarding-identity';
 import { z } from 'zod';
+import { decodeZatcaComplianceCertificate } from './zatca-simulation-compliance';
 
 const uuid = z.string().uuid(), pin = z.string().regex(/^[a-f0-9]{64}$/);
 const keyArn = z.string().regex(/^arn:aws:kms:[a-z0-9-]+:[0-9]{12}:key\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/);
@@ -148,7 +149,12 @@ export function createZatcaEnrollmentResponseStager(secrets: Pick<SecretsManager
         return loaded;
       };
       const loaded = await load();
-      const material = { csrPem: original.csrPem, certificateDerBase64: loaded.certificateDerBase64 };
+      // The immutable stored token is the authority's authentication credential,
+      // which may wrap DER twice. Only the verification copy is normalized.
+      let certificateDerBase64: string;
+      try { certificateDerBase64 = decodeZatcaComplianceCertificate(loaded.certificateDerBase64).toString('base64'); }
+      catch { return fail('ENROLLMENT_RESPONSE_IDENTITY_CHECK_FAILED'); }
+      const material = { csrPem: original.csrPem, certificateDerBase64 };
       try { inspectZatcaOnboardingIdentity(material, saved); }
       catch { return fail('ENROLLMENT_RESPONSE_IDENTITY_CHECK_FAILED'); }
       await checkKey();

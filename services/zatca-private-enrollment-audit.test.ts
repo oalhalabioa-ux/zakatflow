@@ -4,7 +4,7 @@ import {describe,expect,it,vi} from 'vitest';
 import {createVerifiedZatcaEnrollmentAuditStore} from './zatca-private-enrollment-audit';
 function fixture(){
   const actor=randomUUID(),context={organizationId:randomUUID(),connectionId:randomUUID(),environment:'SIMULATION',enrollmentId:randomUUID(),dispatchId:randomUUID(),checkId:randomUUID(),receiptDigest:'a'.repeat(64)};
-  const evidence={stage:'ONBOARDING_CANDIDATE_ONLY',identity:{stage:'ONBOARDING_IDENTITY_PREFLIGHT_ONLY',scope:{organizationId:context.organizationId,connectionId:context.connectionId,unitId:context.connectionId,environment:'SIMULATION'},profile:'ZAKATFLOW_SAN_DIRECTORY_V1',certificateFingerprintSha256:'b'.repeat(64),expectedIdentitySha256:'c'.repeat(64),csrSha256:'d'.repeat(64),publicKeySpkiSha256:'e'.repeat(64)},
+  const evidence={stage:'ONBOARDING_CANDIDATE_ONLY',identity:{stage:'ONBOARDING_IDENTITY_PREFLIGHT_ONLY',scope:{organizationId:context.organizationId,connectionId:context.connectionId,unitId:context.connectionId,environment:'SIMULATION'},profile:'ZAKATFLOW_SAN_DIRECTORY_V2',certificateFingerprintSha256:'b'.repeat(64),expectedIdentitySha256:'c'.repeat(64),csrSha256:'d'.repeat(64),publicKeySpkiSha256:'e'.repeat(64)},
     path:{stage:'CERTIFICATE_PATH_CHECK_ONLY',environment:'SIMULATION',certificateFingerprintSha256:'b'.repeat(64),anchorFingerprintSha256:'f'.repeat(64),issuerFingerprintsSha256:['f'.repeat(64)],crlFingerprintsSha256:['1'.repeat(64)],checkedAt:new Date().toISOString(),engine:'OpenSSL 3.0.2'}};
   const reference={version:'ZATCA_INITIAL_CREDENTIAL_V1',secretArn:'arn:aws:secretsmanager:eu-central-1:123456789012:secret:synthetic-ABC123',secretVersionId:context.dispatchId,certificateFingerprintSha256:'b'.repeat(64),encryptionKeyArn:'arn:aws:kms:eu-central-1:123456789012:key/'+randomUUID()};
   const common={check_id:context.checkId,dispatch_id:context.dispatchId,receipt_digest:context.receiptDigest,recorded_by:actor,recorded_at:new Date().toISOString(),integrity_valid:true};
@@ -21,6 +21,12 @@ function fixture(){
   return {actor,context,input,evidence,reference,state,client,auth,store,record:()=>store.recordVerification('SYNTHETIC.TOKEN',context,evidence),handoff:()=>store.recordCompliancePending('SYNTHETIC.TOKEN',context,reference)};
 }
 describe('private verification audit and pending-compliance adapters',()=>{
+  it('rejects a legacy V1 identity receipt before authentication instead of promoting it to V2',async()=>{
+    const f=fixture();
+    await expect(f.store.recordVerification('SYNTHETIC.TOKEN',f.context,{...f.evidence,identity:{...f.evidence.identity,profile:'ZAKATFLOW_SAN_DIRECTORY_V1'}}))
+      .rejects.toThrow('ENROLLMENT_AUDIT_INPUT_INVALID');
+    expect(f.auth.getUser).not.toHaveBeenCalled();
+  });
   it('writes exact scoped evidence and validates the receipt before COMMIT',async()=>{
     const f=fixture(),r=await f.record();expect(r.checkId).toBe(f.context.checkId);expect(r.evidence).toEqual(f.evidence);
     const call=f.client.query.mock.calls.find(([s])=>s.includes('record_response_verification'))!;
