@@ -142,8 +142,11 @@ function cashRows(report: PersonalReport, currency: string, en: boolean, t: Labe
   const accounts = report.cashAccounts.filter(row => row.currency === currency);
   const activities = report.cashByActivity.filter(row => row.currency === currency);
   const transfers = report.cashTransferReconciliation.find(row => row.currency === currency);
-  const value = (key: 'opening' | 'netMovement' | 'closing') => accounts.length ? sum(accounts.map(row => row[key])) : '';
-  const rows: StatementTreeRow[] = [{id:'opening', label:t('النقد أول الفترة', 'Opening cash'), value:value('opening'), kind:'detail'}];
+  const value = (key: 'opening' | 'netMovement' | 'closing') =>
+    accounts.length && accounts.every(row => row[key] !== '') ? sum(accounts.map(row => row[key])) : '';
+  const balanceNote = (key:'opening'|'closing') => accounts.some(row => row[key] === '')
+    ? t('الرصيد التاريخي غير مثبت بمطابقة الحركات', 'Historical balance is not reconciled to recorded movements') : undefined;
+  const rows: StatementTreeRow[] = [{id:'opening', label:t('النقد أول الفترة', 'Opening cash'), value:value('opening'), kind:'detail',note:balanceNote('opening')}];
   for (const activity of ['OPERATING', 'INVESTING', 'FINANCING', 'UNCLASSIFIED'] as const) {
     const entry = activities.find(row => row.activity === activity);
     rows.push({id:activity, label:personalCashActivityLabel(activity, en), value:entry?.net ?? '', kind:'parent',
@@ -155,8 +158,9 @@ function cashRows(report: PersonalReport, currency: string, en: boolean, t: Labe
   rows.push(
     {id:'movement', label:t('صافي التغيّر في النقد', 'Net change in cash'), value:value('netMovement'), kind:'subtotal',
       note:transfers?.unverifiedLegs ? t('توجد أطراف تحويل تحتاج مطابقة', 'Some transfer legs require reconciliation') : undefined},
-    {id:'closing', label:t('النقد آخر الفترة', 'Closing cash'), value:value('closing'), kind:'total'});
-  for (const account of accounts) rows.push({id:'account:' + account.id, label:account.name, value:account.closing, kind:'detail', parentId:'closing'});
+    {id:'closing', label:t('النقد آخر الفترة', 'Closing cash'), value:value('closing'), kind:'total',note:balanceNote('closing')});
+  for (const account of accounts) rows.push({id:'account:' + account.id, label:account.name, value:account.closing, kind:'detail', parentId:'closing',
+    note:account.closing===''?t('الرصيد التاريخي غير مثبت بمطابقة الحركات', 'Historical balance is not reconciled to recorded movements'):undefined});
   if (transfers?.verifiedPairs) rows.push(
     {id:'matched-transfers', label:t('إيضاح التحويلات الداخلية المطابقة', 'Matched internal transfers'), value:'', kind:'section'},
     {id:'matched-transfers-in', label:t('التحويلات الداخلة', 'Internal receipts'), value:transfers.verifiedInternalInflows, kind:'detail', parentId:'matched-transfers'},
