@@ -5,7 +5,7 @@ vi.mock('./organization-access',()=>({requireOrganizationMember:mocks.member}));
 import {financialRegister} from './financial-register';
 const org='11111111-1111-4111-8111-111111111111';
 let fixtures:Record<string,any[]>;let reads:string[];
-beforeEach(()=>{vi.resetAllMocks();reads=[];fixtures={profiles:[{id:'actor',base_currency:'SAR'}],organizations:[{id:org,name:'Company',base_currency:'SAR',organization_kind:'COMPANY'}]};mocks.requireUser.mockResolvedValue({supabase:{from:mocks.from},user:{id:'actor'}});mocks.from.mockImplementation((table:string)=>{reads.push(table);let rows=[...(fixtures[table]??[])];let selected='*';const project=(data:any[])=>table==='liquidity_flows'&&selected!=='*'?data.map(row=>Object.fromEntries(selected.split(',').map(key=>[key,row[key]]))):data;const q:any={select:(columns:string)=>{selected=columns;return q;},order:()=>q,or:()=>q,eq:(k:string,v:any)=>{rows=rows.filter(r=>r[k]===v);return q;},is:(k:string,v:any)=>{rows=rows.filter(r=>(r[k]??null)===v);return q;},in:(k:string,v:any[])=>{rows=rows.filter(r=>v.includes(r[k]));return q;},single:async()=>({data:rows[0],error:null}),then:(resolve:any,reject:any)=>Promise.resolve({data:rows,error:null}).then(resolve,reject),range:async(a:number,b:number)=>({data:project(rows.slice(a,b+1)),error:null})};return q;});});
+beforeEach(()=>{vi.resetAllMocks();reads=[];fixtures={profiles:[{id:'actor',base_currency:'SAR'}],organizations:[{id:org,name:'Company',base_currency:'SAR',organization_kind:'COMPANY'}]};mocks.requireUser.mockResolvedValue({supabase:{from:mocks.from},user:{id:'actor'}});mocks.from.mockImplementation((table:string)=>{reads.push(table);let rows=[...(fixtures[table]??[])];let selected='*';const project=(data:any[])=>table==='liquidity_flows'&&selected!=='*'?data.map(row=>Object.fromEntries(selected.split(',').map(key=>[key,row[key]]))):data;const q:any={select:(columns:string)=>{selected=columns;return q;},order:(key:string)=>{if(table==='personal_asset_supplier_schedules'&&key!=='purchase_id')throw Error('Unknown supplier schedule order column');return q;},or:()=>q,eq:(k:string,v:any)=>{rows=rows.filter(r=>r[k]===v);return q;},is:(k:string,v:any)=>{rows=rows.filter(r=>(r[k]??null)===v);return q;},in:(k:string,v:any[])=>{rows=rows.filter(r=>v.includes(r[k]));return q;},single:async()=>({data:rows[0],error:null}),then:(resolve:any,reject:any)=>Promise.resolve({data:rows,error:null}).then(resolve,reject),range:async(a:number,b:number)=>({data:project(rows.slice(a,b+1)),error:null})};return q;});});
 it('rejects unauthenticated access before any data read',async()=>{mocks.requireUser.mockRejectedValue(new Error('UNAUTHORIZED'));await expect(financialRegister('PERSONAL',null,false)).rejects.toThrow('UNAUTHORIZED');expect(reads).toEqual([]);});
 it('checks membership before any company balance read',async()=>{mocks.member.mockRejectedValue(new Error('ORGANIZATION_ACCESS_REQUIRED'));await expect(financialRegister('ORGANIZATION',org,false)).rejects.toThrow('ORGANIZATION_ACCESS_REQUIRED');expect(reads).not.toContain('liquidity_accounts');});
 it('fails closed if a holding child cannot be read',async()=>{fixtures.organizations=[{id:org,base_currency:'SAR',organization_kind:'HOLDING'},{id:'child',parent_organization_id:org,base_currency:'USD'}];mocks.member.mockImplementation(async(_s,_u,id)=>{if(id==='child')throw new Error('denied');});await expect(financialRegister('ORGANIZATION',org,true)).rejects.toThrow('GROUP_MEMBER_ACCESS_REQUIRED');expect(reads).not.toContain('liquidity_accounts');});
@@ -106,4 +106,20 @@ it('shows the linked cash flow external reference instead of an internal settlem
  fixtures.liquidity_flows=[{id:'flow',organization_id:org,status:'CONFIRMED',settlement_status:'SETTLED',account_id:'bank',direction:'INFLOW',amount:100,currency:'SAR',reference:'CUSTOMER-REF-17'}];
  const r=await financialRegister('ORGANIZATION',org,false);
  expect(r.cashMovements.map(m=>[m.amount,m.reference])).toEqual([[100,'CUSTOMER-REF-17'],[-40,'']]);
+});
+
+it('retains the dated purchase payable and reversal under the real personal transaction vouchers',async()=>{
+ fixtures.personal_payables=[{id:'debt',user_id:'actor',party:'Supplier',description:'Equipment',currency:'SAR',
+  amount:100000,event_date:'2026-02-01',due_date:'2026-03-01',cancelled_at:'2026-04-01T09:00:00Z'}];
+ fixtures.personal_asset_supplier_schedules=[{user_id:'actor',payable_id:'debt',purchase_id:'purchase'}];
+ fixtures.transactions=[
+  {id:'purchase',user_id:'actor',transaction_type:'PURCHASE',transaction_date:'2026-02-01'},
+  {id:'reverse',user_id:'actor',transaction_type:'REVERSAL',transaction_date:'2026-04-01',reversal_of_transaction_id:'purchase'},
+ ];
+ const register=await financialRegister('PERSONAL',null,false);
+ expect(register.debts[0]).toMatchObject({amount:0,voucherSourceId:'purchase',isOpening:false});
+ expect(register.debtMovements).toMatchObject([
+  {amount:100000,date:'2026-02-01',voucherSourceId:'purchase',isOpening:false},
+  {amount:-100000,date:'2026-04-01',voucherSourceId:'reverse',isOpening:false},
+ ]);
 });

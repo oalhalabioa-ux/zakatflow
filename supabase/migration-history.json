@@ -2281,6 +2281,14 @@
       "expected_md5": "362a701c1f1b1d5afdc28d6d4f829ef6",
       "file_sha256": "c0d946a5649cb2cdf34e82a3efc0f962c2eed0218d27b316aa2d7d22a65d8ae6",
       "validation_project": "Disposable canonical schema: institutional asset schedule, supplier obligation, posted cash, reversal and owner isolation"
+    },
+    {
+      "path": "supabase/migrations/20261127122200_personal_asset_supplier_schedule.sql",
+      "version": "20261127122200",
+      "name": "personal_asset_supplier_schedule",
+      "expected_md5": "5c69ea5b6edf51414658dfb26fb9dfc0",
+      "file_sha256": "25256a90574a9f146ba01b6bb455d6735ce67be9b16a8090c947b2ad7828e2a0",
+      "validation_project": "Disposable canonical schema: personal purchase with supplier payable and dated payment, four installments, reversal and owner isolation"
     }
   ]
 }

@@ -41,6 +41,16 @@ try{
   console.log('ASSET_SUPPLIER_PAYMENT_SCHEDULE '+JSON.stringify(evidence));
   await writeFile(new URL('tests/migration-history/asset-supplier-payment-schedule-result.json',root),JSON.stringify(evidence,null,2)+'\n');
  });
+ await check('personal asset supplier schedule preserves the purchase, payable, cash and dated reversal',async()=>{
+  const evidence=JSON.parse(sql(await load('tests/sql/personal-asset-supplier-schedule.sql')).split('\n').at(-1));
+  assert.equal(evidence.asset_cost,100000);
+  assert.equal(evidence.remaining_at_purchase,80000);
+  assert.equal(evidence.remaining_after_reversal,64000);
+  assert.equal(evidence.bank_after_full_reversal,150000);
+  assert.equal(evidence.isolated,true);
+  console.log('PERSONAL_ASSET_SUPPLIER_SCHEDULE '+JSON.stringify(evidence));
+  await writeFile(new URL('tests/migration-history/personal-asset-supplier-schedule-result.json',root),JSON.stringify(evidence,null,2)+'\n');
+ });
  await check('all canonical migration versions applied to a fresh local database',async()=>{
   const versions=JSON.parse(sql("select coalesce(jsonb_agg(version order by version),'[]') from supabase_migrations.schema_migrations"));
   assert.deepEqual(versions,manifest.entries.map(x=>x.version).sort());
@@ -129,6 +139,7 @@ try{
    'personal-pooled-hawl-schema-delta',
    'personal-hawl-daily-continuity-schema-delta',
    'asset-supplier-payment-schedule-schema-delta',
+   'personal-asset-supplier-schedule-schema-delta',
   ];
   const deltas=await Promise.all(deltaNames.map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
   for(const delta of deltas){
@@ -204,7 +215,11 @@ try{
  });
  await check('bootstrap contains no customer, owner, membership or subscription records',async()=>{
   assert.equal(sql('select (select count(*) from auth.users)+(select count(*) from organizations)+(select count(*) from organization_members)+(select count(*) from platform_admins)+(select count(*) from platform_subscriptions)'), '0');
-  assert.equal(sql('select count(*) from pg_policies where schemaname in (\'public\',\'private\',\'subscription_private\')'),'201');
+  assert.equal(sql('select count(*) from pg_policies where schemaname in (\'public\',\'private\',\'subscription_private\')'),'202');
+  assert.equal(sql(`select count(*) from pg_policies where (schemaname,tablename,policyname) in (
+    ('private','asset_supplier_payment_schedules','asset_supplier_payment_schedules_read'),
+    ('public','personal_asset_supplier_schedules','personal_asset_supplier_schedules_owner')
+  )`),'2');
   assert.equal(sql('select count(*) from subscription_private.guard_coverage'),'103');
  });
  const admin=createClient(status.API_URL,status.SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
