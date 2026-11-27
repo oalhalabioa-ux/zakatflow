@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import PersonalIncomeEvidence from './PersonalIncomeEvidence';
+import PersonalIncomeReceivableTerms from './PersonalIncomeReceivableTerms';
 import {calculateVatDocumentLines} from '@/lib/vat-document-lines';
 
 type Profile={seller_name:string;vat_number:string|null;effective_from:string|null};
@@ -91,6 +92,7 @@ export default function PersonalIncomeWorkspace({ar}:{ar:boolean}){
           const cleanup=()=>doc.classList.remove('printing-personal-income');
           window.addEventListener('afterprint',cleanup,{once:true});window.print();
         }}>{t('طباعة الفاتورة','Print invoice')}</button>}
+        {row.receivable_id&&<PersonalIncomeReceivableTerms documentId={row.id} documentDate={row.document_date} today={today} ar={ar}/>}
         <PersonalIncomeEvidence documentId={row.id} ar={ar} attachments={row.personal_income_evidence} onSaved={()=>setReload(n=>n+1)}/>
       </div></details>)}
     </section></>}
