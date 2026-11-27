@@ -151,8 +151,18 @@ async function validateAssetOwnership(supabase:any,user:any,parsed:any){
  if(parsed.cost_center_id){const{data,error}=await supabase.from('organization_cost_centers').select('id').eq('id',parsed.cost_center_id).eq('organization_id',parsed.organization_id).maybeSingle();if(error)throw error;if(!data)throw new Error('ASSET_COST_CENTER_SCOPE_MISMATCH');}
  if(parsed.asset_type_code){const{data,error}=await supabase.from('asset_types_v2').select('code,class_code').eq('code',parsed.asset_type_code).eq('active',true).maybeSingle();if(error)throw error;if(!data||data.class_code!==parsed.asset_class_code)throw new Error('ASSET_CLASS_TYPE_MISMATCH');}
 }
-export async function createAsset(input:unknown){
- const parsed=assetSchema.parse(input);const{supabase,user}=await requireUser();
+export async function createAsset(input:unknown, supplierSchedule?:{
+ mode:'DEFERRED'|'INSTALLMENTS';
+ entries:Array<{kind:'DOWN_PAYMENT'|'INSTALLMENT';due_date:string;principal:string}>;
+}){
+ const parsed=assetSchema.parse(input);
+ if(supplierSchedule){
+  const firstDue=supplierSchedule.entries.find(entry=>entry.kind==='INSTALLMENT')?.due_date;
+  if(parsed.ownership_scope!=='ORGANIZATION'||parsed.metadata.acquisition_mode!=='PURCHASE'||
+   !['OTHER','REAL_ESTATE'].includes(parsed.asset_type)||!firstDue)throw Error('ASSET_SUPPLIER_SCHEDULE_ASSET_UNSUPPORTED');
+  parsed.metadata={...parsed.metadata,due_date:firstDue};
+ }
+ const{supabase,user}=await requireUser();
  await validateAssetOwnership(supabase,user,parsed);
  const quote=await resolveAssetEntryFx(supabase,user.id,parsed.currency,String(parsed.metadata?.purchase_date||''),parsed.ownership_scope==='ORGANIZATION'?parsed.organization_id??null:null);
  parsed.metadata=acquisitionValuation({...parsed.metadata,fx_rate:quote.rate,fx_rate_id:quote.row?.id??null,fx_rate_date:quote.row?.valuation_date??parsed.metadata?.purchase_date,fx_rate_source:quote.row?.source??'BASE_CURRENCY',...(parsed.ownership_scope==='PERSONAL'&&parsed.metadata.acquisition_mode==='PURCHASE'?{fx_source_from:quote.row?.from_currency??parsed.currency,fx_source_to:quote.row?.to_currency??quote.base_currency}:{})},parsed.currency);
@@ -168,7 +178,10 @@ export async function createAsset(input:unknown){
   return openFinancialAccount(financialOpeningFromAsset(parsed,requestId));
  }
 
- const{data,error}=await supabase.rpc('create_asset_with_acquisition',{p_asset:parsed,p_request_id:requestId});
+ const acquisition={p_asset:parsed,p_request_id:requestId};
+ const{data,error}=supplierSchedule
+  ? await supabase.rpc('create_scheduled_supplier_asset',{...acquisition,p_terms:supplierSchedule})
+  : await supabase.rpc('create_asset_with_acquisition',acquisition);
  if(error)throw error;return data;
 }
 export async function assetEditAvailability(id: string) {
