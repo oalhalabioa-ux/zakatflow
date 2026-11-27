@@ -13,13 +13,13 @@ import {operationStateLabel,operationTypeLabel} from '../../lib/asset-operation-
 import {AssetCardOverview,AssetCardZakat,assetCardNumber,type AssetCardStatement as Statement} from './AssetCardOverview';
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 
-export type AssetCardSection='summary'|'statement'|'valuation'|'zakat'|'documents'|'actions';
+export type AssetCardSection='summary'|'statement'|'funding'|'valuation'|'zakat'|'documents'|'actions';
 type Props={
- assetId:string;name:string;typeName:string;icon:ReactNode;status:string;active:boolean;organizational:boolean;ar:boolean;revision:number;
+ assetId:string;name:string;typeName:string;icon:ReactNode;status:string;active:boolean;organizational:boolean;hasFunding?:boolean;ar:boolean;revision:number;
  section:AssetCardSection;onSection:(section:AssetCardSection)=>void;onClose:()=>void;onSaved:()=>void;
  toolbar:ReactNode;content:ReactNode;work:ReactNode;hawlLots:Parameters<typeof AssetCardZakat>[0]['hawlLots'];zakatable:boolean;
 };
-export default function AssetStatementPreview({assetId,name,typeName,icon,status,active,organizational,ar,revision,
+export default function AssetStatementPreview({assetId,name,typeName,icon,status,active,organizational,hasFunding,ar,revision,
  section,onSection,onClose,onSaved,toolbar,content,work,hawlLots,zakatable}:Props){
  const t=(arabic:string,english:string)=>ar?arabic:english;
  const [selling,setSelling]=useState(false);
@@ -138,6 +138,7 @@ export default function AssetStatementPreview({assetId,name,typeName,icon,status
  const tabs:[AssetCardSection,ActionIcon,string][]=[
   ['summary','details',t('ملخص الأصل','Asset summary')],
   ['statement','history',t('كشف حركة الأصل','Asset movement statement')],
+  ...(hasFunding ? [['funding','pay',t('التمويل والسداد','Funding & settlement')] as [AssetCardSection,ActionIcon,string]] : []),
   ['valuation','trend',organizational?t('التقييم والإهلاك','Valuation and depreciation'):t('التقييم','Valuation')],
   ['zakat','operations',t('أثر العمليات على الزكاة','Zakat impact of operations')],
   ['documents','receipt',t('المستندات','Documents')],
