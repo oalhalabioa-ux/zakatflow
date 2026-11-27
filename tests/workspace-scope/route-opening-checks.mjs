@@ -231,6 +231,10 @@ export async function routeOpeningAcceptance({context,app,organizationId,otherOr
     if(spec.openGeneralAssetReport){
      await settleFrames(page,pending);
      await finishResponses(pending);
+     const headingColor=await page.locator('#fixed-assets-title').evaluate(node=>getComputedStyle(node).color);
+     const headerColor=await page.locator('.fixed-table-scroll th').first().evaluate(node=>getComputedStyle(node).backgroundColor);
+     assert.equal(headingColor,'rgb(245, 235, 214)','Fixed assets title must remain readable on navy');
+     assert.equal(headerColor,'rgb(16, 36, 58)','Fixed assets header should retain the report palette');
      const generalReads=['/api/assets','/api/transactions'];
      assert.ok(!completed.some(response=>generalReads.includes(new URL(response.url()).pathname)),
       'Opening fixed assets must defer the general asset and transaction reads');

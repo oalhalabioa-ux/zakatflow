@@ -97,3 +97,13 @@
  .fixed-report-navigation { gap: 4px; }
  .fixed-report-navigation button { padding-inline: 9px; }
 }
+
+/* Keep the report's navy surfaces readable under the shared application themes. */
+.corp-shell .corp-content .fixed-assets .fixed-assets-heading h2 {
+ color: var(--fixed-pale) !important;
+}
+.corp-shell .corp-content .fixed-assets .fixed-table-scroll table > thead > tr > th {
+ background: var(--fixed-navy) !important;
+ color: var(--fixed-pale) !important;
+ border-color: var(--fixed-navy) !important;
+}
