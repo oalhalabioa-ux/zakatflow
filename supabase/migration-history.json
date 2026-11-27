@@ -2273,6 +2273,14 @@
       "expected_md5": "3d282a08d2bcffc84fe7e14242d77816",
       "file_sha256": "906d4e2e76366737d8124e24f2fe7b778b34e50795291cba4b3ca900822d6d83",
       "validation_project": "Disposable canonical schema: dated closing evidence, same-day and cross-day qualification, cutoff save and finalization"
+    },
+    {
+      "path": "supabase/migrations/20261127111000_asset_supplier_payment_schedule.sql",
+      "version": "20261127111000",
+      "name": "asset_supplier_payment_schedule",
+      "expected_md5": "362a701c1f1b1d5afdc28d6d4f829ef6",
+      "file_sha256": "c0d946a5649cb2cdf34e82a3efc0f962c2eed0218d27b316aa2d7d22a65d8ae6",
+      "validation_project": "Disposable canonical schema: institutional asset schedule, supplier obligation, posted cash, reversal and owner isolation"
     }
   ]
 }
