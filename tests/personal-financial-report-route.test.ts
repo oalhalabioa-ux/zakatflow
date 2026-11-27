@@ -1,5 +1,7 @@
 import {beforeEach,describe,expect,it,vi} from 'vitest';
 const state=vi.hoisted(()=>({authenticated:true,calls:[] as unknown[][]}));
+const periodRpc=vi.hoisted(()=>vi.fn());
+vi.mock('../services/auth',()=>({requireUser:async()=>({supabase:{rpc:periodRpc}})}));
 vi.mock('../services/financial-register',()=>({financialRegister:async(...args:unknown[])=>{
  state.calls.push(args);if(!state.authenticated)throw Error('UNAUTHORIZED');
  return{asOf:'2026-11-06',baseCurrency:'SAR',organizations:[],organizationIds:[],entities:[],accounts:[],cashMovements:[],debts:[],debtMovements:[],assets:[],warnings:[]};
@@ -19,6 +21,17 @@ describe('personal financial reporting access and query validation',()=>{
    expect((await GET(new Request(url(invalid)))).status).toBe(400);
   }
   expect(state.calls).toHaveLength(1);
+ });
+ it('reads recognized document net and tax for exactly the requested period',async()=>{
+  vi.stubEnv('NEXT_PUBLIC_PERSONAL_INCOME','true');
+  try{
+   periodRpc.mockResolvedValue({data:{currency:'SAR',net:'10000.00',tax:'1500.00',count:1}});
+   const result=await GET(new Request(url('?from=2026-01-01&to=2026-01-31')));
+   expect((await result.json()).professionalIncome).toEqual({currency:'SAR',net:'10000.00',tax:'1500.00',count:1});
+   expect(periodRpc).toHaveBeenCalledWith('personal_income_period',{p_from:'2026-01-01',p_to:'2026-01-31'});
+   periodRpc.mockResolvedValue({error:Error('unavailable')});
+   expect((await GET(new Request(url()))).status).toBe(503);
+  }finally{vi.unstubAllEnvs()}
  });
  it('denies unauthenticated users and invalid or future dates',async()=>{
   state.authenticated=false;

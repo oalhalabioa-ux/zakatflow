@@ -15,6 +15,12 @@ const sql=input=>execFileSync('docker',['exec','-i','supabase_db_migration-histo
 const checks=[];const check=async(name,run)=>{await run();checks.push({name,status:'passed'});console.log('PASS '+name)};
 try{
  const manifest=await verifyFiles();
+ await check('personal income documents recognize only eligible posted invoices',async()=>{
+  sql(await load('tests/personal-income-documents.sql'));
+ });
+ await check('personal Hawl cutoff retains only assets included on that date',async()=>{
+  sql(await load('tests/sql/personal-hawl-cutoff-asset-scope.sql'));
+ });
  await check('invoice cash receipt lots prove the original gross/net/VAT split and cutoff',async()=>{
   sql(await load('tests/sql/personal-invoice-collection-evidence.sql'));
  });
@@ -130,6 +136,7 @@ try{
    'personal-hawl-daily-continuity-schema-delta',
    'v2-reporting-source-contracts-schema-delta',
    'personal-income-schema-delta',
+   'personal-hawl-cutoff-asset-scope-schema-delta',
    'personal-income-receivable-cutoff-schema-delta',
    'personal-invoice-hawl-evidence-schema-delta',
    'personal-invoice-collection-evidence-schema-delta',

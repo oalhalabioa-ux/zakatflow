@@ -2299,6 +2299,14 @@
       "validation_project": "Disposable source integration: original document, dated COLLECT pair, cutoff, evidence gaps, ownership and unchanged existing debt coverage"
     },
     {
+      "path": "supabase/migrations/20261127001500_personal_hawl_cutoff_asset_scope.sql",
+      "version": "20261127001500",
+      "name": "personal_hawl_cutoff_asset_scope",
+      "expected_md5": "6b304b62efd4fecc1aa65d646bfb760f",
+      "file_sha256": "6a004b0bde07d7507d5b5dc26493e59aff9ac39a3a655c4b7a2925d631557118",
+      "validation_project": "Disposable historical cutoff proof for both personal Hawl methods, guard preservation and exact invoice overlay"
+    },
+    {
       "path": "supabase/migrations/20261127013000_personal_invoice_hawl_evidence.sql",
       "version": "20261127013000",
       "name": "personal_invoice_hawl_evidence",
