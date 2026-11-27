@@ -45,7 +45,7 @@ import AssetEditActions, {useAssetEditPolicy} from "@/components/assets/AssetEdi
 import AssetPurchasePanel from "@/components/assets/AssetPurchasePanel";
 import AssetFundingSection from "@/components/assets/AssetFundingSection";
 import PersonalAssetFunding from "@/components/assets/PersonalAssetFunding";
-import {fundingModeCanUseExistingPurchase,type AssetFundingMode} from "@/lib/asset-financing-plan";
+import {assetMoneyDigits,fundingModeCanUseExistingPurchase,supplierScheduleTerms,type AssetFundingMode,type SupplierScheduleTerms} from "@/lib/asset-financing-plan";
 import {assetPurchaseAmounts,assetPurchaseStatus} from "@/lib/asset-purchase-workspace";
 import {isAssetPurchaseAllowed} from "@/lib/assets-acquisition";
 import AssetFinancialReview from "@/components/assets/AssetFinancialReview";
@@ -550,7 +550,10 @@ export default function Assets({
   const foreignFunding=Boolean(fundingCurrency&&fundingCurrency!==form.currency);
   const fundingScope = form.ownership_scope === "ORGANIZATION" ? "ORGANIZATION" : "PERSONAL";
   const fundingMode: AssetFundingMode = form.funding_mode ?? (fundingScope === "ORGANIZATION" ? "DEFERRED" : "CASH");
-  const fundingCanSave = fundingModeCanUseExistingPurchase(fundingScope, fundingMode);
+  const supplierScheduleEligible = fundingScope === "ORGANIZATION" && form.currency === baseCurrency &&
+    ["PPE","INTANGIBLE"].includes(form.asset_class_code ?? "") && ["OTHER","REAL_ESTATE"].includes(form.asset_type);
+  const saveSupplierSchedule = supplierScheduleEligible && ["DEFERRED","INSTALLMENTS"].includes(fundingMode);
+  const fundingCanSave = fundingModeCanUseExistingPurchase(fundingScope, fundingMode) || saveSupplierSchedule;
   const fxKey = JSON.stringify([form.currency, form.purchase_date, form.ownership_scope === 'ORGANIZATION' ? form.organization_id : null]);
   const fxPending = fxQuote.key !== fxKey || fxQuote.loading;
   const purchaseReference = form.ownership_scope === 'PERSONAL' && form.acquisition_mode === 'PURCHASE'
@@ -601,7 +604,7 @@ export default function Assets({
     try{entryTax=assetEntryTaxSettings(form,pc,false).amounts;}catch{/* Invalid input is reported by form validation on submit. */}
   }
   useEffect(()=>{if(formOpen){document.getElementById('asset-entry-title')?.focus({preventScroll:true});document.getElementById('asset-entry-title')?.scrollIntoView({block:'start',behavior:'smooth'});}},[formOpen]);
-  const save = async () => {
+  const save = async (formElement: HTMLFormElement) => {
     if(saving)return;
     setMsg("");
     if (!form.name.trim() || !form.purchase_date) {
@@ -642,6 +645,23 @@ export default function Assets({
     const nextRequestId=requestId||crypto.randomUUID();if(!requestId)setRequestId(nextRequestId);
     let taxSettings:ReturnType<typeof assetEntryTaxSettings>;try{taxSettings=assetEntryTaxSettings(form,pc);}catch{setMsg(ar?"تحقق من إعدادات الضريبة والتصنيف وسبب المعاملة الضريبية.":"Check tax settings, category and treatment reason.");return;}
     if(fxPending||!fxQuote.rate){setMsg(fxPending?(ar?'جار التحقق من سعر الصرف المسجل…':'Checking saved exchange rate…'):entryFxError(fxQuote.error));return;}
+    let supplierTerms: SupplierScheduleTerms | undefined;
+    if (saveSupplierSchedule && form.acquisition_mode === "PURCHASE") {
+      try {
+        if (fundingMode === "DEFERRED") {
+          const principal = String(taxSettings.amounts.gross);
+          supplierTerms = supplierScheduleTerms("DEFERRED", {currency:form.currency,purchaseDate:form.purchase_date,
+            invoiceTotal:principal,downPayment:"0",financeCost:"0"},[{dueDate:form.due_date,principal,financeCost:"0"}]);
+        } else {
+          const saved = new FormData(formElement).get("supplier_schedule");
+          if (typeof saved !== "string" || !saved) throw Error("ASSET_FINANCING_SCHEDULE_TOTAL");
+          supplierTerms = JSON.parse(saved) as SupplierScheduleTerms;
+        }
+      } catch {
+        setMsg(ar ? "أكمل جدول أصل الذمة وطابقه مع إجمالي الفاتورة وتواريخ الاستحقاق." : "Complete the principal schedule and match the invoice total and due dates.");
+        return;
+      }
+    }
     setSaving(true);
     const metadata: any = {
       fx_rate:fxQuote.rate,debt_category:form.debt_category||undefined,hawl_start_date:form.hawl_start_date||form.purchase_date,counterparty_id:form.counterparty_id||null,invoice_reference:form.invoice_reference||null,due_date:form.due_date||null,
@@ -675,23 +695,28 @@ export default function Assets({
       metadata: {...metadata,acquisition_mode:purchaseAllowed?(form.acquisition_mode||"OPENING_BALANCE"):"OPENING_BALANCE"},
     };
     try {
-    const r = await fetch("/api/assets", {
+    const r = await fetch(supplierTerms ? "/api/assets/supplier-schedule" : "/api/assets", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(supplierTerms ? {request_id:nextRequestId,asset:body,terms:supplierTerms} : body),
     });
     if (r.ok) {
       setForm({...empty});
       setEditAsset(null);setRequestId("");setFormOpen(false);setSubmitted(false);
-      setMsg(
-        ar
+      setMsg(supplierTerms
+        ? (ar ? "تم حفظ مسودة الاقتناء وجدول المورد. يظهر السداد الفعلي بعد الترحيل والتسوية." : "Acquisition draft and supplier schedule saved. Actual payments appear after posting and settlement.")
+        : ar
           ? (financialOpening&&body.ownership_scope==="ORGANIZATION"&&body.asset_type==="RECEIVABLE"?"تم حفظ الذمة كمسودة في سندات الافتتاح؛ تظهر في الأرصدة والتقارير بعد الاعتماد والترحيل.":`تم الحفظ في الأصول ${body.ownership_scope==="PERSONAL"?"الشخصية":"المؤسسية"} — أنشئ احتسابًا جديدًا لتحديث الزكاة`)
           : (financialOpening&&body.ownership_scope==="ORGANIZATION"&&body.asset_type==="RECEIVABLE"?"Opening receivable saved as a draft. Review and post it in Debt Openings before it enters balances and reports.":"Saved — create a new Snapshot to refresh Zakat calculation"),
       );
       await load();
     } else {
       const result = await r.json().catch(() => ({}));
-      setMsg(result.error==='ASSET_CASH_OPENING_REQUIRED'?(ar?'أدخل رصيدًا افتتاحيًا موجبًا؛ الحساب بلا رصيد يُنشأ من السيولة.':'Enter a positive opening; create empty accounts in Liquidity.'):result.error==='ASSET_FINANCIAL_FIELDS_LOCKED' ? (ar ? "بيانات الاقتناء مرتبطة بحركات مالية؛ صححها من سجل المعاملات بعكس الحركة وتسجيل الصحيحة." : "Acquisition is linked to financial movements. Correct it through the transaction ledger.") : result.error==='ASSET_EDIT_CONFLICT' ? (ar ? "تغير الأصل أثناء التعديل. حدّث الصفحة وأعد المحاولة." : "The asset changed. Refresh and retry.") : result.error || (ar ? "تعذر الحفظ" : "Save failed"));
+      if (result.error === 'ASSET_SUPPLIER_SCHEDULE_TOTAL_MISMATCH') {
+        setMsg(ar ? "مجموع جدول المورد لا يطابق إجمالي الفاتورة بعد الضريبة." : "The supplier schedule must match the invoice total including VAT.");
+      } else if (result.error === 'ASSET_SUPPLIER_SCHEDULE_CONFLICT') {
+        setMsg(ar ? "هذا الطلب حُفظ بشروط أخرى. افتح الأصل وسند المورد للاطلاع عليهما." : "This request was saved with other terms. Open the asset and supplier voucher to review them.");
+      } else setMsg(result.error==='ASSET_CASH_OPENING_REQUIRED'?(ar?'أدخل رصيدًا افتتاحيًا موجبًا؛ الحساب بلا رصيد يُنشأ من السيولة.':'Enter a positive opening; create empty accounts in Liquidity.'):result.error==='ASSET_FINANCIAL_FIELDS_LOCKED' ? (ar ? "بيانات الاقتناء مرتبطة بحركات مالية؛ صححها من سجل المعاملات بعكس الحركة وتسجيل الصحيحة." : "Acquisition is linked to financial movements. Correct it through the transaction ledger.") : result.error==='ASSET_EDIT_CONFLICT' ? (ar ? "تغير الأصل أثناء التعديل. حدّث الصفحة وأعد المحاولة." : "The asset changed. Refresh and retry.") : result.error || (ar ? "تعذر الحفظ" : "Save failed"));
     }
     } catch {setMsg(ar ? "تعذر الاتصال؛ حدّث البيانات قبل إعادة المحاولة." : "Connection failed. Refresh before retrying.");} finally {setSaving(false);}
   };
@@ -781,7 +806,7 @@ export default function Assets({
       </DetailsDialog>}
       {formOpen&&<section className="card section asset-entry" aria-labelledby="asset-entry-title">
         <div className="asset-entry-header"><div><span className="asset-entry-eyebrow">{ar?"سجل الأصول":"Asset register"}</span><h3 id="asset-entry-title" tabIndex={-1}>{ar?"إضافة أصل":"Add asset"}</h3><p>{ar?"أدخل بيانات الأصل وراجع القيم قبل الحفظ.":"Enter the asset details and review the values before saving."}</p></div><ActionButton icon="close" label={ar?"إغلاق النموذج":"Close form"} disabled={saving} onClick={closeAssetForm}/></div>
-        <form noValidate data-language={ar?'ar':'en'} className={submitted?'is-submitted':''} onInput={e=>{const control=e.target as HTMLInputElement;if(control.validity?.valid)control.removeAttribute('aria-invalid');}} onSubmit={e=>{e.preventDefault();setSubmitted(true);const controls=Array.from(e.currentTarget.querySelectorAll<HTMLInputElement|HTMLSelectElement>('input,select'));const invalid=controls.filter(c=>!c.disabled&&!c.validity.valid);controls.forEach(c=>{if(invalid.includes(c))c.setAttribute('aria-invalid','true');else c.removeAttribute('aria-invalid');});if(invalid.length){invalid.forEach(control=>{let parent:HTMLElement|null=control.parentElement;while(parent&&parent!==e.currentTarget){if(parent instanceof HTMLDetailsElement)parent.open=true;parent=parent.parentElement;}});setMsg(ar?'راجع الحقول المحددة باللون الأحمر وأكمل البيانات المطلوبة.':'Check the highlighted fields and complete the required information.');invalid[0].focus();invalid[0].scrollIntoView({block:'center',behavior:'smooth'});return;}void save();}} aria-busy={saving}>
+        <form noValidate data-language={ar?'ar':'en'} className={submitted?'is-submitted':''} onInput={e=>{const control=e.target as HTMLInputElement;if(control.validity?.valid)control.removeAttribute('aria-invalid');}} onSubmit={e=>{e.preventDefault();setSubmitted(true);const controls=Array.from(e.currentTarget.querySelectorAll<HTMLInputElement|HTMLSelectElement>('input,select'));const invalid=controls.filter(c=>!c.disabled&&!c.validity.valid);controls.forEach(c=>{if(invalid.includes(c))c.setAttribute('aria-invalid','true');else c.removeAttribute('aria-invalid');});if(invalid.length){invalid.forEach(control=>{let parent:HTMLElement|null=control.parentElement;while(parent&&parent!==e.currentTarget){if(parent instanceof HTMLDetailsElement)parent.open=true;parent=parent.parentElement;}});setMsg(ar?'راجع الحقول المحددة باللون الأحمر وأكمل البيانات المطلوبة.':'Check the highlighted fields and complete the required information.');invalid[0].focus();invalid[0].scrollIntoView({block:'center',behavior:'smooth'});return;}void save(e.currentTarget);}} aria-busy={saving}>
           <fieldset className="asset-entry-fields" disabled={saving}>
 <div className="asset-entry-hint">
   {ar?'نطاق التسجيل من البنر':'Registration scope from the main banner'} · {form.ownership_scope==='ORGANIZATION'
@@ -806,7 +831,7 @@ export default function Assets({
 </div></div></details><details className="asset-entry-group asset-entry-values" data-testid="asset-entry-values" open><summary><span aria-hidden="true">03</span>{form.acquisition_mode==='PURCHASE'?(ar?"القيم والتواريخ وبيانات الشراء":"Values, dates & purchase details"):(ar?"القيم والتواريخ":"Values & dates")}<span className="asset-entry-chevron" aria-hidden="true">−</span></summary><div className="asset-entry-section-body"><p className="asset-entry-hint">{ar?"أدخل القيمة بعملة الأصل؛ يُعتمد سعر الصرف المسجل في النظام بتاريخ السند.":"Enter values in the asset currency; the system uses its saved exchange rate for the entry date."}</p><AssetEntrySettings form={form} onChange={setForm} ar={ar} edit={false} locked={false}/><div className="form-grid">
 
 <label>{form.acquisition_mode==='OPENING_BALANCE'?(ar?"تاريخ التملك / الرصيد الافتتاحي *":"Ownership / opening date *"):(ar?"تاريخ الشراء *":"Purchase date *")}<input data-testid="asset-entry-date" type="date" required value={form.purchase_date} onChange={e=>setForm({...form,purchase_date:e.target.value})}/></label>
-{form.acquisition_mode==='PURCHASE'&&form.ownership_scope==='ORGANIZATION'&&<label>{ar?"تاريخ استحقاق السداد *":"Payment due date *"}<input data-testid="asset-entry-due" type="date" required min={form.purchase_date} value={form.due_date} onChange={e=>setForm({...form,due_date:e.target.value})}/></label>}
+{form.acquisition_mode==='PURCHASE'&&form.ownership_scope==='ORGANIZATION'&&!(saveSupplierSchedule&&fundingMode==='INSTALLMENTS')&&<label>{ar?"تاريخ استحقاق السداد *":"Payment due date *"}<input data-testid="asset-entry-due" type="date" required min={form.purchase_date} value={form.due_date} onChange={e=>setForm({...form,due_date:e.target.value})}/></label>}
 {form.acquisition_mode==='PURCHASE'&&form.ownership_scope==='ORGANIZATION'&&<label>{ar?'رقم فاتورة المورد *':'Supplier invoice number *'}<input data-testid="asset-entry-invoice" required pattern={'.*\\S.*'} maxLength={120} value={form.invoice_reference} onChange={e=>setForm({...form,invoice_reference:e.target.value})}/><small>{ar?'يُحفظ رقم المورد منفصلًا؛ يُخصّص رقم داخلي تلقائي من تسلسل مشتريات الشركة عند الحفظ.':'Supplier reference is separate; an internal company purchase number is assigned on save.'}</small></label>}
 </div>
 {fxPending ? (
@@ -843,9 +868,10 @@ export default function Assets({
 
 </div></div>}</div></details>
 {form.acquisition_mode==="PURCHASE"&&form.ownership_scope&&<AssetFundingSection
+  key={JSON.stringify([fundingScope,form.currency,form.asset_class_code])} supplierSchedule={supplierScheduleEligible}
   ar={ar} scope={fundingScope} mode={fundingMode} onModeChange={mode=>setForm({...form,funding_mode:mode})}
   currency={form.currency} purchaseDate={form.purchase_date} invoiceNet={pc} invoiceTax={entryTax?.tax??0}
-  invoiceTotal={entryTax?.gross??Math.round(pc*100)/100} canSave={fundingCanSave} restricted={metal}
+  invoiceTotal={entryTax?.gross??Number(pc.toFixed(assetMoneyDigits(form.currency)))} canSave={fundingCanSave} restricted={metal}
   existingCashFields={<div className="form-grid"><><label>
             {ar ? "الدفع من الحساب الشخصي *" : "Pay from personal account"}
             <select required value={form.funding_account_id || ""} onChange={(e)=>setForm({...form,funding_account_id:e.target.value,funding_amount:""})}>

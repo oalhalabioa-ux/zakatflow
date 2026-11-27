@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fundingModeCanUseExistingPurchase, generateAssetInstallments, validateAssetInstallments } from "./asset-financing-plan";
+import { fundingModeCanUseExistingPurchase, generateAssetInstallments, supplierScheduleTerms, validateAssetInstallments } from "./asset-financing-plan";
 
 const terms = { invoiceTotal: "100000", currency: "SAR", purchaseDate: "2026-11-27", downPayment: "20000", financeCost: "0" };
 
@@ -47,5 +47,30 @@ describe("asset financing preview", () => {
     expect(fundingModeCanUseExistingPurchase("PERSONAL", "DEFERRED")).toBe(false);
     expect(fundingModeCanUseExistingPurchase("ORGANIZATION", "INSTALLMENTS")).toBe(false);
     expect(fundingModeCanUseExistingPurchase("PERSONAL", "MIXED")).toBe(false);
+  });
+});
+
+
+describe("institutional payment schedule submission", () => {
+  it("uses the same field precision and due dates in the preview and the Work 02 command", () => {
+    const draft = generateAssetInstallments(terms, 10, "MONTHLY", "2027-01-31");
+    const saved = supplierScheduleTerms("INSTALLMENTS", terms, draft);
+    expect(saved.entries[0]).toEqual({kind:"DOWN_PAYMENT",due_date:"2026-11-27",principal:"20000.00"});
+    expect(saved.entries[1]).toEqual({kind:"INSTALLMENT",due_date:"2027-01-31",principal:"8000.00"});
+    expect(saved.entries).toHaveLength(11);
+  });
+
+  it("sends one due row for a gross VAT-inclusive deferred purchase", () => {
+    const invoice = {...terms, invoiceTotal:"115000",downPayment:"0"};
+    expect(supplierScheduleTerms("DEFERRED",invoice,[{dueDate:"2027-01-31",principal:"115000",financeCost:"0"}]))
+      .toEqual({mode:"DEFERRED",entries:[{kind:"INSTALLMENT",due_date:"2027-01-31",principal:"115000"}]});
+  });
+
+  it("requires two installments and refuses separate financing costs on the supplier command", () => {
+    const single = generateAssetInstallments(terms,1,"MONTHLY","2027-01-31");
+    expect(()=>supplierScheduleTerms("INSTALLMENTS",terms,single)).toThrow("ASSET_FINANCING_COUNT_INVALID");
+    const withFees = {...terms,financeCost:"100"};
+    const loans = generateAssetInstallments(withFees,2,"MONTHLY","2027-01-31");
+    expect(()=>supplierScheduleTerms("INSTALLMENTS",withFees,loans)).toThrow("ASSET_FINANCING_SUPPLIER_PRINCIPAL_ONLY");
   });
 });

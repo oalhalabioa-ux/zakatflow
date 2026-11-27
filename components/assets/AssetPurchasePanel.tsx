@@ -3,6 +3,8 @@ import VoucherStamp from '../VoucherStamp';
 import type {ReactNode} from 'react';
 import DetailsTabs from './DetailsTabs';
 import AssetSupplierSettlement from './AssetSupplierSettlement';
+import AssetSupplierScheduleCard from './AssetSupplierScheduleCard';
+import type {SupplierSchedule} from '@/lib/asset-financing-plan';
 import ActionButton,{ActionIconGlyph} from '../ActionButton';
 import {useEffect,useState,useRef} from 'react';
 import AssetFinancialReview from './AssetFinancialReview';
@@ -15,7 +17,28 @@ export default function AssetPurchasePanel({assetId,ar,onChanged,onClose,initial
  useEffect(()=>{if(tab!=='history'||!data?.event.source_record_id)return;const controller=new AbortController();setHistoryData(null);setHistoryError('');fetch(`/api/transactions/${data.event.source_record_id}`,{signal:controller.signal,cache:'no-store'}).then(async r=>{const x=await r.json();if(!r.ok)throw Error(x.error);setHistoryData(x)}).catch(e=>{if(!controller.signal.aborted)setHistoryError(e.message)});return()=>controller.abort()},[tab,data?.event.source_record_id,data?.event.status]);
  const paymentRequest=useRef<string|null>(null);
  const t=(a:string,e:string)=>ar?a:e;
- function accept(x:any){setData(x);const m=x.asset.metadata??{};setDraft({...m,quantity:Number(m.quantity??1),purchase_value:Number(m.purchase_value??0),fx_rate:Number(m.fx_rate??1),vat_input_mode:m.vat_input_mode??'AMOUNT',vat_rate:Number(m.vat_rate??15),vat_amount:Number(m.vat_amount??0),recoverable_percent:Number(m.recoverable_percent??100),due_date:m.due_date||m.purchase_date});setAmount(String(Math.max(0,Number(x.flow?.amount??0)-Number(x.flow?.settled_amount??0))));}
+ const [scheduleRevision,setScheduleRevision]=useState(0);
+ const [supplierResult,setSupplierResult]=useState<{assetId:string;revision:number;schedule:SupplierSchedule|null;error:boolean}|null>(null);
+ const currentSupplier=supplierResult?.assetId===assetId&&supplierResult.revision===scheduleRevision?supplierResult:null;
+ const supplierSchedule=currentSupplier?.schedule;
+ const purchaseLoaded=Boolean(data);
+ useEffect(()=>{
+  if(!settlementOnly||!purchaseLoaded)return;
+  const controller=new AbortController();
+  fetch(`/api/assets/supplier-schedule?asset_id=${encodeURIComponent(assetId)}`,{signal:controller.signal,cache:'no-store'})
+   .then(async response=>{
+    if(!response.ok)throw Error('ASSET_SUPPLIER_SCHEDULE_READ');
+    const {schedule}=await response.json();
+    if(!controller.signal.aborted)setSupplierResult({assetId,revision:scheduleRevision,schedule,error:false});
+   }).catch(()=>{if(!controller.signal.aborted)setSupplierResult({assetId,revision:scheduleRevision,schedule:null,error:true});});
+  return()=>controller.abort();
+ },[assetId,settlementOnly,purchaseLoaded,scheduleRevision]);
+ function startPayment(){
+  const next=supplierSchedule?.entries.find(row=>row.remaining!==null&&Number(row.remaining)>0);
+  if(next?.remaining)setAmount(next.remaining);
+  setTab('payment');setEditing(false);setPaying(!paying);
+ }
+ function accept(x:any){setData(x);setScheduleRevision(value=>value+1);const m=x.asset.metadata??{};setDraft({...m,quantity:Number(m.quantity??1),purchase_value:Number(m.purchase_value??0),fx_rate:Number(m.fx_rate??1),vat_input_mode:m.vat_input_mode??'AMOUNT',vat_rate:Number(m.vat_rate??15),vat_amount:Number(m.vat_amount??0),recoverable_percent:Number(m.recoverable_percent??100),due_date:m.due_date||m.purchase_date});setAmount(String(Math.max(0,Number(x.flow?.amount??0)-Number(x.flow?.settled_amount??0))));}
  useEffect(()=>{let active=true;const controller=new AbortController();fetch(`/api/assets/purchase?asset_id=${assetId}`,{signal:controller.signal}).then(async r=>{const x=await r.json();if(!r.ok)throw Error(x.error);if(active){accept(x);setEditing(initialEdit&&x.can_edit);}}).catch(e=>{if(active)setError(e.message)});return()=>{active=false;controller.abort()}},[assetId,initialEdit]);
  async function request(action:'SAVE'|'ARCHIVE'|'APPROVE_AND_POST'|'PAY'|'REVERSED'){
   setBusy(true);setError('');setMessage('');
@@ -50,7 +73,7 @@ export default function AssetPurchasePanel({assetId,ar,onChanged,onClose,initial
  {!settlementOnly&&data.allowedActions.includes('APPROVE_AND_POST')&&<ActionButton icon="post" showLabel label={t('اعتماد وترحيل الأصل','Approve and post asset')} disabled={busy} onClick={()=>void request('APPROVE_AND_POST')}/>}
  {!settlementOnly&&data.can_edit&&<ActionButton icon="edit" label={t('تعديل بيانات الشراء','Edit purchase')} showLabel disabled={busy} aria-expanded={editing} onClick={()=>{setTab('details');setPaying(false);setEditing(!editing)}}/>}
  {!settlementOnly&&data.can_archive&&<ActionButton icon="delete" label={t('حذف المسودة','Delete draft')} disabled={busy} onClick={()=>{if(window.confirm(t('إلغاء مسودة الشراء وإخفاء الأصل؟ يُحفظ سجل التدقيق.','Cancel purchase draft and archive asset? Audit history is retained.')))void request('ARCHIVE')}}/>}
- {data.event.status==='ACTUAL'&&data.flow&&Number(data.flow.amount)>Number(data.flow.settled_amount)&&<ActionButton icon="pay" label={t('تسجيل سداد','Record payment')} disabled={busy} aria-expanded={paying} onClick={()=>{setTab('payment');setEditing(false);setPaying(!paying)}}/>}
+ {data.event.status==='ACTUAL'&&data.flow&&Number(data.flow.amount)>Number(data.flow.settled_amount)&&<ActionButton icon="pay" label={t('تسجيل سداد','Record payment')} disabled={busy||settlementOnly&&(!currentSupplier||currentSupplier.error||supplierSchedule?.status==='REVIEW_REQUIRED')} aria-expanded={paying} onClick={startPayment}/>}
  {!settlementOnly&&<details><summary className="btn secondary action-button" aria-label={t('طباعة وتصدير','Print and export')} title={t('طباعة وتصدير','Print and export')}><ActionIconGlyph name="print"/></summary><div className="asset-export-options"><ActionButton icon="print" label="PDF" showLabel onClick={print}/><ActionButton icon="download" label="CSV" showLabel onClick={csv}/></div></details>}
  {!settlementOnly&&data.event.status==='ACTUAL'&&<ActionButton icon="reverse" label={data.allowedActions.includes('REVERSED')?t('عكس / تصحيح الأصل','Reverse / correct asset'):`${t('عكس الأصل','Reverse asset')}: ${assetReverseMessage(data.reverseBlock,ar)}`} disabled={busy||!data.allowedActions.includes('REVERSED')} onClick={()=>{setTab('details');setEditing(false);setPaying(false);setReverseOpen(true)}}/>}
  {extraActions}
@@ -64,11 +87,17 @@ export default function AssetPurchasePanel({assetId,ar,onChanged,onClose,initial
  <label>{t('المورد','Supplier')}<select required value={draft.counterparty_id??''} onChange={e=>setDraft({...draft,counterparty_id:e.target.value})}><option value="">—</option>{data.suppliers.map((p:any)=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>{field('invoice_reference',t('رقم فاتورة المورد','Supplier invoice reference'),'text')}
  </div>{preview&&<p>{t('الضريبة','VAT')}: {preview.tax.toLocaleString()} · {t('الإجمالي','Gross')}: {preview.gross.toLocaleString()} {data.asset.currency}</p>}<ActionButton type="submit" icon="save" label={t('حفظ المسودة','Save draft')} showLabel disabled={busy||!preview}/></form>}
  {paying&&tab==="payment"&&<form onSubmit={e=>{e.preventDefault();void request('PAY')}}><div className="form-grid"><label>{t('حساب السداد','Payment account')}<select required value={bank} onChange={e=>setBank(e.target.value)}><option value="">—</option>{data.banks.filter((b:any)=>b.currency===data.flow.currency).map((b:any)=><option key={b.id} value={b.id}>{b.name} · {b.currency}</option>)}</select></label><label>{t('مبلغ السداد','Payment amount')}<input type="number" required min="0.01" step="0.01" max={Number(data.flow.amount)-Number(data.flow.settled_amount)} value={amount} onChange={e=>setAmount(e.target.value)}/></label><label>{t('تاريخ السداد','Payment date')}<input type="date" required value={date} onChange={e=>setDate(e.target.value)}/></label></div><ActionButton type="submit" icon="pay" label={t('تأكيد السداد','Confirm payment')} showLabel disabled={busy}/></form>}
- {settlementOnly ? <AssetSupplierSettlement ar={ar} posted={data.event.status==='ACTUAL'} flow={data.flow}
-   cost={data.asset.metadata?.acquisition_cost_base??null}
-   baseCurrency={data.asset.metadata?.acquisition_base_currency??data.event.base_currency}
-   marketValue={marketValue}/>
- : <div hidden={tab!=="payment"} role="tabpanel" id={`details-${assetId}-payment`} aria-labelledby={`details-${assetId}-payment-tab`}>{!data.flow&&<p>{t("يتاح السداد بعد الاعتماد والترحيل المالي.","Payment becomes available after approval and posting.")}</p>}
+ {settlementOnly ? <>
+   {!currentSupplier ? <p role="status">{t('جار تحميل جدول المورد…','Loading supplier schedule…')}</p>
+    : currentSupplier.error ? <p role="alert">{t('تعذر قراءة جدول المورد. تحقق من الصلاحية أو أعد المحاولة.','Could not read the supplier schedule. Check access or retry.')}</p>
+    : supplierSchedule ? <AssetSupplierScheduleCard schedule={supplierSchedule} marketValue={marketValue} ar={ar}/>
+    : <AssetSupplierSettlement ar={ar} posted={data.event.status==='ACTUAL'} flow={data.flow}
+      cost={data.asset.metadata?.acquisition_cost_base??null}
+      baseCurrency={data.asset.metadata?.acquisition_base_currency??data.event.base_currency}
+      marketValue={marketValue}/>}
+   {currentSupplier&&<ActionButton icon="history" showLabel label={t('تحديث الجدول','Refresh schedule')} disabled={busy||paying}
+    onClick={()=>setScheduleRevision(value=>value+1)}/>}
+ </> : <div hidden={tab!=="payment"} role="tabpanel" id={`details-${assetId}-payment`} aria-labelledby={`details-${assetId}-payment-tab`}>{!data.flow&&<p>{t("يتاح السداد بعد الاعتماد والترحيل المالي.","Payment becomes available after approval and posting.")}</p>}
  {data.flow&&<p>{t('المسدد','Paid')}: {Number(data.flow.settled_amount??0).toLocaleString()} · {t('المتبقي','Outstanding')}: {Math.max(0,Number(data.flow.amount)-Number(data.flow.settled_amount)).toLocaleString()} {data.flow.currency}</p>}
  </div>}
  <div hidden={tab!=="history"} role="tabpanel" id={`details-${assetId}-history`} aria-labelledby={`details-${assetId}-history-tab`}>{historyError&&<p role="alert">{historyError}</p>}{!historyData&&!historyError&&<p>{t("تحميل السجل…","Loading history…")}</p>}{historyData&&<ol className="operation-audit-list">{historyData.history.map((h:any)=><li key={h.id}>{assetPurchaseStatus(h.to_status,ar)} · {new Date(h.created_at).toLocaleString(ar?"ar-SA":"en-GB")}<p>{h.note}</p></li>)}{historyData.audit.map((h:any)=><li key={h.id}>{h.action} · {new Date(h.created_at).toLocaleString(ar?"ar-SA":"en-GB")}</li>)}</ol>}</div>

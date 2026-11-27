@@ -8,10 +8,12 @@ import {
   assetMoneyDigits,
   generateAssetInstallments,
   maxAssetInstallments,
+  supplierScheduleTerms,
   validateAssetInstallments,
   type AssetFundingMode,
   type InstallmentDraft,
   type InstallmentFrequency,
+  type SupplierScheduleTerms,
 } from "@/lib/asset-financing-plan";
 
 const methods = [
@@ -36,6 +38,7 @@ const validationMessages: Record<string, [string, string]> = {
   ASSET_FINANCING_DOWN_PAYMENT_INVALID: ["تأكد من إجمالي الفاتورة وأن المقدم أقل منه.", "Check the invoice total and enter a smaller down payment."],
   ASSET_FINANCING_DATE_INVALID: ["أكمل الاستحقاقات بالترتيب، بدءًا من تاريخ الشراء أو بعده.", "Enter due dates in order, on or after the purchase date."],
   ASSET_FINANCING_COUNT_INVALID: ["تحقق من عدد الدفعات وإمكان توزيع أصل الالتزام.", "Check the number of payments and whether the principal can be distributed."],
+  ASSET_FINANCING_SUPPLIER_PRINCIPAL_ONLY: ["يدعم جدول المورد أصل الذمة. تكلفة التمويل لها مسار مستقل.", "The supplier schedule covers principal. Financing costs require a separate workflow."],
   ASSET_FINANCING_SCHEDULE_TOTAL: ["طابق مجموع أصل الدفعات وتكلفة التمويل مع الإجماليات.", "Match the scheduled principal and financing cost to their totals."],
 };
 
@@ -52,6 +55,7 @@ type Props = {
   existingCashFields?: ReactNode;
   canSave: boolean;
   restricted: boolean;
+  supplierSchedule?: boolean;
 };
 
 function FundingGlyph({ mode }: { mode: AssetFundingMode }) {
@@ -67,7 +71,7 @@ function FundingGlyph({ mode }: { mode: AssetFundingMode }) {
 }
 
 export default function AssetFundingSection(props: Props) {
-  const { ar, mode, onModeChange, scope, currency, purchaseDate, invoiceNet, invoiceTax, invoiceTotal, existingCashFields, canSave, restricted } = props;
+  const { ar, mode, onModeChange, scope, currency, purchaseDate, invoiceNet, invoiceTax, invoiceTotal, existingCashFields, canSave, restricted, supplierSchedule } = props;
   const [downPayment, setDownPayment] = useState("0");
   const [financeCost, setFinanceCost] = useState("0");
   const [count, setCount] = useState("10");
@@ -87,9 +91,13 @@ export default function AssetFundingSection(props: Props) {
     currency, purchaseDate, downPayment, financeCost, invoiceTotal: String(invoiceTotal),
   };
   let preview: ReturnType<typeof validateAssetInstallments> | undefined;
+  let terms: SupplierScheduleTerms | undefined;
   let validationError = "";
   if (rows.length) {
-    try { preview = validateAssetInstallments(installmentInput, rows); }
+    try {
+      preview = validateAssetInstallments(installmentInput, rows);
+      if (supplierSchedule) terms = supplierScheduleTerms("INSTALLMENTS", installmentInput, rows);
+    }
     catch (error) { validationError = (error as Error).message; }
   }
   const errorText = (code: string) =>
@@ -99,6 +107,7 @@ export default function AssetFundingSection(props: Props) {
   };
   const generate = () => {
     try {
+      if (supplierSchedule && Number(count) < 2) throw Error("ASSET_FINANCING_COUNT_INVALID");
       setRows(generateAssetInstallments(installmentInput, Number(count), frequency, firstDue));
       setGenerationError("");
     } catch (error) {
@@ -146,17 +155,19 @@ export default function AssetFundingSection(props: Props) {
         </p>}
       </>}
       {mode === "INSTALLMENTS" && <>
+        {terms && <input type="hidden" name="supplier_schedule" value={JSON.stringify(terms)}/>}
+        {supplierSchedule && <p className="asset-entry-hint">{t("يُحفظ أصل الذمة وجدولها مع مسودة الشراء. يسجَّل المقدم والسداد الفعلي بعد الترحيل من حساب السداد.", "The supplier principal schedule saves with the draft. Record the down payment and other actual payments after posting.")}</p>}
         <div className="form-grid asset-funding-form">
-          <label>{t("الدفعة الأولى", "Down payment")}
+          <label>{scope === "ORGANIZATION" ? t("المقدم المخطط", "Planned down payment") : t("الدفعة الأولى", "Down payment")}
             <input type="number" min="0" step={smallestUnit} value={downPayment}
               onChange={e => changeTerms(() => setDownPayment(e.target.value))} />
           </label>
-          <label>{t("تكلفة التمويل الإضافية", "Separate financing cost")}
+          {!supplierSchedule && <label>{t("تكلفة التمويل الإضافية", "Separate financing cost")}
             <input type="number" min="0" step={smallestUnit} value={financeCost}
               onChange={e => changeTerms(() => setFinanceCost(e.target.value))} />
-          </label>
+          </label>}
           <label>{t("عدد الدفعات", "Number of payments")}
-            <input type="number" min="1" max={maxAssetInstallments} step="1" value={count}
+            <input type="number" min={supplierSchedule ? 2 : 1} max={maxAssetInstallments} step="1" value={count}
               onChange={e => changeTerms(() => setCount(e.target.value))} />
           </label>
           <label>{t("الدورية", "Frequency")}
@@ -175,14 +186,14 @@ export default function AssetFundingSection(props: Props) {
         {generationError && <p className="asset-funding-notice" role="alert">{errorText(generationError)}</p>}
         {rows.length > 0 && <>
           {validationError && <p className="asset-funding-notice" role="alert">{errorText(validationError)}</p>}
-          {preview && <div aria-live="polite" className="asset-funding-preview">
+          {preview && !validationError && <div aria-live="polite" className="asset-funding-preview">
             <dl className="asset-funding-amounts">
-              <div><dt>{t("المدفوع الآن", "Paid now")}</dt><dd>{showMoney(preview.payableNow)}</dd></div>
+              <div><dt>{scope === "ORGANIZATION" ? t("المقدم المخطط", "Planned down payment") : t("المدفوع الآن", "Paid now")}</dt><dd>{showMoney(preview.payableNow)}</dd></div>
               <div><dt>{t("أصل الالتزام المتبقي", "Remaining principal")}</dt><dd>{showMoney(preview.remainingPrincipal)}</dd></div>
               <div><dt>{t("إجمالي الدفعات المستقبلية", "Future payments")}</dt><dd>{showMoney(preview.futureTotal)}</dd></div>
             </dl>
             <label className="asset-funding-progress">
-              {t("النسبة المتوقعة للسداد بعد المقدم", "Expected paid percentage after down payment")} · {preview.paidPercent}%
+              {t("نسبة المقدم المخطط", "Planned down payment percentage")} · {preview.paidPercent}%
               <progress value={preview.paidPercent} max={100} />
             </label>
           </div>}
@@ -204,7 +215,7 @@ export default function AssetFundingSection(props: Props) {
                   <td><input aria-label={t("أصل القسط ", "Principal for payment ") + number} type="number"
                     min="0" step={smallestUnit} value={row.principal} onChange={e => editRow(i, "principal", e.target.value)} /></td>
                   <td><input aria-label={t("تمويل القسط ", "Financing cost for payment ") + number} type="number"
-                    min="0" step={smallestUnit} value={row.financeCost} onChange={e => editRow(i, "financeCost", e.target.value)} /></td>
+                    min="0" step={smallestUnit} value={row.financeCost} readOnly={supplierSchedule} onChange={e => editRow(i, "financeCost", e.target.value)} /></td>
                   <td><bdi>{total}</bdi></td>
                   <td><bdi>{showMoney(0)}</bdi></td>
                   <td><bdi>{total}</bdi></td>

@@ -103,3 +103,36 @@ export function validateAssetInstallments(input: FinancingDraft, rows: Installme
     paidPercent: down.div(invoice).times(100).toDecimalPlaces(2).toNumber(),
   };
 }
+
+export type SupplierScheduleTerms = {
+  mode: "DEFERRED" | "INSTALLMENTS";
+  entries: {kind: "DOWN_PAYMENT" | "INSTALLMENT"; due_date: string; principal: string}[];
+};
+
+export type SupplierSchedule = {
+  asset_id: string;
+  status: string;
+  currency: string;
+  document_total: string;
+  asset_cost: string | null;
+  applied: string | null;
+  remaining: string | null;
+  entries: {id: string; position: number; kind: "DOWN_PAYMENT" | "INSTALLMENT"; due_date: string;
+    principal: string; applied: string | null; remaining: string | null}[];
+  applications: {allocation_id: string; date: string; amount: string; event_status: string; reversal_date: string | null}[];
+};
+
+export function supplierScheduleTerms(mode: SupplierScheduleTerms["mode"], input: FinancingDraft, rows: InstallmentDraft[]): SupplierScheduleTerms {
+  const preview = validateAssetInstallments(input, rows);
+  if (mode === "DEFERRED" && (rows.length !== 1 || new Money(preview.payableNow).gt(0)) ||
+      mode === "INSTALLMENTS" && rows.length < 2)
+    throw Error("ASSET_FINANCING_COUNT_INVALID");
+  if (new Money(input.financeCost || "0").gt(0) ||
+      rows.some(row => !new Money(row.principal).gt(0) || new Money(row.financeCost || "0").gt(0)))
+    throw Error("ASSET_FINANCING_SUPPLIER_PRINCIPAL_ONLY");
+  const entries: SupplierScheduleTerms["entries"] = rows.map(row => ({kind: "INSTALLMENT", due_date: row.dueDate, principal: row.principal}));
+  if (new Money(preview.payableNow).gt(0)) entries.unshift({kind: "DOWN_PAYMENT", due_date: input.purchaseDate, principal: preview.payableNow});
+  if (entries.some(entry => !/^\d{1,12}(\.\d{1,4})?$/.test(entry.principal)))
+    throw Error("ASSET_FINANCING_AMOUNT_PRECISION");
+  return {mode, entries};
+}
