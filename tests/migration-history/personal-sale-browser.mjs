@@ -296,7 +296,10 @@ try {
   const foreign=await openContext(browser,other.cookies,{width:1440,height:960});
   const inaccessible=await foreign.request.get(app+'/api/transactions/'+corrected.id);
   assert.equal(inaccessible.status(),404);
-  await verifyInvoiceTerms({app,owner,ownerContext:context,otherContext:foreign,value});
+  const invoiceOwner=await signedIn();
+  const invoiceContext=await openContext(browser,invoiceOwner.cookies,{width:1440,height:960});
+  await verifyInvoiceTerms({app,owner:invoiceOwner,ownerContext:invoiceContext,otherContext:foreign,value});
+  await invoiceContext.close();
   await foreign.close();
   await context.close();
   console.log('PASS authenticated AR mobile sale correction, one filter per field, saved balances, reload and user isolation');

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
+import {verifyInvoiceReporting} from './personal-invoice-reporting-browser.mjs';
 
 export async function verifyInvoiceTerms({app, owner, ownerContext, otherContext, value}) {
   const endpoint = app+'/api/personal-income/receivable-terms';
@@ -63,8 +64,9 @@ export async function verifyInvoiceTerms({app, owner, ownerContext, otherContext
   await expectStatus(await post(ownerContext,badTerms,'https://unrelated.invalid'),403);
   await expectStatus(await otherContext.request.get(endpoint+'?document='+invoice.id),404);
 
+  const bankName = 'QA invoice bank';
   const bank = value(await client.from('asset_accounts').insert({
-    user_id:owner.user.id,asset_type:'BANK',name:'QA invoice bank',currency:'SAR',unit:'SAR',
+    user_id:owner.user.id,asset_type:'BANK',name:bankName,currency:'SAR',unit:'SAR',
     is_zakatable:true,ownership_scope:'PERSONAL',metadata:{},
   }).select('id').single());
   const transfer = {
@@ -102,4 +104,5 @@ export async function verifyInvoiceTerms({app, owner, ownerContext, otherContext
   assert.ok(lot.bankLotId);
   console.log('PASS invoice terms in both locales, owner isolation, retry, partial bank collection and dated re-eligibility');
   await page.close();
+  await verifyInvoiceReporting({app,ownerContext,otherContext,bankName});
 }
