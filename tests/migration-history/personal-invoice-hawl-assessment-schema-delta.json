@@ -1,0 +1,35 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.personal_hawl_continuity(p_cycle uuid, p_method uuid, p_cutoff date)",
+      "fingerprint": "149b43c7ca1647abb7671e2bbb94906e"
+    },
+    {
+      "category": "function",
+      "object_key": "private.personal_invoice_assessment_positions(p_cycle uuid, p_method uuid, p_cutoff date, p_continuity jsonb)",
+      "fingerprint": "61e0f71d1d35fdb21aacc9ef9deb75e4"
+    },
+    {
+      "category": "function",
+      "object_key": "public.close_zakat_cycle(p_cycle_id uuid, p_final_assessment_id uuid)",
+      "fingerprint": "71b8ee6e26011d4a1c1b911ea92ec96d"
+    },
+    {
+      "category": "function",
+      "object_key": "public.personal_invoice_hawl_positions_at_cutoff(p_cutoff date)",
+      "fingerprint": "e33dfb7a0776461f40db7263fe650633"
+    },
+    {
+      "category": "function",
+      "object_key": "public.personal_zakat_assessment_context(p_cycle uuid, p_method uuid, p_cutoff date)",
+      "fingerprint": "89481072fd84cec7678fdd3896134e9a"
+    },
+    {
+      "category": "function",
+      "object_key": "public.save_zakat_assessment_snapshot(p_assessment jsonb, p_lines jsonb, p_revision_of uuid)",
+      "fingerprint": "6133e9f5ea2a9c072eebce64c8afd175"
+    }
+  ]
+}
