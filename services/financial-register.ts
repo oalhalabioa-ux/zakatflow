@@ -60,7 +60,7 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   const [personalPayables,personalPayments,supplierPurchases]=await Promise.all([
    all(()=>supabase.from('personal_payables').select('*').eq('user_id',user.id)),
    all(()=>supabase.from('personal_payable_payments').select('*').eq('user_id',user.id)),
-   all(()=>supabase.from('personal_asset_supplier_schedules').select('payable_id,purchase_id').eq('user_id',user.id)),
+   all(()=>supabase.from('personal_asset_supplier_schedules').select('payable_id,purchase_id').eq('user_id',user.id),['purchase_id']),
   ]);
   const supplierByPayable=new Map<string,string>(supplierPurchases.map(row=>[row.payable_id,row.purchase_id]));
   const payables=personalPayableRecords(personalPayables,personalPayments,transactions,supplierByPayable);
