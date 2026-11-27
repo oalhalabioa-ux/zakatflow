@@ -1,0 +1,20 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.personal_settled_opening_lot_anchors()",
+      "fingerprint": "5d216795486c1598e9be1603aef86678"
+    },
+    {
+      "category": "function",
+      "object_key": "public.close_zakat_cycle(p_cycle_id uuid, p_final_assessment_id uuid)",
+      "fingerprint": "b5141ad4049e7cd46a0759bffe2ff759"
+    },
+    {
+      "category": "function",
+      "object_key": "public.zakat_lot_hawl_periods(p_calendar text)",
+      "fingerprint": "ec3e7b6f6ef136ad9424820a141d98d3"
+    }
+  ]
+}

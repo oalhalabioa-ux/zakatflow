@@ -215,6 +215,71 @@ if(process.argv.includes('--upgrade-only')){
  process.exit(0);
 }
 await db.exec(invoiceSql);
+const openingHawlSql=await readFile(dir+'/20261127214500_personal_settled_opening_hawl.sql','utf8');
+for(const code of ['INDEPENDENT_LOTS','UNIFIED_HAWL']){
+ await db.exec('begin');
+ try{
+  const actor=randomUUID();
+  const {id:method}=(await db.query("update public.zakat_methods set calendar_type='HIJRI' where code=$1 returning id",[code])).rows[0];
+  await db.query("insert into auth.users(id,email) values($1,$2)",[actor,actor+'@settled-opening-hawl.invalid']);
+  await db.query(`insert into public.profiles(id,base_currency,zakat_method_id,nisab_standard)
+   values($1,'SAR',$2,'GOLD') on conflict(id) do update set base_currency='SAR',zakat_method_id=excluded.zakat_method_id,nisab_standard='GOLD'`,[actor,method]);
+  const {id:gold}=(await db.query(`insert into public.asset_accounts(user_id,asset_type,name,currency,unit,ownership_scope,is_zakatable,metadata)
+   values($1,'GOLD','Synthetic settled opening gold','SAR','g','PERSONAL',true,'{"karat":24}') returning id`,[actor])).rows[0];
+  const {id:movement}=(await db.query(`insert into public.transactions(user_id,asset_account_id,transaction_type,transaction_date,quantity,currency,base_currency,base_value)
+   values($1,$2,'OPENING_BALANCE','2024-02-03',90,'SAR','SAR',36000) returning id`,[actor,gold])).rows[0];
+  const {id:lot}=(await db.query(`insert into public.lots(user_id,asset_account_id,source_transaction_id,acquisition_date,original_quantity,remaining_quantity,original_value_base,remaining_value_base)
+   values($1,$2,$3,'2024-02-03',90,90,36000,36000) returning id`,[actor,gold,movement])).rows[0];
+  const earlyDay='2025-01-22', dueDay='2025-01-23';
+  const {id:cycle}=(await db.query(`insert into public.zakat_hawl_cycles(user_id,cycle_no,nisab_standard,nisab_reached_date,hawl_start_date,hawl_due_date,status,snapshot)
+   values($1,1,'GOLD','2024-02-03','2024-02-03',$2,'ACTIVE',
+   '{"personal_start_policy":"SETTLED_OPENING_V1","cycle_anchor_source":"USER_CONFIRMED_SETTLED_OPENING"}') returning id`,[actor,dueDay])).rows[0];
+  await db.query("select set_config('request.jwt.claim.sub',$1,true)",[actor]);
+  await db.exec('set local role authenticated');
+  const supabase=client();
+  globalThis.qaWitnessUser=()=>({user:{id:actor},supabase});
+  const assess=assessment_date=>calculateAndSaveAssessment({assessment_date,nisab_standard:'GOLD',gold_price:400,silver_price:4});
+  const legacy=await assess(dueDay);
+  assert.equal(legacy.lines.length,0);
+  assert.equal(Number(legacy.assessment.zakat_due),0);
+  await db.exec('reset role');
+  await db.exec(openingHawlSql);
+  await db.exec('set local role authenticated');
+  await db.exec('savepoint reject_missing_opening');
+  await assert.rejects(closeCycle(cycle,legacy.assessment.id),/FINAL_ASSESSMENT_RECALCULATION_REQUIRED/);
+  await db.exec('rollback to savepoint reject_missing_opening');
+  const early=await assess(earlyDay);
+  assert.equal(early.lines.length,1);
+  assert.equal(early.lines[0].lot_id,lot);
+  assert.equal(early.lines[0].eligibility_status,'HAWL_NOT_COMPLETED');
+  assert.equal(Number(early.assessment.zakat_due),0);
+  await db.exec('savepoint reject_early_opening');
+  await assert.rejects(closeCycle(cycle,early.assessment.id),/CYCLE_HAWL_NOT_COMPLETED/);
+  await db.exec('rollback to savepoint reject_early_opening');
+  const due=await assess(dueDay);
+  assert.equal(due.lines.length,1);
+  assert.equal(due.lines[0].lot_id,lot);
+  assert.equal(due.lines[0].valuation_snapshot.hawlStartDate,'2024-02-03');
+  assert.equal(due.lines[0].valuation_snapshot.hawlDueDate,dueDay);
+  assert.equal(Number(due.assessment.total_zakatable_value),36_000);
+  assert.equal(Number(due.assessment.zakat_due),900);
+  await closeCycle(cycle,due.assessment.id);
+  const finalized=(await db.query('select status,final_assessment_id,final_zakat_due from public.zakat_hawl_cycles where id=$1',[cycle])).rows[0];
+  assert.equal(finalized.status,'CLOSED');
+  assert.equal(finalized.final_assessment_id,due.assessment.id);
+  assert.equal(Number(finalized.final_zakat_due),900);
+  const {data:nextPeriod}=await supabase.rpc('personal_zakat_assessment_context',{p_cycle:null,p_method:method,p_cutoff:dueDay});
+  const covered=nextPeriod.periods.find(p=>p.lot_id===lot);
+  assert.equal(covered.covered_through,dueDay);
+  assert.ok(covered.hawl_due_date>dueDay);
+  assert.equal((await db.query('select hawl_start_date from public.lots where id=$1',[lot])).rows[0].hawl_start_date,null);
+  console.log(JSON.stringify({code,scenario:'SETTLED_OPENING',due:dueDay,eligible:36000,final:900,earlyCloseRejected:true,omittedOpeningCloseRejected:true,originalLotPreserved:true}));
+ }catch(e){
+  console.error('FAIL',code,'SETTLED_OPENING',e.message,e.code,e.where,e.detail);
+  process.exitCode=1;
+ }finally{await db.exec('rollback')}
+}
+await db.exec(openingHawlSql);
 for(const code of ['INDEPENDENT_LOTS','UNIFIED_HAWL']){
  for(const scenario of ['CONTINUOUS_GOOD','BAD_TO_GOOD','NISAB_RECOVERY']){
   const reclassified = scenario !== 'CONTINUOUS_GOOD';

@@ -2329,6 +2329,14 @@
       "expected_md5": "1397168a8bbbc52cf81a09e7f1186774",
       "file_sha256": "1c8c9abfba6b570fc327fe9a4e5a6be8ac45ed0bf8fc81372dac3d7682280461",
       "validation_project": "Disposable first personal Hawl calculation, dated invoice and FIFO receipt basis, snapshot validation and final coverage in both methods"
+    },
+    {
+      "path": "supabase/migrations/20261127214500_personal_settled_opening_hawl.sql",
+      "version": "20261127214500",
+      "name": "personal_settled_opening_hawl",
+      "expected_md5": "40eb9edff6894d31ccc8c44c2721c45a",
+      "file_sha256": "5d951d1d255fe9afc2594997e2df7b0ac252029acd23143a3143d988758f4ebd",
+      "validation_project": "Disposable personal settled opening: source-bound lot periods, calculation and final coverage in both Hawl methods"
     }
   ]
 }
