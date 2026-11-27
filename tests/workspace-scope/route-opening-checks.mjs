@@ -26,6 +26,7 @@ const account=[
  {path:'account',marker:'.account-summary',reads:[api('/api/settings')],account:true},
 ];
 const personal=[...shared,
+ {path:'liquidity',marker:'.finance-workspace[aria-busy="false"] .finance-metrics',reads:[api('/api/financial-register','scoped')],personalCashRegister:true},
  {path:'financial-reports',marker:'.fs-personal-statements .fs-index-layout',reads:[api('/api/financial-reporting/personal')]},
  {path:'settings/personal-setup',marker:'.personal-setup-panel'},
  ...account,
@@ -219,6 +220,16 @@ export async function routeOpeningAcceptance({context,app,organizationId,otherOr
     }
     const marker=spec.marker??(scope==='PERSONAL'?spec.personal:spec.business);
     await page.locator(marker).first().waitFor();
+    if(spec.personalCashRegister){
+     const register=completed.find(response=>matchesRead(response,required[0],scope,organizationId));
+     assert.equal(register.status(),200,'Personal liquidity must load its register');
+     const registerUrl=new URL(register.url());
+     assert.deepEqual(Object.fromEntries(registerUrl.searchParams),{scope:'PERSONAL'});
+     const body=await register.json();
+     assert.deepEqual(body.organizationIds,[]);
+     assert.ok(body.accounts.some(account=>account.name==='Scope Personal Bank'),'Missing the seeded personal bank account');
+     assert.ok(body.accounts.every(account=>account.organizationId===null),'Personal liquidity must only return personal cash accounts');
+    }
     if(spec.openDeposits){
      // The main entry is the portfolio dashboard. Its active-only summaries do
      // not list these draft fixtures; open the read-only deposit register only
@@ -260,7 +271,7 @@ export async function routeOpeningAcceptance({context,app,organizationId,otherOr
     assert.deepEqual(writes,[],'Opening a route attempted an API mutation');
     assert.deepEqual(failedReads,[],'Module read failed');
     assert.deepEqual(errors,[],'Browser exception');
-    outcomes.push({scope,path:'/en/'+spec.path,status:'opened',verifiedReads:required.map(({path})=>path),recordIsolation:Boolean(spec.fixture),...(gatedReads.length?{gatedReads}:{} )});
+    outcomes.push({scope,path:'/en/'+spec.path,status:'opened',verifiedReads:required.map(({path})=>path),recordIsolation:Boolean(spec.fixture||spec.personalCashRegister),...(gatedReads.length?{gatedReads}:{} )});
    });}catch(error){
     outcomes.push({scope,path:'/en/'+spec.path,status:'failed',error:error instanceof Error?error.message:String(error)});
    }finally{
