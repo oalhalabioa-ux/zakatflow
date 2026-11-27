@@ -19,7 +19,7 @@ export default function GroupRevaluationReview({ organization, from, to, en }: {
   const [translate, setTranslate] = useState(false);
   const [review, setReview] = useState<Review | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<'ambiguous' | 'unavailable' | null>(null);
   const pending = useRef<AbortController | null>(null);
   useEffect(() => () => pending.current?.abort(), []);
 
@@ -32,17 +32,24 @@ export default function GroupRevaluationReview({ organization, from, to, en }: {
     const request = new AbortController();
     pending.current = request;
     setBusy(true);
-    setError(false);
+    setError(null);
     setReview(null);
     try {
       const response = await fetch(endpoint + new URLSearchParams({ ...query, ...params }), {
         cache: 'no-store', signal: request.signal,
       });
+      if (response.status === 409) {
+        const failure = await response.json();
+        if (failure.error === 'REPORTING_FX_REVALUATION_AMBIGUOUS') {
+          if (!request.signal.aborted) setError('ambiguous');
+          return;
+        }
+      }
       if (!response.ok) throw Error('UNAVAILABLE');
       const data: unknown = await response.json();
       if (!request.signal.aborted) accept(data);
     } catch {
-      if (!request.signal.aborted) setError(true);
+      if (!request.signal.aborted) setError('unavailable');
     } finally {
       if (!request.signal.aborted) setBusy(false);
     }
@@ -94,7 +101,7 @@ export default function GroupRevaluationReview({ organization, from, to, en }: {
     {list && !list.choices.length && <p role="status">{t('لا توجد قيود مرتبطة قابلة للمراجعة في الفترة.', 'No linked journals are available for review in this period.')}</p>}
     {list && list.choices.length > 0 && <div className="fs-filters is-open">
       <label>{t('قيد إعادة التقييم', 'Revaluation journal')}
-        <select value={selected} disabled={busy} onChange={event => { setSelected(event.target.value); setReview(null); setError(false); }}>
+        <select value={selected} disabled={busy} onChange={event => { setSelected(event.target.value); setReview(null); setError(null); }}>
           <option value="">{t('اختر قيدًا', 'Select a journal')}</option>
           {list.choices.map(item => <option key={choiceKey(item)} value={choiceKey(item)}>
             {item.name} · {item.cutoff} · {item.journal.slice(0, 8)}
@@ -102,13 +109,15 @@ export default function GroupRevaluationReview({ organization, from, to, en }: {
         </select>
       </label>
       <label><input type="checkbox" checked={translate} disabled={busy}
-        onChange={event => { setTranslate(event.target.checked); setReview(null); setError(false); }}/>
+        onChange={event => { setTranslate(event.target.checked); setReview(null); setError(null); }}/>
         {t('ترجمة الشركة وفق سياسة المؤسسة (اقتصاد غير مفرط التضخم)', 'Translate using the institution policy (non-hyperinflationary economy)')}
       </label>
       <button type="button" disabled={busy || !choice} onClick={() => loadReview()}>{t('مراجعة القيد', 'Review journal')}</button>
     </div>}
     {busy && <p role="status">{t('جارٍ التحقق من مصادر القيد…', 'Verifying journal sources…')}</p>}
-    {error && <p role="alert">{t('تعذّر التحقق من القيد أو صلاحية المجموعة لهذه الفترة.', 'The journal or group access could not be verified for this period.')}</p>}
+    {error && <p role="alert">{error === 'ambiguous'
+      ? t('للقيد أكثر من دليل نافذ بتاريخ القطع. لا يمكن مراجعته أو تصديره قبل مطابقة الأدلة.', 'This journal has multiple evidence records at the cutoff. Review and export require reconciliation.')
+      : t('تعذّر التحقق من القيد أو صلاحية المجموعة لهذه الفترة.', 'The journal or group access could not be verified for this period.')}</p>}
     {rows && <>
       <button type="button" onClick={() => loadReview(true)}>{t('تصدير المراجعة CSV', 'Export review CSV')}</button>
       <div className="fs-table-scroll"><table className="fs-table"><tbody>

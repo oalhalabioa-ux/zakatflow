@@ -16,7 +16,8 @@ export async function GET(request:Request){
  }catch(error){
   const code=error instanceof Error?error.message:'';
   const status=code==='UNAUTHORIZED'?401:code.endsWith('_DENIED')?403:code.endsWith('_DISABLED')?404:
-   error instanceof ZodError||code==='REPORTING_INPUT_INVALID'?400:code==='GROUP_V2_REVALUATION_REQUIRED'?422:503;
+   error instanceof ZodError||code==='REPORTING_INPUT_INVALID'?400:code==='REPORTING_FX_REVALUATION_AMBIGUOUS'?409:
+   code==='GROUP_V2_REVALUATION_REQUIRED'?422:503;
   return NextResponse.json({error:status===400?'REPORTING_INPUT_INVALID':status===503?'REPORTING_UNAVAILABLE':code},{status,headers});
  }
 }

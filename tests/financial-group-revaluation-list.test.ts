@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { GET } from '../app/api/financial-reporting/group-v2-revaluation/route';
 import { listGroupV2Revaluations } from '../services/financial-group-v2-revaluation';
 
-const { readControl, statementContext, requireUser } = vi.hoisted(() => ({
-  readControl: vi.fn(), statementContext: vi.fn(), requireUser: vi.fn(),
+const { readControl, statementContext, statementSource, requireUser } = vi.hoisted(() => ({
+  readControl: vi.fn(), statementContext: vi.fn(), statementSource: vi.fn(), requireUser: vi.fn(),
 }));
 vi.mock('../services/financial-group-registered-source', () => ({ liveRegisteredGroupControl: readControl }));
-vi.mock('../services/financial-statement-live', () => ({ liveStatementContext: statementContext }));
+vi.mock('../services/financial-statement-live', () => ({ liveStatementContext: statementContext, liveStatementSource: statementSource }));
 vi.mock('../services/auth', () => ({ requireUser }));
 
 const root = '10000000-0000-4000-8000-000000000001';
@@ -54,5 +55,19 @@ describe('registered-group revaluation picker', () => {
     mockRecords([evidence(root, firstJournal)]);
     readControl.mockResolvedValueOnce(control).mockRejectedValueOnce(Error('REPORTING_ACCESS_DENIED'));
     await expect(listGroupV2Revaluations(query)).rejects.toThrow('REPORTING_ACCESS_DENIED');
+  });
+
+  it('reports ambiguous cutoff evidence without a review payload', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { message: 'REPORTING_FX_REVALUATION_AMBIGUOUS' } });
+    requireUser.mockResolvedValue({ supabase: { rpc } });
+    readControl.mockResolvedValue(control);
+    const params = new URLSearchParams({ ...query, member: subsidiary, journal: firstJournal });
+    const response = await GET(new Request('http://localhost/api/financial-reporting/group-v2-revaluation?' + params));
+    expect(response.status).toBe(409);
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+    expect(await response.json()).toEqual({ error: 'REPORTING_FX_REVALUATION_AMBIGUOUS' });
+    expect(rpc).toHaveBeenCalledWith('read_financial_fx_revaluation', {
+      p_org: subsidiary, p_journal: firstJournal, p_as_of: query.to,
+    });
   });
 });
