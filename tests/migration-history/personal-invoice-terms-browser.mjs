@@ -32,7 +32,7 @@ export async function verifyInvoiceTerms({app, owner, ownerContext, otherContext
   }
   const english = await openTerms('en','Receivable due date and classification');
   await english.getByLabel('Due date',{exact:true}).fill('2026-02-03');
-  await english.getByLabel('Classification',{exact:true}).selectOption('EXCELLENT');
+  await english.locator('select[name="classification"]').selectOption('EXCELLENT');
   await english.getByLabel('Effective date',{exact:true}).fill('2026-02-01');
   await english.getByRole('button',{name:'Save receivable terms',exact:true}).click();
   await english.getByText('Receivable terms saved.',{exact:true}).waitFor();
@@ -81,7 +81,7 @@ export async function verifyInvoiceTerms({app, owner, ownerContext, otherContext
   const history = arabic.getByRole('table');
   await history.getByText('سيئ',{exact:true}).waitFor();
   assert.equal(await history.getByText('سيئ',{exact:true}).count(),1);
-  await arabic.getByLabel('التصنيف',{exact:true}).selectOption('GOOD');
+  await arabic.locator('select[name="classification"]').selectOption('GOOD');
   await arabic.getByLabel('تاريخ نفاذ التصنيف',{exact:true}).fill('2026-02-08');
   await arabic.getByRole('button',{name:'حفظ شروط الذمة',exact:true}).click();
   await arabic.getByText('تم حفظ شروط الذمة.',{exact:true}).waitFor();
