@@ -7,6 +7,7 @@ on:
       - 'tests/migration-history/**'
       - 'tests/sql/personal-sale*.sql'
       - 'tests/sql/personal-purchase-funding-fx.sql'
+      - 'tests/sql/personal-asset-supplier-schedule.sql'
       - '.github/workflows/migration-history-qa.yml'
   push:
     branches: [main]
@@ -16,6 +17,7 @@ on:
       - 'tests/migration-history/**'
       - 'tests/sql/personal-sale*.sql'
       - 'tests/sql/personal-purchase-funding-fx.sql'
+      - 'tests/sql/personal-asset-supplier-schedule.sql'
       - '.github/workflows/migration-history-qa.yml'
   workflow_dispatch:
 permissions:
@@ -65,6 +67,7 @@ jobs:
             tests/migration-history/bootstrap-result.json
             tests/migration-history/schema-differences.json
             tests/migration-history/personal-purchase-funding-result.json
+            tests/migration-history/personal-asset-supplier-schedule-result.json
       - name: Destroy disposable database
         if: always()
         run: test -z "$HISTORY_QA_WORKDIR" || npx --yes supabase@2.122.0 stop --workdir "$HISTORY_QA_WORKDIR" --no-backup

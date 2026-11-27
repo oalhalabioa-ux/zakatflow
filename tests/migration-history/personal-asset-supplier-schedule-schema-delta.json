@@ -1,0 +1,175 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "column",
+      "object_key": "public.personal_asset_supplier_schedules.asset_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_asset_supplier_schedules.down_payment_id",
+      "fingerprint": "bbb212f0ad8e81203cc2204c975d866f"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_asset_supplier_schedules.payable_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_asset_supplier_schedules.purchase_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_asset_supplier_schedules.terms",
+      "fingerprint": "f43652a2a0d7e82cab2d6e8e1ecdfdab"
+    },
+    {
+      "category": "column",
+      "object_key": "public.personal_asset_supplier_schedules.user_id",
+      "fingerprint": "501c0c154fa197835399ae6d76d9fb57"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_asset_supplier_schedules.personal_asset_supplier_schedules_asset_id_fkey",
+      "fingerprint": "39ba71dd8e066598b6b61ef7df4b3f8d"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_asset_supplier_schedules.personal_asset_supplier_schedules_asset_id_key",
+      "fingerprint": "10990ee3dc61b9ea09375275f08a5eb3"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_asset_supplier_schedules.personal_asset_supplier_schedules_down_payment_id_fkey",
+      "fingerprint": "3fcd2f06c7bebebd92b208c7ba8d45d5"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_asset_supplier_schedules.personal_asset_supplier_schedules_payable_id_key",
+      "fingerprint": "f617ab73d4ddbd3ee51be5d4c24c9336"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_asset_supplier_schedules.personal_asset_supplier_schedules_payable_id_user_id_fkey",
+      "fingerprint": "3a1f95ad82645b0b1aef029010983a99"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_asset_supplier_schedules.personal_asset_supplier_schedules_pkey",
+      "fingerprint": "94cbdbdee685df45ec111e4364c74a1d"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_asset_supplier_schedules.personal_asset_supplier_schedules_purchase_id_fkey",
+      "fingerprint": "ce7e8a27d0d102e5870402873dfccaeb"
+    },
+    {
+      "category": "constraint",
+      "object_key": "public.personal_asset_supplier_schedules.personal_asset_supplier_schedules_user_id_fkey",
+      "fingerprint": "e6f2b822f3d1e554defc759e49a034fa"
+    },
+    {
+      "category": "function",
+      "object_key": "private.bind_personal_asset_supplier_schedule(p_purchase_id uuid)",
+      "fingerprint": "29526ab497cbc3caadac8045294de7d9"
+    },
+    {
+      "category": "function",
+      "object_key": "private.guard_personal_asset_supplier_identity()",
+      "fingerprint": "aac777cce74486b5d0a9191809b2b45c"
+    },
+    {
+      "category": "function",
+      "object_key": "private.guard_personal_asset_supplier_payable()",
+      "fingerprint": "97827a6d855566a5bb47c0469c045402"
+    },
+    {
+      "category": "function",
+      "object_key": "private.guard_personal_asset_supplier_payment()",
+      "fingerprint": "46e1e9b509972594445cc0d15f7b5df6"
+    },
+    {
+      "category": "function",
+      "object_key": "private.guard_personal_asset_supplier_purchase()",
+      "fingerprint": "3adddcf95f652541c87185a5130540d8"
+    },
+    {
+      "category": "function",
+      "object_key": "private.reverse_personal_asset_supplier_payable()",
+      "fingerprint": "aee9f1911714267713eb8e7c39872081"
+    },
+    {
+      "category": "function",
+      "object_key": "public.create_asset_with_acquisition(p_asset jsonb, p_request_id uuid)",
+      "fingerprint": "1a02da99cdf949da512b4947f2672275"
+    },
+    {
+      "category": "function",
+      "object_key": "public.create_personal_supplier_asset(p_asset jsonb, p_request_id uuid, p_terms jsonb)",
+      "fingerprint": "619e4ca07ce1d78d44f75d540a927fc1"
+    },
+    {
+      "category": "function",
+      "object_key": "public.read_personal_supplier_schedule(p_asset_id uuid, p_as_of date)",
+      "fingerprint": "a2a3385efd935fa9ec04d1e01fdef34a"
+    },
+    {
+      "category": "function",
+      "object_key": "public.reverse_personal_supplier_asset(p_asset_id uuid)",
+      "fingerprint": "3e18133af0edfdd02cf8742b3f3afaee"
+    },
+    {
+      "category": "index",
+      "object_key": "public.personal_asset_supplier_schedules.personal_asset_supplier_schedules_asset_id_key",
+      "fingerprint": "2449e61b9e15b2a11283bb1ee33a0da7"
+    },
+    {
+      "category": "index",
+      "object_key": "public.personal_asset_supplier_schedules.personal_asset_supplier_schedules_payable_id_key",
+      "fingerprint": "bf2d1c5e28d53d094b13dd99dd49b9bc"
+    },
+    {
+      "category": "index",
+      "object_key": "public.personal_asset_supplier_schedules.personal_asset_supplier_schedules_pkey",
+      "fingerprint": "04866989d15723695eedf31010b97a31"
+    },
+    {
+      "category": "policy",
+      "object_key": "public.personal_asset_supplier_schedules.personal_asset_supplier_schedules_owner",
+      "fingerprint": "731c168a66604e6c88e6de556035f689"
+    },
+    {
+      "category": "rls",
+      "object_key": "public.personal_asset_supplier_schedules",
+      "fingerprint": "b326b5062b2f0e69046810717534cb09"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.asset_accounts.personal_asset_supplier_identity_guard",
+      "fingerprint": "3d6ab8b87ae4012fc61b2617fbf5cd67"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.personal_payable_payments.personal_asset_supplier_payment_units",
+      "fingerprint": "a2c9841175968ebd5f0e054759ff89e9"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.personal_payables.personal_asset_supplier_payable_guard",
+      "fingerprint": "8f67bf603fd153561703a9b4498d0e14"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.transactions.personal_asset_supplier_purchase_guard",
+      "fingerprint": "2394136821a86e5ee61ea4f29455e859"
+    },
+    {
+      "category": "trigger",
+      "object_key": "public.transactions.personal_asset_supplier_purchase_reverse",
+      "fingerprint": "d3175ac90d34e10a3cf14acabb6b3b2d"
+    }
+  ]
+}
