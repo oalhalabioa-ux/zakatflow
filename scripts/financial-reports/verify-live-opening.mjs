@@ -516,37 +516,51 @@ try{
   assert.ok(data.accounts.some(x=>x.name==='Owner QA personal cash'));
   assert.ok(data.accounts.every(x=>x.organizationId===null&&x.name!=='Other QA personal cash'));
  });
- await check('Personal reports export the signed-in register in CSV, XLSX and print',async()=>{
-  await page.goto(app+'/en/financial-reports?scope=PERSONAL');
-  const report=page.locator('.fs-personal-reports');
-  await report.getByText('Owner QA personal cash',{exact:true}).waitFor();
-  assert.equal(await report.getByText('Other QA personal cash',{exact:true}).count(),0);
-  const csvDownload=page.waitForEvent('download');
-  await report.getByRole('button',{name:'CSV',exact:true}).click();
-  const csv=await readFile(await (await csvDownload).path(),'utf8');
-  assert.match(csv,/CURRENT_PERSONAL_REGISTER_ESTIMATE/);
+ for(const lang of ['ar','en'])await check('Personal cash flow exports the signed-in register in CSV, XLSX and PDF '+lang,async()=>{
+  const arabic=lang==='ar';
+  await page.goto(app+'/'+lang+'/financial-reports?scope=PERSONAL&screen=cash-flow');
+  const report=page.locator('.fs-personal-statements');
+  const cash=report.locator('[data-statement-ready="cash-flow"]');
+  const owner=cash.getByText('Owner QA personal cash',{exact:true});
+  await owner.waitFor();
+  assert.equal(await report.getAttribute('dir'),arabic?'rtl':'ltr');
+  assert.equal(await cash.getByText('Other QA personal cash',{exact:true}).count(),0);
+  const exportButton=report.getByRole('button',{name:arabic?'تصدير التقرير':'Export report',exact:true});
+  const download=async name=>{
+   const event=page.waitForEvent('download');
+   await exportButton.click();
+   await report.getByRole('button',{name,exact:true}).click();
+   return (await event).path();
+  };
+  const csv=await readFile(await download('CSV'),'utf8');
+  assert.match(csv,arabic?/قائمة التدفقات النقدية/:/Cash flow statement/);
   assert.match(csv,/Owner QA personal cash/);
   assert.doesNotMatch(csv,/Other QA personal cash/);
-  const xlsxDownload=page.waitForEvent('download');
-  await report.getByRole('button',{name:'Excel',exact:true}).click();
   const {default:ExcelJS}=await import('exceljs');
-  const workbook=new ExcelJS.Workbook();await workbook.xlsx.readFile(await (await xlsxDownload).path());
-  const values=[];workbook.worksheets[0].eachRow(row=>values.push(...row.values));
+  const workbook=new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(await download('Excel'));
+  const sheet=workbook.getWorksheet('cash-flow');
+  assert.equal(sheet.views[0].rightToLeft,arabic);
+  const values=[];
+  sheet.eachRow(row=>values.push(...row.values));
   assert.ok(values.includes('Owner QA personal cash'));
   assert.ok(!values.includes('Other QA personal cash'));
   await page.evaluate(()=>{window.print=()=>{document.body.dataset.work03Printed='true'}});
-  await report.getByRole('button',{name:'Print / PDF',exact:true}).click();
+  await exportButton.click();
+  await report.getByRole('button',{name:arabic?'طباعة / حفظ PDF':'Print / Save PDF',exact:true}).click();
   await page.waitForFunction(()=>document.body.dataset.work03Printed==='true');
   await page.emulateMedia({media:'print'});
-  const printContext=report.locator('.fs-personal-print-context');
-  assert.equal(await printContext.isVisible(),true);
-  assert.match(await printContext.innerText(),/Financial position as of \d{4}-\d{2}-\d{2} · Cash movement period \d{4}-\d{2}-\d{2} – \d{4}-\d{2}-\d{2}/);
-  assert.equal(await page.locator('.corp-sidebar').isVisible(),false);
-  const pdf=await page.pdf({format:'A4'});
-  assert.equal(pdf.subarray(0,5).toString(),'%PDF-');
-  await page.emulateMedia({media:'screen'});
-  await report.getByRole('tab',{name:/Income & expenses/}).click();
-  assert.equal(await report.getByRole('button',{name:'CSV',exact:true}).isDisabled(),true);
+  try{
+   const printContext=report.locator('.fs-personal-statement-print-context');
+   assert.equal(await printContext.isVisible(),true);
+   assert.match(await printContext.innerText(),/\d{4}-\d{2}-\d{2} — \d{4}-\d{2}-\d{2}/);
+   assert.equal(await owner.isVisible(),true);
+   assert.equal(await page.locator('.corp-sidebar').isVisible(),false);
+   const pdf=await page.pdf({format:'A4',path:out+'/personal-cash-flow-'+lang+'.pdf'});
+   assert.equal(pdf.subarray(0,5).toString(),'%PDF-');
+  }finally{await page.emulateMedia({media:'screen'});}
+  await report.getByRole('button',{name:arabic?'قائمة الدخل':'Income statement',exact:true}).click();
+  assert.equal(await exportButton.isDisabled(),true);
  });
  await check('Report navigation preserves personal scope and requires a deliberate Business switch for corporate statements',async()=>{
   await page.setViewportSize({width:1672,height:941});
@@ -564,7 +578,7 @@ try{
     assert.equal(response.status(),200,await response.text());const personal=await response.json();assert.equal(personal.scope,'PERSONAL');
     assert.ok(personal.cashAccounts.some(account=>account.name==='Owner QA personal cash'));
     assert.ok(personal.cashAccounts.every(account=>account.name!=='Other QA personal cash'));
-    await page.getByRole('heading',{name:'My personal financial reports',exact:true}).waitFor();
+    await page.locator('.fs-personal-statements').getByRole('heading',{name:'Financial reports dashboard',exact:true}).waitFor();
     assert.equal(await page.getByRole('button',{name:'Personal',exact:true}).getAttribute('aria-pressed'),'true');
     assert.equal(await page.locator('[data-statement-ready]').count(),0);
     const personalUrl=new URL(page.url());assert.equal(personalUrl.searchParams.get('scope'),'PERSONAL');assert.equal(personalUrl.searchParams.has('organization'),false);
