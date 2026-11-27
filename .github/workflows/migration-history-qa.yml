@@ -94,13 +94,12 @@ jobs:
           config.write_text(re.sub(r'^project_id = .*$', 'project_id = "work02-after-personal-fx"',config.read_text(),flags=re.M))
           shutil.copytree('supabase/migrations',root/'migrations',dirs_exist_ok=True)
           migrations=root/'migrations'
+          # Recreate the historical pre-#520 database, excluding later releases.
+          for file in migrations.glob('*.sql'):
+              if file.name[:14] > '20261126124100':
+                  file.unlink()
           (migrations/'20261126124000_atomic_chart_template.sql').unlink()
           (migrations/'20261126124100_fiscal_reversal_window.sql').unlink()
-          (migrations/'20261126150000_personal_purchase_funding.sql').unlink()
-          # This rehearsal ends at #531. Later files belong to full clean bootstrap.
-          for migration in migrations.glob('*.sql'):
-            if migration.name[:14] > '20261126150000':
-              migration.unlink()
           # Issue #426 records the provider version for the same reviewed SQL.
           (migrations/'20261125165000_personal_fx_rates.sql').rename(migrations/'20261125201134_personal_fx_rates.sql')
           PY

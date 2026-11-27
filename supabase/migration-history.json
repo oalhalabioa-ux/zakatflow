@@ -2251,12 +2251,44 @@
       "validation_project": "Disposable canonical schema, quantity-first purchase funding in both paths, historical upgrade, retries, rollback and exact reversal"
     },
     {
+      "path": "supabase/migrations/20261126175500_personal_first_hawl_start.sql",
+      "version": "20261126175500",
+      "name": "personal_first_hawl_start",
+      "expected_md5": "8dac70d4c5c0c380ac2ec45efc7a30c4",
+      "file_sha256": "b38995d5702213fc947899f27000c37de8f37abd0372e55d0a9e1bc7c81e6c0a",
+      "validation_project": "Isolated personal first-cycle upgrade, pre-traffic rollback and gold receipt projections"
+    },
+    {
       "path": "supabase/migrations/20261126190000_v2_reporting_source_contracts.sql",
       "version": "20261126190000",
       "name": "v2_reporting_source_contracts",
       "expected_md5": "b6ce37ddf2bbede023a04f6edce3cb42",
       "file_sha256": "765d1d7ba2abcee53db2dfcdd803ebf0e245a7a528d8d89f5f05ec25a812958d",
       "validation_project": "Disposable canonical history, authorized V2 revaluation lineage, approved FX policy, personal sources and cutoff"
+    },
+    {
+      "path": "supabase/migrations/20261126204500_personal_pooled_hawl.sql",
+      "version": "20261126204500",
+      "name": "personal_pooled_hawl",
+      "expected_md5": "878813c6544e35508dd30ebe86ecb202",
+      "file_sha256": "52ae37700c401c1c0b1402361df1ffb6e04f738506e210c1eed18e82a527de88",
+      "validation_project": "Disposable canonical schema: method-specific assessment periods, save, final coverage, ownership and duplicate prevention"
+    },
+    {
+      "path": "supabase/migrations/20261126211500_personal_hawl_daily_continuity.sql",
+      "version": "20261126211500",
+      "name": "personal_hawl_daily_continuity",
+      "expected_md5": "3d282a08d2bcffc84fe7e14242d77816",
+      "file_sha256": "906d4e2e76366737d8124e24f2fe7b778b34e50795291cba4b3ca900822d6d83",
+      "validation_project": "Disposable canonical schema: dated closing evidence, same-day and cross-day qualification, cutoff save and finalization"
+    },
+    {
+      "path": "supabase/migrations/20261127035000_reject_ambiguous_fx_revaluation.sql",
+      "version": "20261127035000",
+      "name": "reject_ambiguous_fx_revaluation",
+      "expected_md5": "2224ce2663ee7f3431fad5d557bbaed6",
+      "file_sha256": "4e82db49dc524d4f7d1e2d2e41f1469e799f879897c4cbe81288c18e78aa8930",
+      "validation_project": "Disposable registered V2 group; ambiguous revaluation read guard and source-native reversal"
     }
   ]
 }

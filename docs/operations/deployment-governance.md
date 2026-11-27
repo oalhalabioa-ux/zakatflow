@@ -36,6 +36,22 @@ Repository `vercel.json` has `git.deploymentEnabled: {"**":false,"main":true}`. 
 
 No Deploy Hook, scheduled job, or self-triggering GitHub workflow may publish to QA without this release gate. The gate is a recorded human/agent coordination rule; comments in the issue do **not** themselves deploy anything.
 
+## Risk-based delivery and acceptance scheduling
+
+The [owner-approved Fast Delivery coordination decision](https://github.com/oalhalabioa-ux/zakatflow/issues/426#issuecomment-7209252802) governs work preparation, without weakening any deployment or production rule.
+
+| Risk | Examples | Evidence before release |
+| --- | --- | --- |
+| L1 — presentation-only | Layout, colors, labels, translations | Relevant UI checks and required CI; no unrelated financial or database acceptance |
+| L2 — data-dependent read and operations | Reports, dashboards, exports, read behavior | Relevant functional checks, reconciliation, authorization and scope isolation |
+| L3 — financial/security/data change | Posting, zakat, migrations, RLS, permissions, balances | Required CI and financial acceptance, isolation, schema/upgrade and rollback/restore evidence as applicable; explicitly scoped approvals |
+
+Mixed changes take the highest applicable risk. Reuse valid unchanged evidence; re-run affected checks and mandatory final-candidate checks. Local and CI tests may proceed in parallel on disposable synthetic data. An existing shared QA deployment can be reused for acceptance if the exact candidate, database schema and approved scope match. Do not change aliases or database state without coordination and authority. A new exact candidate or migration outside an existing approval must be presented for approval where required.
+
+The central coordinator uses the latest state summary and changes since the last verified evidence. Check history, edits and authorizations when relevant or inconsistent; always verify current approval and target before sensitive operations. Maintain one owner per active task, time-box shared QA slots, record explicit handoff and release, and bundle compatible decisions without blocking independent work. Report remaining blockers and alternatives rather than repeating unchanged checks. A GitHub comment does not automatically start an existing Work session.
+
+Track accepted and released deliverables, candidate lead time, open blocker age, and unnecessary repeat checks. Planning targets are not guaranteed deadlines or evidence of completion.
+
 ## Production release protocol
 
 - Never direct-push `main`; merge an approved PR only after successful required checks and review of branch/current-main conflicts.
