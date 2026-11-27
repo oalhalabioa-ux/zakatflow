@@ -1,0 +1,15 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "private.asset_supplier_maturity_at_cutoff(p_org uuid, p_obligation uuid, p_cutoff date, p_current_through date)",
+      "fingerprint": "4a032e75b57b754bff3e3fd4bd52398f"
+    },
+    {
+      "category": "function",
+      "object_key": "public.read_asset_supplier_maturity_at_cutoff(p_org uuid, p_obligation uuid, p_cutoff date, p_current_through date)",
+      "fingerprint": "d1017a7b69187b286d3b447fc1414d75"
+    }
+  ]
+}

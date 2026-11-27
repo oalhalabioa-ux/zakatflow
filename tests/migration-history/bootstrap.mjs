@@ -41,6 +41,14 @@ try{
   console.log('ASSET_SUPPLIER_PAYMENT_SCHEDULE '+JSON.stringify(evidence));
   await writeFile(new URL('tests/migration-history/asset-supplier-payment-schedule-result.json',root),JSON.stringify(evidence,null,2)+'\n');
  });
+ await check('institutional supplier maturity agrees with opening liabilities at historical cutoffs',async()=>{
+  const evidence=JSON.parse(sql(await load('tests/sql/asset-supplier-maturity-at-cutoff.sql')).split('\n').at(-1));
+  assert.deepEqual(evidence.cutoffs.map(row=>row.outstanding===null?null:Number(row.outstanding)),[null,100000,0,64000]);
+  assert.equal(evidence.nativeOpeningMatched,true);
+  assert.equal(evidence.unlinkedReversalFailsClosed,true);
+  assert.equal(evidence.ownerIsolation,true);
+  await writeFile(new URL('tests/migration-history/asset-supplier-maturity-result.json',root),JSON.stringify(evidence,null,2)+'\n');
+ });
  await check('all canonical migration versions applied to a fresh local database',async()=>{
   const versions=JSON.parse(sql("select coalesce(jsonb_agg(version order by version),'[]') from supabase_migrations.schema_migrations"));
   assert.deepEqual(versions,manifest.entries.map(x=>x.version).sort());
@@ -129,6 +137,7 @@ try{
    'personal-pooled-hawl-schema-delta',
    'personal-hawl-daily-continuity-schema-delta',
    'asset-supplier-payment-schedule-schema-delta',
+   'asset-supplier-maturity-at-cutoff-schema-delta',
   ];
   const deltas=await Promise.all(deltaNames.map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
   for(const delta of deltas){

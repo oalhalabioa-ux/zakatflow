@@ -2281,6 +2281,14 @@
       "expected_md5": "362a701c1f1b1d5afdc28d6d4f829ef6",
       "file_sha256": "c0d946a5649cb2cdf34e82a3efc0f962c2eed0218d27b316aa2d7d22a65d8ae6",
       "validation_project": "Disposable canonical schema: institutional asset schedule, supplier obligation, posted cash, reversal and owner isolation"
+    },
+    {
+      "path": "supabase/migrations/20261127135000_asset_supplier_maturity_at_cutoff.sql",
+      "version": "20261127135000",
+      "name": "asset_supplier_maturity_at_cutoff",
+      "expected_md5": "ec2c557e0c9828771d28945322927aa1",
+      "file_sha256": "a6dfde710fa08a5bdc348d7ec0a34a84c6d36719c6ded27fb940f0f2f20a4fc9",
+      "validation_project": "Disposable canonical schema: institutional supplier payable maturity reconciles dated settlements and reversals to the original opening source"
     }
   ]
 }
