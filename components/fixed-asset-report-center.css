@@ -30,11 +30,12 @@
  cursor: pointer;
 }
 .fixed-report-navigation button[aria-pressed="true"], .fixed-views button[aria-pressed="true"] {
- color: var(--fixed-pale);
+ color: white;
  background: #205347;
  border-color: #205347;
  box-shadow: inset 0 -2px #c6a35d;
 }
+.fixed-assets .fixed-views button[aria-pressed="true"] { color: var(--fixed-pale); box-shadow: inset 0 -2px var(--fixed-pale); }
 .fixed-assets-heading {
  display: flex;
  gap: 14px;
