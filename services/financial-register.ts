@@ -57,15 +57,20 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   const receivableBalances=new Map<string,number>();
   for(const movement of result.debtMovements)if(movement.debtId)receivableBalances.set(movement.debtId,(receivableBalances.get(movement.debtId)??0)+Number(movement.amount||0));
   result.debts=assets.filter((a:any)=>a.asset_type==='RECEIVABLE').map((a:any)=>({id:a.id,partyKey:a.id,partyName:a.name,organizationId:null,entityId:null,side:'RECEIVABLE' as const,currency:a.current_value_currency,amount:receivableBalances.has(a.id)?receivableBalances.get(a.id)!:Number(a.current_market_value),date:a.metadata?.purchase_date||asOf,dueDate:a.metadata?.due_date||null,description:a.name,source:'PERSONAL_ASSETS' as const,eventId:null})).filter((d:any)=>d.amount>0);
-  const [personalPayables,personalPayments]=await Promise.all([all(()=>supabase.from('personal_payables').select('*').eq('user_id',user.id)),all(()=>supabase.from('personal_payable_payments').select('*').eq('user_id',user.id))]);
-  const payables=personalPayableRecords(personalPayables,personalPayments,transactions);
+  const [personalPayables,personalPayments,supplierPurchases]=await Promise.all([
+   all(()=>supabase.from('personal_payables').select('*').eq('user_id',user.id)),
+   all(()=>supabase.from('personal_payable_payments').select('*').eq('user_id',user.id)),
+   all(()=>supabase.from('personal_asset_supplier_schedules').select('payable_id,purchase_id').eq('user_id',user.id),['purchase_id']),
+  ]);
+  const supplierByPayable=new Map<string,string>(supplierPurchases.map(row=>[row.payable_id,row.purchase_id]));
+  const payables=personalPayableRecords(personalPayables,personalPayments,transactions,supplierByPayable);
   result.debts.push(...payables.debts);result.debtMovements.push(...payables.movements);result.debtMovements.sort((a,b)=>a.date.localeCompare(b.date)||(a.createdAt??'').localeCompare(b.createdAt??'')||({INVOICE:0,PAYMENT:1,REVERSAL:2}[a.kind as 'INVOICE']??1)-({INVOICE:0,PAYMENT:1,REVERSAL:2}[b.kind as 'INVOICE']??1)||a.id.localeCompare(b.id));
   result.personalPayments=payables.history;
   const personalFinancings=await all(()=>supabase.from('personal_financings').select('id,kind,side,receivable_id,payable_id,request_id,cash_transaction_id').eq('user_id',user.id));
   const links=await all(()=>supabase.from('personal_debt_links').select('record_id,side,party_key,party_name').eq('user_id',user.id));const linked=applyPersonalDebtLinks(result,links);const profiles=await all(()=>supabase.from('personal_debt_parties').select('id,party_key,name').eq('user_id',user.id));const aliases=new Map(profiles.map(p=>[p.party_key,p.name]));result.debts=linked.debts.map(d=>({...d,partyName:aliases.get(d.partyKey)??d.partyName}));result.debtMovements=linked.debtMovements.map(m=>({...m,partyName:aliases.get(m.partyKey)??m.partyName}));
   const advances=new Map(personalFinancings.filter(f=>f.kind==='ADVANCE').map(f=>[f.receivable_id??f.payable_id,f]));
   const fundedPayables=new Set(personalFinancings.map(f=>f.payable_id).filter(Boolean));
-  result.debts=result.debts.map(d=>({...d,financialLocked:fundedPayables.has(d.id)}));
+  result.debts=result.debts.map(d=>({...d,financialLocked:fundedPayables.has(d.id)||supplierByPayable.has(d.id)}));
   result.debts=result.debts.map(d=>advances.has(d.id)?{...d,side:advances.get(d.id).side==='RECEIVABLE'?'SUPPLIER_ADVANCE':'CUSTOMER_ADVANCE'}:d);
   result.debtMovements=result.debtMovements.map(m=>advances.has(m.debtId)?{...m,advance:true,side:advances.get(m.debtId).side==='RECEIVABLE'?'PURCHASE':'SALES',amount:-m.amount}:m);
   const [contracts,installments,contractOperations]=await Promise.all([
@@ -91,6 +96,8 @@ export async function financialRegister(scope:'PERSONAL'|'ORGANIZATION',organiza
   // Classify by persisted source, never by matching amounts, dates or description.
   const sourceIdentity=new Map<string,any>();
   for(const p of personalPayables){
+   const purchase=byId.get(supplierByPayable.get(p.id));
+   if(purchase){sourceIdentity.set(p.id,transactionVoucher(purchase));continue;}
    const f=personalFinancings.find(f=>f.payable_id===p.id&&f.request_id===p.request_id);
    sourceIdentity.set(p.id,{voucherSourceTable:'personal_payables',voucherSourceId:p.id,voucherNumber:voucherNumber(p.id,'AP'),voucherType:f?(f.kind==='ADVANCE'?'دفعة مقدمة مستلمة':'قرض دائن'):'رصيد افتتاحي',isOpening:!f});
   }

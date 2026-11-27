@@ -56,6 +56,7 @@ type Props = {
   canSave: boolean;
   restricted: boolean;
   supplierSchedule?: boolean;
+  downPaymentAccounts?: {id: string; name: string}[];
 };
 
 function FundingGlyph({ mode }: { mode: AssetFundingMode }) {
@@ -71,7 +72,8 @@ function FundingGlyph({ mode }: { mode: AssetFundingMode }) {
 }
 
 export default function AssetFundingSection(props: Props) {
-  const { ar, mode, onModeChange, scope, currency, purchaseDate, invoiceNet, invoiceTax, invoiceTotal, existingCashFields, canSave, restricted, supplierSchedule } = props;
+  const { ar, mode, onModeChange, scope, currency, purchaseDate, invoiceNet, invoiceTax, invoiceTotal, existingCashFields, canSave, restricted, supplierSchedule, downPaymentAccounts = [] } = props;
+  const personalSchedule = scope === "PERSONAL" && supplierSchedule && (mode === "DEFERRED" || mode === "INSTALLMENTS");
   const [downPayment, setDownPayment] = useState("0");
   const [financeCost, setFinanceCost] = useState("0");
   const [count, setCount] = useState("10");
@@ -144,6 +146,15 @@ export default function AssetFundingSection(props: Props) {
         {t("تُحفظ فاتورة المورد للمراجعة. يُسجّل السداد من سند الشراء بعد الاعتماد والترحيل.", "The supplier invoice is saved for review. Record payment from the purchase voucher after approval and posting.")}
       </p>}
       {scope === "PERSONAL" && mode === "CASH" && existingCashFields}
+      {personalSchedule && <div className="form-grid asset-funding-form">
+        <label>{t("اسم المورد", "Supplier name")}<input name="personal_supplier_name" required maxLength={120}/></label>
+        {mode === "INSTALLMENTS" && Number(downPayment) > 0 && <label>{t("حساب سداد المقدم", "Down-payment account")}
+          <select name="personal_supplier_down_account" required defaultValue="">
+            <option value="">{t("اختر الحساب", "Choose account")}</option>
+            {downPaymentAccounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
+          </select>
+        </label>}
+      </div>}
       {(mode === "DEFERRED" || mode === "INSTALLMENTS") && <>
         <dl className="asset-funding-amounts">
           <div><dt>{t("صافي الفاتورة", "Net invoice")}</dt><dd>{showMoney(invoiceNet)}</dd></div>
@@ -156,7 +167,7 @@ export default function AssetFundingSection(props: Props) {
       </>}
       {mode === "INSTALLMENTS" && <>
         {terms && <input type="hidden" name="supplier_schedule" value={JSON.stringify(terms)}/>}
-        {supplierSchedule && <p className="asset-entry-hint">{t("يُحفظ أصل الذمة وجدولها مع مسودة الشراء. يسجَّل المقدم والسداد الفعلي بعد الترحيل من حساب السداد.", "The supplier principal schedule saves with the draft. Record the down payment and other actual payments after posting.")}</p>}
+        {supplierSchedule && <p className="asset-entry-hint">{personalSchedule ? t("يُخصم المقدم عند حفظ الاقتناء، وتُسجّل الأقساط اللاحقة من بطاقة الأصل.", "The down payment is posted on save. Record later installments from the asset card.") : t("يُحفظ أصل الذمة وجدولها مع مسودة الشراء. يسجَّل المقدم والسداد الفعلي بعد الترحيل من حساب السداد.", "The supplier principal schedule saves with the draft. Record the down payment and other actual payments after posting.")}</p>}
         <div className="form-grid asset-funding-form">
           <label>{scope === "ORGANIZATION" ? t("المقدم المخطط", "Planned down payment") : t("الدفعة الأولى", "Down payment")}
             <input type="number" min="0" step={smallestUnit} value={downPayment}
@@ -193,7 +204,7 @@ export default function AssetFundingSection(props: Props) {
               <div><dt>{t("إجمالي الدفعات المستقبلية", "Future payments")}</dt><dd>{showMoney(preview.futureTotal)}</dd></div>
             </dl>
             <label className="asset-funding-progress">
-              {t("نسبة المقدم المخطط", "Planned down payment percentage")} · {preview.paidPercent}%
+              {personalSchedule ? t("نسبة المقدم", "Down payment percentage") : t("نسبة المقدم المخطط", "Planned down payment percentage")} · {preview.paidPercent}%
               <progress value={preview.paidPercent} max={100} />
             </label>
           </div>}

@@ -4,9 +4,10 @@ import Decimal from "decimal.js";
 import type {SupplierSchedule} from "@/lib/asset-financing-plan";
 import {assetPurchaseStatus} from "@/lib/asset-purchase-workspace";
 
-export default function AssetSupplierScheduleCard({schedule, ar, marketValue}: {
+export default function AssetSupplierScheduleCard({schedule, ar, marketValue, personal = false}: {
   schedule: SupplierSchedule;
   ar: boolean;
+  personal?: boolean;
   marketValue?: {amount: number; currency: string};
 }) {
   const t = (a: string, e: string) => ar ? a : e;
@@ -28,7 +29,8 @@ export default function AssetSupplierScheduleCard({schedule, ar, marketValue}: {
       {t("نسبة السداد", "Percentage paid")} · {percent}%<progress value={percent} max={100}/>
     </label>}
     {schedule.status === "REVIEW_REQUIRED" && <p role="alert">{t("تحتاج الذمة إلى مطابقة قبل عرض المسدد والمتبقي.", "Reconcile the liability before using paid and outstanding amounts.")}</p>}
-    {schedule.status !== "ACTUAL" && schedule.status !== "REVIEW_REQUIRED" && <p className="asset-entry-hint">
+    {schedule.status === "REVERSED" && <p role="status">{t("عُكس الاقتناء.", "Acquisition reversed.")}</p>}
+    {schedule.status !== "ACTUAL" && schedule.status !== "REVIEW_REQUIRED" && schedule.status !== "REVERSED" && <p className="asset-entry-hint">
       {t("المبالغ في الجدول مخططة. يظهر المسدد بعد ترحيل الشراء وتطبيق السداد.", "The schedule shows planned amounts. Actual payments appear after posting the purchase and applying settlement.")}
     </p>}
     <div className="asset-funding-table" tabIndex={0} role="region" aria-label={t("دفعات المورد", "Supplier installments")}>
@@ -37,7 +39,7 @@ export default function AssetSupplierScheduleCard({schedule, ar, marketValue}: {
         t("المسدد", "Paid"), t("المتبقي", "Outstanding"), t("الحالة", "Status"),
       ].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead>
         <tbody>{schedule.entries.map(entry => <tr key={entry.id}>
-          <th scope="row">{entry.kind === "DOWN_PAYMENT" ? t("مقدم مخطط", "Planned down payment") : entry.position}</th>
+          <th scope="row">{entry.kind === "DOWN_PAYMENT" ? (personal ? t("المقدم", "Down payment") : t("مقدم مخطط", "Planned down payment")) : entry.position}</th>
           <td><bdi>{entry.due_date}</bdi></td><td>{money(entry.principal)}</td>
           <td>{money(entry.applied)}</td><td>{money(entry.remaining)}</td>
           <td>{entry.remaining == null ? (schedule.status === "REVIEW_REQUIRED" ? t("بحاجة إلى مطابقة", "Review required") : assetPurchaseStatus(schedule.status,ar))
