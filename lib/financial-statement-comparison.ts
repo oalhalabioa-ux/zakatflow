@@ -15,3 +15,8 @@ export function statementChange(current:string,prior:string|null|undefined,lower
  const tone=delta.isZero()?'neutral' as const:delta.gt(0)!==lowerIsBetter?'positive' as const:'negative' as const;
  return{direction,tone,text:before.isZero()?(delta.isZero()?'0.00%':(delta.gt(0)?'+':'')+delta.toFixed(2)):(delta.gt(0)?'+':'')+delta.div(before.abs()).times(100).toFixed(2)+'%',delta:delta.toFixed(4),percentage:before.isZero()?null:delta.div(before.abs()).times(100).toFixed(4)};
 }
+
+export function statementRowComparison(current:string,previous:string|null|undefined,showKnownPrior=false){
+ const before=current!==''||showKnownPrior?previous??null:null;
+ return {before,change:current!==''&&before!==null&&before!==''?statementChange(current,before):undefined};
+}
