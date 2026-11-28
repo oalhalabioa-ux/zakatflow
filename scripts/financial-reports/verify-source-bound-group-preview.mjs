@@ -930,6 +930,35 @@ export async function verifySourceBoundGroupPreview({actor,page,app,out,sql,data
 
 
 
+ const eurChild=randomUUID(),aedChild=randomUUID();
+ sql(`select set_config('request.jwt.claim.sub','${actor.id}',false);
+  insert into public.organizations(id,owner_user_id,name,parent_organization_id,base_currency) values
+  ('${eurChild}','${actor.id}','FX coverage test subsidiary EUR','${parent}','EUR'),
+  ('${aedChild}','${actor.id}','FX coverage test subsidiary AED','${parent}','AED');
+  insert into public.organization_members(organization_id,user_id,role,status) values
+  ('${eurChild}','${actor.id}','OWNER','ACTIVE'),('${aedChild}','${actor.id}','OWNER','ACTIVE');`);
+ for(const child of [eurChild,aedChild]){
+  const assessment=await rpc('financial_group_control_propose',{p_parent:parent,p_subsidiary:child,p_from:query.from,p_to:null,
+   p_economic:100,p_voting:100,p_basis:'VOTING',p_evidence_reference:'Isolated FX coverage register',
+   p_reason:'Verify closing references against authorized company currencies',p_request_id:randomUUID()});
+  await rpc('financial_group_control_approve',{p_assessment:assessment,p_reason:'Verify both companies in disposable test'});
+ }
+ const readiness=async(to,expected=200)=>{
+  const params=new URLSearchParams({action:'scope-readiness',organization:parent,from:query.from,to,scope:'GROUP_WITH_SUBSIDIARIES'});
+  const response=await page.request.get(app+'/api/financial-reporting/live-statements?'+params);
+  const body=await response.json();assert.equal(response.status(),expected,JSON.stringify(body));return body;
+ };
+ const monthEnd=await readiness('2026-09-30'),unsupportedDate=await readiness('2026-09-29');
+ assert.equal(monthEnd.status,'BLOCKED');
+ assert.deepEqual(monthEnd.groupFxEvidence,{presentationCurrency:'SAR',closingDate:'2026-09-30',
+  currencies:[{currency:'AED',publishedClosingRate:false},{currency:'EUR',publishedClosingRate:true}]});
+ assert.deepEqual(unsupportedDate.groupFxEvidence.currencies,[{currency:'AED',publishedClosingRate:false},{currency:'EUR',publishedClosingRate:false}]);
+ for(const child of [eurChild,aedChild])assert.ok(!JSON.stringify(monthEnd).includes(child));
+ sql(`update public.organization_members set status='INACTIVE' where organization_id='${eurChild}' and user_id='${actor.id}'`);
+ try{await readiness('2026-09-30',403)}finally{
+  sql(`update public.organization_members set status='ACTIVE' where organization_id='${eurChild}' and user_id='${actor.id}'`);
+ }
+ await writeFile(out+'/group-closing-rate-coverage.json',JSON.stringify({monthEnd,unsupportedDate},null,2));
  await writeFile(out+'/group-source-bound-actual-preview.json',JSON.stringify(result,null,2));
  return{parent,subsidiary,revenue,expenseEvent,status:result.status,amount:'60.0000',sourcesUnchanged:true,revokedChildDenied:true};
 }

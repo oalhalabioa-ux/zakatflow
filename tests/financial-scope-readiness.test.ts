@@ -2,7 +2,7 @@ import {beforeEach,describe,expect,it,vi} from 'vitest';
 
 const org='10000000-0000-4000-8000-000000000001';
 const state=vi.hoisted(()=>({authenticated:true,member:true,allowed:true,revoked:false,dbError:false,groupError:null as string|null,groupEvidence:null as unknown,
- authReads:0,sourceReads:0,rpcs:[] as string[],events:[{id:'ev1',organization_id:'10000000-0000-4000-8000-000000000001',entity_id:null},{id:'ev2',organization_id:'10000000-0000-4000-8000-000000000001',entity_id:'branch-1'}],
+ authReads:0,sourceReads:0,rpcs:[] as string[],organizations:[] as {id:string;base_currency:string}[],events:[{id:'ev1',organization_id:'10000000-0000-4000-8000-000000000001',entity_id:null},{id:'ev2',organization_id:'10000000-0000-4000-8000-000000000001',entity_id:'branch-1'}],
  entities:[{id:'branch-1',organization_id:'10000000-0000-4000-8000-000000000001',entity_type:'BRANCH',active:true}],
  cashAccounts:[{id:'cash-hq',organization_id:'10000000-0000-4000-8000-000000000001',entity_id:null},{id:'cash-branch',organization_id:'10000000-0000-4000-8000-000000000001',entity_id:'branch-1'}],
  assetAccounts:[{id:'asset-hq',organization_id:'10000000-0000-4000-8000-000000000001',entity_id:null}] as Array<{id:string;organization_id:string;entity_id:string|null}>,
@@ -12,7 +12,7 @@ const client={
   const chain={
    select(){return chain},eq(){return chain},in(){return chain},gte(){return chain},lte(){return chain},
    async maybeSingle(){state.authReads++;return{data:state.member&&!(state.revoked&&state.authReads>1)?{organization_id:org}:null,error:null}},
-   async limit(){state.sourceReads++;return state.dbError?{data:null,error:{message:'SQL secret'}}:{data:table==='financial_events'?state.events:table==='organization_entities'?state.entities:table==='liquidity_accounts'?state.cashAccounts:table==='asset_accounts'?state.assetAccounts:state.openingWorkspaces,error:null}},
+   async limit(){state.sourceReads++;return state.dbError?{data:null,error:{message:'SQL secret'}}:{data:table==='organizations'?state.organizations:table==='financial_events'?state.events:table==='organization_entities'?state.entities:table==='liquidity_accounts'?state.cashAccounts:table==='asset_accounts'?state.assetAccounts:state.openingWorkspaces,error:null}},
   };return chain;
  },
  async rpc(name:string){state.rpcs.push(name);if(name==='financial_group_control_context')return{data:state.groupEvidence,error:state.groupError?{message:state.groupError}:null};return{data:state.allowed,error:null}},
@@ -26,7 +26,7 @@ const period={organization:org,from:'2026-01-01',to:'2026-12-31'};
 const url=(scope:string)=>'http://localhost/api/financial-reporting/live-statements?'+new URLSearchParams({action:'scope-readiness',...period,scope});
 beforeEach(()=>{
  vi.stubEnv('VERCEL_ENV','preview');vi.stubEnv('FINANCIAL_SCOPE_PREFLIGHT','true');
- Object.assign(state,{authenticated:true,member:true,allowed:true,revoked:false,dbError:false,groupError:null,groupEvidence:null,authReads:0,sourceReads:0,rpcs:[],
+ Object.assign(state,{authenticated:true,member:true,allowed:true,revoked:false,dbError:false,groupError:null,groupEvidence:null,authReads:0,sourceReads:0,rpcs:[],organizations:[],
   events:[{id:'ev1',organization_id:org,entity_id:null},{id:'ev2',organization_id:org,entity_id:'branch-1'}],entities:[{id:'branch-1',organization_id:org,entity_type:'BRANCH',active:true}],
   cashAccounts:[{id:'cash-hq',organization_id:org,entity_id:null},{id:'cash-branch',organization_id:org,entity_id:'branch-1'}],
   assetAccounts:[{id:'asset-hq',organization_id:org,entity_id:null}],openingWorkspaces:[{id:'opening-1',organization_id:org}]});
@@ -113,6 +113,20 @@ describe('QA-only, RLS-visible source-readiness checks',()=>{
   await expect(liveScopeReadiness({...period,scope:'GROUP_WITH_SUBSIDIARIES'})).rejects.toThrow('REPORTING_ACCESS_DENIED');
   state.groupError=null;state.revoked=true;state.authReads=0;
   await expect(liveScopeReadiness({...period,scope:'GROUP_WITH_SUBSIDIARIES'})).rejects.toThrow('REPORTING_ACCESS_DENIED');
+ });
+ it('checks published closing coverage for authorized legal entities without disclosing identifiers or granting approval',async()=>{
+  const eur='10000000-0000-4000-8000-000000000002',aed='10000000-0000-4000-8000-000000000003';
+  state.groupEvidence={status:'EVIDENCE_ONLY',registryComplete:false,parentOrganizationId:org,asOf:'2026-09-30',
+   relationships:[{subsidiaryOrganizationId:eur},{subsidiaryOrganizationId:aed}]};
+  state.organizations=[{id:org,base_currency:'SAR'},{id:eur,base_currency:'EUR'},{id:aed,base_currency:'AED'}];
+  const result=await liveScopeReadiness({...period,to:'2026-09-30',scope:'GROUP_WITH_SUBSIDIARIES'});
+  expect(result.groupFxEvidence).toEqual({presentationCurrency:'SAR',closingDate:'2026-09-30',
+   currencies:[{currency:'AED',publishedClosingRate:false},{currency:'EUR',publishedClosingRate:true}]});
+  expect(result.status).toBe('BLOCKED');
+  expect(JSON.stringify(result)).not.toContain(eur);
+  expect(state.rpcs).toEqual(['financial_core_can','financial_group_control_context','financial_group_control_context','financial_core_can']);
+  state.organizations.pop();
+  expect((await liveScopeReadiness({...period,to:'2026-09-30',scope:'GROUP_WITH_SUBSIDIARIES'})).groupFxEvidence).toBeUndefined();
  });
  it('rejects anonymous, missing-member and insufficient-permission requests before any metadata reads',async()=>{
   state.authenticated=false;expect((await GET(new Request(url('COMPANY_DIRECT')))).status).toBe(401);

@@ -3,6 +3,7 @@ import {requireUser} from './auth';
 import {assertLiveStatements} from './financial-statement-live';
 import {statementQuery} from '../lib/financial-statement-source';
 import {classifyFinancialSourceScope} from '../lib/financial-reporting-scope';
+import {publishedGroupRate} from '../lib/financial-group-reporting-rates';
 
 export const scopeReadinessQuery=statementQuery.extend({scope:z.enum(['COMPANY_DIRECT','GROUP_WITH_SUBSIDIARIES'])});
 export type ScopeReadinessIssue=
@@ -14,6 +15,7 @@ export type ScopeReadiness={
  status:'BLOCKED';scope:'COMPANY_DIRECT'|'GROUP_WITH_SUBSIDIARIES';organizationId:string;from:string;to:string;
  issues:ScopeReadinessIssue[];
  groupControlEvidence?:{kind:'APPROVED_CONTROL_EVIDENCE_ONLY';approvedDirectRelationships:number;registryComplete:false};
+ groupFxEvidence?:{presentationCurrency:string;closingDate:string;currencies:Array<{currency:string;publishedClosingRate:boolean}>};
  observation:{kind:'RLS_VISIBLE_ONLY';entityRecords:number;canonicalEvents:number;organizationDirectEvents:number;branchEvents:number;unresolvedEntityEvents:number;
   cashAccounts:{companyDirect:number;branchLinked:number;entityLinkNotVisible:number};assetAccounts:{companyDirect:number;branchLinked:number;entityLinkNotVisible:number};
   organizationLevelOpeningWorkspaces:number}|null;
@@ -49,18 +51,45 @@ export async function liveScopeReadiness(input:unknown):Promise<ScopeReadiness>{
   // The private registry RPC authorizes BOTH the parent and each returned child.
   // It only provides direct approved control at the end date: no completeness,
   // full-period coverage, eliminations, currency or NCI attestation.
-  const evidence=await supabase.rpc('financial_group_control_context',{p_parent:q.organization,p_as_of:q.to});
-  if(evidence.error?.message?.includes('GROUP_CONTROL_READ_DENIED'))throw Error('REPORTING_ACCESS_DENIED');
-  const body=evidence.error?null:evidence.data;
+  async function groupContext(){
+   const result=await supabase.rpc('financial_group_control_context',{p_parent:q.organization,p_as_of:q.to});
+   if(result.error?.message?.includes('GROUP_CONTROL_READ_DENIED'))throw Error('REPORTING_ACCESS_DENIED');
+   return result.error?null:result.data;
+  }
+  const body=await groupContext();
   const safe=body!==null&&typeof body==='object'&&!Array.isArray(body)&&
     body.status==='EVIDENCE_ONLY'&&body.registryComplete===false&&
     body.parentOrganizationId===q.organization&&body.asOf===q.to&&
     Array.isArray(body.relationships)&&body.relationships.length<=1000;
   const groupControlEvidence=safe?{kind:'APPROVED_CONTROL_EVIDENCE_ONLY' as const,
    approvedDirectRelationships:body.relationships.length,registryComplete:false as const}:null;
+  const children=safe?z.array(z.object({subsidiaryOrganizationId:z.string().uuid()})).safeParse(body.relationships):null;
+  let groupFxEvidence:ScopeReadiness['groupFxEvidence'];
+  if(children?.success&&children.data.length){
+   const ids=[q.organization,...children.data.map(child=>child.subsidiaryOrganizationId)];
+   if(new Set(ids).size===ids.length){
+    const rows:unknown[]=[],currency=z.string().regex(/^[A-Z]{3}$/);
+    for(let start=0;start<ids.length;start+=100){
+     const result=await supabase.from('organizations').select('id,base_currency').in('id',ids.slice(start,start+100)).limit(100);
+     if(result.error||!Array.isArray(result.data))break;
+     rows.push(...result.data);
+    }
+    const parsed=z.array(z.object({id:z.string().uuid(),base_currency:currency})).safeParse(rows);
+    if(parsed.success){
+     const byId=new Map(parsed.data.map(row=>[row.id,row.base_currency]));
+     const presentationCurrency=byId.get(q.organization);
+     if(presentationCurrency&&parsed.data.length===ids.length&&ids.every(id=>byId.has(id))){
+      const currencies=[...new Set(parsed.data.map(row=>row.base_currency))].filter(code=>code!==presentationCurrency).sort();
+      if(currencies.length)groupFxEvidence={presentationCurrency,closingDate:q.to,
+       currencies:currencies.map(code=>({currency:code,publishedClosingRate:Boolean(publishedGroupRate(code,presentationCurrency,q.to))}))};
+      if(JSON.stringify(await groupContext())!==JSON.stringify(body))throw Error('REPORTING_UNAVAILABLE');
+     }
+    }
+   }
+  }
   await authorize();
   return{status:'BLOCKED',scope:q.scope,organizationId:q.organization,from:q.from,to:q.to,observation:null,
-   ...(groupControlEvidence?{groupControlEvidence}:{}),issues:[
+   ...(groupControlEvidence?{groupControlEvidence}:{}),...(groupFxEvidence?{groupFxEvidence}:{}),issues:[
    'GROUP_MEMBERSHIP_UNVERIFIED','GROUP_CONTROL_UNVERIFIED','GROUP_ELIMINATION_UNVERIFIED','GROUP_CURRENCY_AND_NCI_UNVERIFIED',
   ]};
  }
