@@ -14,7 +14,7 @@ import {CurrencyScope,useDisplayMoney} from './DisplayCurrency';
 import Link from 'next/link';
 import AdvancePayments from './AdvancePayments';
 import ActionButton from './ActionButton';
-import { buildLiquidityForecast, buildScenarioForecast, getOutstandingLiquidityCommitments, isLiquidityFlowSettled, lowestForecastBalance } from '../lib/liquidity-forecast';
+import { buildLiquidityForecast, buildScenarioForecast, getOutstandingLiquidityCommitments, isLiquidityFlowSettled, lowestForecastBalance, type LiquidityForecastFlow } from '../lib/liquidity-forecast';
 import { calculateLiquidityTransfer } from '../lib/liquidity-transfer';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type FormEvent } from 'react';
 
@@ -27,7 +27,7 @@ type Flow={id:string;organization_id:string;entity_id:string|null;account_id:str
 type IntercompanyTransfer={id:string;transaction_type:'LOAN'|'CAPITAL'|'ON_BEHALF';source_organization_id:string;destination_organization_id:string;destination_account_id:string|null;destination_amount:number;destination_currency:string};
 type CounterpartyBalance={organization_id:string;counterparty_id:string|null;counterparty_name:string|null;party_type:string|null;base_currency:string;receivable_balance:number;payable_balance:number;overdue_receivable:number;overdue_payable:number;open_item_count:number};
 type OpenItem={organization_id:string;counterparty_id:string|null;counterparty_name:string|null;obligation_id:string;event_id:string;obligation_type:'RECEIVABLE'|'PAYABLE';description:string;event_date:string;due_date:string|null;currency:string;base_currency:string;outstanding_base_amount:number;settled_base_amount:number;is_overdue:boolean;source_module:string;source_record_id:string|null};
-type Data={expense_classifications?:{id:string;organization_id:string;code:string;name:string}[];pendingCashChartLinks?:number;organization:Org;organizations:Org[];organization_ids:string[];accounts:Account[];inactiveAccounts?:Account[];flows:Flow[];entities:{id:string;name:string;organization_id:string}[];counterparties:Counterparty[];counterparty_balances:CounterpartyBalance[];open_items:OpenItem[];categories:Category[];party_types:PartyType[];intercompany_transfers:IntercompanyTransfer[];fx_missing?:string[]};
+type Data={expense_classifications?:{id:string;organization_id:string;code:string;name:string}[];pendingCashChartLinks?:number;organization:Org;organizations:Org[];organization_ids:string[];accounts:Account[];inactiveAccounts?:Account[];flows:Flow[];supplier_forecasts?:Record<string,LiquidityForecastFlow[]>;entities:{id:string;name:string;organization_id:string}[];counterparties:Counterparty[];counterparty_balances:CounterpartyBalance[];open_items:OpenItem[];categories:Category[];party_types:PartyType[];intercompany_transfers:IntercompanyTransfer[];fx_missing?:string[]};
 type Tab='overview'|'position'|'calendar'|'forecast'|'scenarios'|'transfers'|'counterparties';
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 const tabIds:Tab[]=['overview','position','calendar','forecast','scenarios','transfers','counterparties'];
@@ -77,12 +77,13 @@ export default function LiquidityWorkspace({locale,initialTab='overview'}:{local
  const payments=pendingFlows.filter(f=>f.direction==='OUTFLOW').reduce((s,f)=>s+num(f.base_amount),0);
  const upcoming=pendingFlows.filter(f=>f.due_date<=new Date(Date.now()+14*86400000).toISOString().slice(0,10));
  const netForecast=receipts-payments;
- const weeks=useMemo(()=>buildLiquidityForecast(available,externalFlows,today(),13).map(w=>({...w,label:new Date(`${w.from}T12:00:00Z`).toLocaleDateString('en-US',{numberingSystem:'latn',day:'numeric',month:'short',timeZone:'UTC'})})),[available,externalFlows]);
+ const forecastFlows=useMemo(()=>externalFlows.flatMap(flow=>data?.supplier_forecasts?.[flow.id]??[flow]),[externalFlows,data?.supplier_forecasts]);
+ const weeks=useMemo(()=>buildLiquidityForecast(available,forecastFlows,today(),13).map(w=>({...w,label:new Date(`${w.from}T12:00:00Z`).toLocaleDateString('en-US',{numberingSystem:'latn',day:'numeric',month:'short',timeZone:'UTC'})})),[available,forecastFlows]);
  const lowest=lowestForecastBalance(available,weeks);
  const forecastInflows=weeks.reduce((sum,week)=>sum+week.inflow,0);
  const forecastOutflows=weeks.reduce((sum,week)=>sum+week.outflow,0);
  const lowWeeks=weeks.filter(week=>week.balance<minCash).length;
- const scenarioWeeks=useMemo(()=>buildScenarioForecast(available,externalFlows,today(),collectionDelay,expenseIncrease,13),[available,externalFlows,collectionDelay,expenseIncrease]);
+ const scenarioWeeks=useMemo(()=>buildScenarioForecast(available,forecastFlows,today(),collectionDelay,expenseIncrease,13),[available,forecastFlows,collectionDelay,expenseIncrease]);
  const scenarioLowest=lowestForecastBalance(available,scenarioWeeks);
  const monthFlows=externalFlows.filter(f=>f.due_date.slice(0,7)===today().slice(0,7)).sort((a,b)=>a.due_date.localeCompare(b.due_date));
  const filteredCalendarFlows=useMemo(()=>filterLiquidityFlows(externalFlows,flowFilters,today()),[externalFlows,flowFilters]);
