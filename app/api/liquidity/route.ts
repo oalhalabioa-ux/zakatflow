@@ -9,6 +9,7 @@ import { requireOrganizationMember, requireOrganizationAdmin } from '@/services/
 import { calculateLiquidityTransfer } from '@/lib/liquidity-transfer';
 import { calculateIntercompanyTransfer } from '@/lib/intercompany-transfer';
 import { executeFinancialEventAction } from '@/services/financial-events';
+import { loadAssetSupplierForecasts } from '../../../services/asset-supplier-liquidity-forecast';
 
 const accountSchema = z.object({
   organization_id: z.string().uuid(), entity_id: z.string().uuid().nullable().optional(),
@@ -98,6 +99,7 @@ export async function GET(request: Request) {
     const organizations = organizationsResult.data ?? [];
     let accounts: any[] = accountsResult.data ?? [];
     let flows: any[] = flowsResult.data ?? [];
+    const supplierForecasts = await loadAssetSupplierForecasts(supabase, organizationIds, flows, openItems ?? []);
     const fxMissing: string[] = [];
     if (organizationIds.length > 1) {
       const targetCurrency = organization.base_currency;
@@ -118,6 +120,15 @@ export async function GET(request: Request) {
         return { ...row, current_balance_base: Number(row.current_balance_base) * rate, restricted_balance_base: Number(row.restricted_balance_base) * rate, uncleared_balance_base: Number(row.uncleared_balance_base) * rate, raw_base_amount: row.base_amount == null ? undefined : Number(row.base_amount), base_amount: row.base_amount == null ? undefined : Number(row.base_amount) * rate, fx_conversion_missing: rate === 0 };
       };
       accounts = accounts.map(convert);
+      for (const flow of flows) {
+        const installments = supplierForecasts[flow.id];
+        if (!installments) continue;
+        const rate = multipliers.get(flow.organization_id) ?? 1;
+        supplierForecasts[flow.id] = installments.map(installment => ({
+          ...installment,
+          base_amount: Number(installment.base_amount) * rate,
+        }));
+      }
       flows = flows.map(convert);
     }
     accounts = accounts.map((account: any) => {
@@ -129,7 +140,7 @@ export async function GET(request: Request) {
       const rate = direct ? Number(direct.rate) : inverse ? 1 / Number(inverse.rate) : 0;
       return { ...account, base_rate: rate > 0 && Number.isFinite(rate) ? rate : null };
     });
-    return NextResponse.json(await withVoucherNumbers(supabase,{ organization, organizations, organization_ids: organizationIds, pendingCashChartLinks, expense_classifications:expenseClasses.data??[], accounts:accounts.filter(a=>a.active), inactiveAccounts:accounts.filter(a=>!a.active), flows:flows.map((f:any)=>({...f,counterparty:f.counterparty||counterparties?.find((p:any)=>p.id===f.counterparty_id)?.name||''})), entities: entitiesResult.data ?? [], counterparties: counterparties ?? [], counterparty_balances: counterpartyBalances ?? [], open_items: openItems ?? [], categories: categoriesResult.data ?? [], party_types: (partyTypesResult.data ?? []).map((type:any)=>({...type,allowed_financial_classifications:liquidityPartyClassifications(type.code)})), intercompany_transfers: intercompanyTransfersResult.data ?? [], fx_missing: fxMissing }));
+    return NextResponse.json(await withVoucherNumbers(supabase,{ organization, organizations, organization_ids: organizationIds, pendingCashChartLinks, supplier_forecasts: supplierForecasts, expense_classifications:expenseClasses.data??[], accounts:accounts.filter(a=>a.active), inactiveAccounts:accounts.filter(a=>!a.active), flows:flows.map((f:any)=>({...f,counterparty:f.counterparty||counterparties?.find((p:any)=>p.id===f.counterparty_id)?.name||''})), entities: entitiesResult.data ?? [], counterparties: counterparties ?? [], counterparty_balances: counterpartyBalances ?? [], open_items: openItems ?? [], categories: categoriesResult.data ?? [], party_types: (partyTypesResult.data ?? []).map((type:any)=>({...type,allowed_financial_classifications:liquidityPartyClassifications(type.code)})), intercompany_transfers: intercompanyTransfersResult.data ?? [], fx_missing: fxMissing }));
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'LIQUIDITY_LOAD_FAILED' }, { status: status(error) }); }
 }
 
