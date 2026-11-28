@@ -184,7 +184,7 @@
     color: var(--brand-secondary);
   }
 
-  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root .fs-personal-tabs button[aria-selected=true] {
+  .corp-shell:is(.theme-modern, .theme-elegant) .corp-content .fs-root :is(.fs-personal-tabs button[aria-selected=true], .fs-personal-statement-navigation button[aria-current=page]) {
     background: var(--brand-primary);
     color: var(--brand-surface);
   }

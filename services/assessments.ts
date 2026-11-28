@@ -8,6 +8,11 @@ import { fetchReferenceMetalPrices } from './reference-prices';
 import {assessmentRequestSchema,nisabFromPrice,frozenLotValuation,type FrozenMetalPrice} from '@/lib/zakat-valuation';
 
 export async function listAssessments(){const {supabase,user}=await requireUser();const {data,error}=await supabase.from('zakat_assessments').select('*').eq('user_id',user.id).order('assessment_date',{ascending:false});if(error)throw error;return data;}
+type InvoiceHawlPosition = {
+ lotId: string; grossBase: Decimal.Value; netBase: Decimal.Value;
+ hawlStartDate: string | null; hawlDueDate: string | null; coveredThrough: string | null;
+ hawlPeriod: number; periodBasis: string;
+};
 export type AssessmentRequest={assessment_date:string;valuation_date?:string;nisab_standard?:'GOLD'|'SILVER';method_id?:string;gold_price?:number;silver_price?:number;price_currency?:string;fx_rate?:number;price_mode?:'REFERENCE'|'MANUAL';price_source?:string;nisab_reached_date?:string;nisab_start_method?:'MANUAL'|'HISTORICAL_RECORDED'};
 export async function calculateAndSaveAssessment(request:AssessmentRequest,revisionOf?:string){
  const input=assessmentRequestSchema.parse(request);if(input.assessment_date>new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'}))throw new Error('ASSESSMENT_DATE_IN_FUTURE');
@@ -24,7 +29,7 @@ export async function calculateAndSaveAssessment(request:AssessmentRequest,revis
   if(error)throw error;
   return data;
  };
- let assessmentContext=cycle?await readAssessmentContext():null;
+ let assessmentContext=await readAssessmentContext();
  const baseCurrency=profile.base_currency;const standard=assessmentContext?.continuity?.standard??input.nisab_standard??profile.nisab_standard??'SILVER';
  let priceQuery=supabase.from('market_prices').select('*').eq('valuation_date',valuationDate).in('asset_type',['GOLD','SILVER']).order('created_at',{ascending:false});if(input.price_source)priceQuery=priceQuery.eq('source',input.price_source);let {data:prices}=await priceQuery;
  if(priceMode==='REFERENCE'&&(!(prices??[]).length)){const refs=await fetchReferenceMetalPrices(valuationDate);if(refs.length){const {error:priceInsertError}=await supabase.from('market_prices').insert(refs.map(x=>({asset_type:x.metal,instrument_code:x.metal==='GOLD'?'XAU':'XAG',price_per_unit:x.pricePerGram,currency:x.currency,valuation_date:x.valuationDate,source:x.source})));if(priceInsertError)throw priceInsertError;let refreshed=supabase.from('market_prices').select('*').eq('valuation_date',valuationDate).in('asset_type',['GOLD','SILVER']).order('created_at',{ascending:false});if(input.price_source)refreshed=refreshed.eq('source',input.price_source);prices=(await refreshed).data;}}
@@ -46,20 +51,49 @@ export async function calculateAndSaveAssessment(request:AssessmentRequest,revis
   if(error)throw error;
   if(data?.length)receiptPeriods.set(lot.id,data);
  }
- const valuation=(l:any)=>frozenLotValuation(l,lots??[],baseCurrency,metalPrices);
+ const invoiceEvidence=():InvoiceHawlPosition[]=>assessmentContext?.invoicePositions??[];
+ const invoicePositionMap=()=>new Map(invoiceEvidence().map(position=>[position.lotId,position]));
+ let invoicePositions=invoicePositionMap();
+ const valuation=(l:any)=>{
+  const position=invoicePositions.get(l.id);
+  if(!position)return frozenLotValuation(l,lots??[],baseCurrency,metalPrices);
+  const quantity=new Decimal(l.remaining_quantity);
+  const value=new Decimal(position.netBase);
+  if(!quantity.eq(position.grossBase))throw new Error('HISTORICAL_BALANCE_RECONSTRUCTION_REQUIRED');
+  const price=value.div(quantity).toString();
+  return {marketValueBase:value,valuationPrice:price,valuationCurrency:baseCurrency,fxRate:1,
+   purity:'1',valuationSource:'INVOICE_NET_V1',
+   valuationSnapshot:{assetId:l.asset_account_id,assetName:l.asset_accounts?.name,assetType:l.asset_accounts?.asset_type,
+    quantity:quantity.toString(),purity:'1',unitPrice:price,priceCurrency:baseCurrency,fxRate:1,
+    priceSource:'INVOICE_NET_V1',priceId:null,marketValueBase:value.toString(),
+    hawlStartDate:position.hawlStartDate,invoiceHawlPosition:position}};
+ };
  const marketValue=(l:any)=>valuation(l).marketValueBase;
  const poolValue=zakatableLots.reduce((s:any,l:any)=>s.add(marketValue(l)),new Decimal(0));
- if(!cycle&&poolValue.gte(nisabValue)){const{data:previous}=await supabase.from('zakat_hawl_cycles').select('id').eq('user_id',user.id).in('status',['CLOSED','PAID']).order('cycle_no',{ascending:false}).limit(1).maybeSingle();if(previous)cycle=await startNextCycle(previous.id);}
- if(!cycle&&poolValue.gte(nisabValue)){if(input.nisab_start_method==='HISTORICAL_RECORDED')throw new Error('HISTORICAL_REVIEW_REQUIRED');const start=input.nisab_reached_date;if(!start)throw new Error('PORTFOLIO_NISAB_DATE_REQUIRED');if(start>input.assessment_date)throw new Error('NISAB_DATE_AFTER_ASSESSMENT');const due=calculateHawl(method.calendar_type==='GREGORIAN'?'GREGORIAN':'HIJRI_TABULAR',new Date(start+'T00:00:00Z'),new Date(start+'T00:00:00Z')).dueDate.toISOString().slice(0,10);const {data:last}=await supabase.from('zakat_hawl_cycles').select('cycle_no').eq('user_id',user.id).order('cycle_no',{ascending:false}).limit(1).maybeSingle();const ins=await supabase.from('zakat_hawl_cycles').insert({user_id:user.id,cycle_no:Number(last?.cycle_no||0)+1,nisab_standard:standard,nisab_value_base:nisabValue.toString(),nisab_reached_date:start,hawl_start_date:start,hawl_due_date:due,status:'ACTIVE',price_mode:priceMode,price_source:priceMode==='REFERENCE'?(input.price_source??prices?.[0]?.source??'market_prices'):'USER_MANUAL',gold_price:goldPrice||null,silver_price:silverPrice||null,snapshot:{personal_start_policy:'FIRST_NISAB_V1',confirmed_start_date:start,confirmed_at:new Date().toISOString(),cycle_anchor_source:'USER_CONFIRMED_PORTFOLIO_NISAB_DATE'}}).select().single();if(ins.error)throw ins.error;cycle=ins.data;}
+ if(!cycle&&poolValue.gte(nisabValue)){const{data:previous}=await supabase.from('zakat_hawl_cycles').select('id').eq('user_id',user.id).in('status',['CLOSED','PAID']).order('cycle_no',{ascending:false}).limit(1).maybeSingle();if(previous){cycle=await startNextCycle(previous.id);assessmentContext=null;}}
+ if(!cycle&&poolValue.gte(nisabValue)){if(input.nisab_start_method==='HISTORICAL_RECORDED')throw new Error('HISTORICAL_REVIEW_REQUIRED');const start=input.nisab_reached_date;if(!start)throw new Error('PORTFOLIO_NISAB_DATE_REQUIRED');if(start>input.assessment_date)throw new Error('NISAB_DATE_AFTER_ASSESSMENT');const due=calculateHawl(method.calendar_type==='GREGORIAN'?'GREGORIAN':'HIJRI_TABULAR',new Date(start+'T00:00:00Z'),new Date(start+'T00:00:00Z')).dueDate.toISOString().slice(0,10);const {data:last}=await supabase.from('zakat_hawl_cycles').select('cycle_no').eq('user_id',user.id).order('cycle_no',{ascending:false}).limit(1).maybeSingle();const ins=await supabase.from('zakat_hawl_cycles').insert({user_id:user.id,cycle_no:Number(last?.cycle_no||0)+1,nisab_standard:standard,nisab_value_base:nisabValue.toString(),nisab_reached_date:start,hawl_start_date:start,hawl_due_date:due,status:'ACTIVE',price_mode:priceMode,price_source:priceMode==='REFERENCE'?(input.price_source??prices?.[0]?.source??'market_prices'):'USER_MANUAL',gold_price:goldPrice||null,silver_price:silverPrice||null,snapshot:{personal_start_policy:'FIRST_NISAB_V1',confirmed_start_date:start,confirmed_at:new Date().toISOString(),cycle_anchor_source:'USER_CONFIRMED_PORTFOLIO_NISAB_DATE'}}).select().single();if(ins.error)throw ins.error;cycle=ins.data;assessmentContext=null;}
  const personalHawlPeriodPolicy=cycle&&method.code==='UNIFIED_HAWL'?'PERSONAL_POOL_V1':null;
  assessmentContext??=await readAssessmentContext();
+ invoicePositions=invoicePositionMap();
  const periodRows=assessmentContext?.periods;
  const hawlContinuity=assessmentContext?.continuity;
  const periods=new Map<string,any>((periodRows??[]).map((p:any)=>[p.lot_id,p]));
  const {data:coverageRows,error:coverageError}=await supabase.rpc('investment_zakat_lot_coverage',{p_calendar:method.calendar_type});if(coverageError)throw coverageError;
  const coverages=new Map<string,any>((coverageRows??[]).map((c:any)=>[c.lot_id,c]));
- const candidates=zakatableLots.filter((lot:any)=>!!lot.hawl_start_date||receiptPeriods.has(lot.id)).map((lot:any)=>{
+ const candidates=zakatableLots.filter((lot:any)=>!!lot.hawl_start_date||periods.has(lot.id)||receiptPeriods.has(lot.id)||invoicePositions.has(lot.id)).map((lot:any)=>{
   const account=lot.asset_accounts;const v=valuation(lot);
+  const invoice=invoicePositions.get(lot.id);
+  if(invoice){
+   const due=invoice.hawlDueDate;
+   if(invoice.coveredThrough&&input.assessment_date<invoice.coveredThrough)throw new Error('ASSESSMENT_BEFORE_FINAL_COVERAGE');
+   if(due&&calculateHawl(method.calendar_type==='GREGORIAN'?'GREGORIAN':'HIJRI_TABULAR',new Date(due+'T00:00:00Z'),new Date(input.assessment_date+'T00:00:00Z')).completed)
+    throw new Error('MULTIPLE_UNASSESSED_HAWLS_REQUIRE_REVIEW');
+   return {lotId:lot.id,assetName:account?.name,assetType:account?.asset_type,...v,quantity:lot.remaining_quantity,
+    hawlCompleted:!!due&&due<=input.assessment_date,externalCoveredDays:0,hawlPeriodDays:0,
+    valuationSnapshot:{...v.valuationSnapshot,hawlStartDate:invoice.hawlStartDate,hawlDueDate:due,
+     hawlPeriod:invoice.hawlPeriod,coveredThrough:invoice.coveredThrough,periodBasis:invoice.periodBasis,
+     hawlPeriodPolicy:'FINAL_COVERAGE_V1',valuationDate}};
+  }
   const parts=receiptPeriods.get(lot.id);
   if(parts){
    const receiptComponents=parts.map(part=>({remainingBase:part.remaining_base,hawlCompleted:part.period_due<=input.assessment_date}));
@@ -74,7 +108,7 @@ export async function calculateAndSaveAssessment(request:AssessmentRequest,revis
    hawlStartDate:period.hawl_start_date,hawlDueDate:due,valuationSnapshot:{...v.valuationSnapshot,institutionCoverage,hawlStartDate:period.hawl_start_date,hawlDueDate:due,hawlPeriod:period.hawl_period,periodBasis:period.period_basis,coveredThrough:period.covered_through,hawlPeriodPolicy:'FINAL_COVERAGE_V1',valuationDate}};
  }).filter((x:any)=>x.marketValueBase.gt(0));
  const qualificationValue=candidates.reduce((sum:Decimal,c:any)=>sum.add(c.marketValueBase),new Decimal(0));
- const calc=calculateAssessment(candidates,nisabValue,method.zakat_rate,qualificationValue);const snapshot={schemaVersion:2,hawlPeriodPolicy:'FINAL_COVERAGE_V1',...(personalHawlPeriodPolicy?{personalHawlPeriodPolicy}:{}),...(hawlContinuity?{hawlContinuity}:{}),nisabQualificationBasis:'PORTFOLIO_MARKET_VALUE',nisabQualificationValue:qualificationValue.toString(),priceCurrency:input.price_currency??baseCurrency,baseCurrency,metalPrices,revisionOf:revisionOf??null,assessmentDate:input.assessment_date,valuationDate,methodCode:method.code,methodVersion:method.version,calendarType:method.calendar_type,nisabStandard:standard,nisabValue:nisabValue.toString(),portfolioMarketValue:poolValue.toString(),priceMode,priceSource:priceMode==='REFERENCE'?(input.price_source??prices?.[0]?.source??'market_prices'):'USER_MANUAL',prices:{gold:goldPrice,silver:silverPrice},fxRate:input.fx_rate??1,candidateLots:candidates.length,valuationSources:Array.from(new Set(candidates.map((c:any)=>c.valuationSource))),hawlCycleId:cycle?.id??null,calculatedAt:new Date().toISOString()};
+ const calc=calculateAssessment(candidates,nisabValue,method.zakat_rate,qualificationValue);const snapshot={schemaVersion:2,hawlPeriodPolicy:'FINAL_COVERAGE_V1',...(personalHawlPeriodPolicy?{personalHawlPeriodPolicy}:{}),...(hawlContinuity?{hawlContinuity}:{}),...(invoiceEvidence().length?{invoiceHawlEvidence:invoiceEvidence()}:{}),nisabQualificationBasis:'PORTFOLIO_MARKET_VALUE',nisabQualificationValue:qualificationValue.toString(),priceCurrency:input.price_currency??baseCurrency,baseCurrency,metalPrices,revisionOf:revisionOf??null,assessmentDate:input.assessment_date,valuationDate,methodCode:method.code,methodVersion:method.version,calendarType:method.calendar_type,nisabStandard:standard,nisabValue:nisabValue.toString(),portfolioMarketValue:poolValue.toString(),priceMode,priceSource:priceMode==='REFERENCE'?(input.price_source??prices?.[0]?.source??'market_prices'):'USER_MANUAL',prices:{gold:goldPrice,silver:silverPrice},fxRate:input.fx_rate??1,candidateLots:candidates.length,valuationSources:Array.from(new Set(candidates.map((c:any)=>c.valuationSource))),hawlCycleId:cycle?.id??null,calculatedAt:new Date().toISOString()};
  const assessmentPayload={assessment_date:input.assessment_date,valuation_date:valuationDate,method_id:method.id,nisab_standard:standard,nisab_quantity:standard==='GOLD'?85:595,nisab_value_base:nisabValue.toString(),total_zakatable_value:calc.totalEligibleValue.toString(),zakat_rate:method.zakat_rate,zakat_due:calc.zakatDue.toString(),currency:baseCurrency,status:'CALCULATED',method_version:method.version,calculation_snapshot:snapshot,hawl_cycle_id:cycle?.id??null,cycle_number:cycle?.cycle_no??null,assessment_kind:'RECALCULATION'};
  const lines=candidates.map((c:any,i:number)=>({lot_id:c.lotId,quantity:c.quantity,valuation_price:c.valuationPrice,valuation_currency:c.valuationCurrency,fx_rate:c.fxRate,valuation_snapshot:c.valuationSnapshot,market_value:c.marketValueBase.toString(),eligible_value:calc.lines[i].eligibleValue.toString(),zakat_amount:calc.lines[i].zakatAmount.toString(),eligibility_status:calc.lines[i].status,reason_code:c.externalCoveredDays>0&&c.hawlCompleted?'INSTITUTION_COVERED_PERIOD':calc.lines[i].status,explanation:c.externalCoveredDays>0&&c.hawlCompleted?`${c.assetName??'أصل'}: استبعاد ${c.externalCoveredDays} يومًا مزكّى عنها لدى الجهة من ${c.hawlPeriodDays} يومًا في الحول؛ احتساب المدة غير المغطاة فقط دون تسجيل دفع نقدي.`:`${c.assetName??'Asset'} → Lot ${c.lotId}: ${calc.lines[i].explanation}`}));
  const{data:assessment,error:saveError}=await supabase.rpc('save_zakat_assessment_snapshot',{p_assessment:assessmentPayload,p_lines:lines,p_revision_of:revisionOf??null});

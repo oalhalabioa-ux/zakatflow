@@ -5,8 +5,9 @@ import type {RegisterData} from '../lib/financial-register';
 const personal=():RegisterData=>({asOf:'2026-11-06',baseCurrency:'SAR',organizations:[],organizationIds:[],entities:[],warnings:[],
  accounts:[{id:'bank',name:'Personal bank',type:'BANK',currency:'SAR',nativeCurrency:'SAR',balance:1000,restricted:0,uncleared:0,baseCurrency:'SAR',baseBalance:1000,organizationId:null,entityId:null,source:'PERSONAL_ASSETS',openingDate:'2026-01-01'}],
  cashMovements:[
-  {id:'receipt',accountId:'bank',date:'2026-10-01',currency:'SAR',amount:200,source:'ASSETS',description:'transfer received',reference:'r'},
-  {id:'spend',accountId:'bank',date:'2026-10-02',currency:'SAR',amount:-100,source:'ASSETS',description:'payment',reference:'p'},
+  {id:'opening',accountId:'bank',date:'2026-01-01',currency:'SAR',amount:900,source:'ASSETS',description:'Opening',reference:'o',transactionType:'OPENING_BALANCE',isOpening:true},
+  {id:'receipt',accountId:'bank',date:'2026-10-01',currency:'SAR',amount:200,source:'ASSETS',description:'transfer received',reference:'r',transactionType:'ADD'},
+  {id:'spend',accountId:'bank',date:'2026-10-02',currency:'SAR',amount:-100,source:'ASSETS',description:'payment',reference:'p',transactionType:'WITHDRAWAL'},
  ],
  debts:[{id:'receivable',partyKey:'a',partyName:'Borrower',organizationId:null,entityId:null,side:'RECEIVABLE',currency:'SAR',amount:200,dueDate:null,date:'2026-01-01',description:'Receivable',source:'PERSONAL_ASSETS',eventId:null},
  {id:'payable',partyKey:'b',partyName:'Lender',organizationId:null,entityId:null,side:'PAYABLE',currency:'SAR',amount:100,dueDate:null,date:'2026-01-01',description:'Payable',source:'PERSONAL_PAYABLE',eventId:null}],
@@ -128,6 +129,7 @@ describe('independent read-only personal financial reports',()=>{
  it('reconciles many personal accounts without mutating source movements or mixing balances',()=>{
   const d=personal();d.accounts=Array.from({length:80},(_,i)=>({...d.accounts[0],id:'bank-'+i,name:'Bank '+i,balance:1000,baseBalance:1000}));
   d.cashMovements=d.accounts.flatMap((a,i)=>[
+   {id:'opening-'+i,accountId:a.id,date:'2026-01-01',currency:'SAR',amount:980,transactionType:'OPENING_BALANCE',isOpening:true,description:'Opening',reference:'o-'+i,source:'ASSETS'},
    {id:'out-'+i,accountId:a.id,date:'2026-11-03',currency:'SAR',amount:-30,transactionType:'WITHDRAWAL',description:'Payment',reference:'p-'+i,source:'ASSETS'},
    {id:'in-'+i,accountId:a.id,date:'2026-11-02',currency:'SAR',amount:50,transactionType:'ADD',description:'Unclassified receipt',reference:'r-'+i,source:'ASSETS'},
   ]);

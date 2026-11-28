@@ -1,5 +1,5 @@
 import {z} from 'zod';
-import {validStatementComparison,statementChange} from './financial-statement-comparison';
+import {validStatementComparison,statementRowComparison} from './financial-statement-comparison';
 import Decimal from 'decimal.js';
 import {SOURCE_INCOME_ICONS,SOURCE_CASH_ICONS} from './financial-statement-icons';
 import {compileEventLedger} from './financial-event-ledger';
@@ -89,7 +89,7 @@ export function statementRows(s:StatementSourceSnapshot,view:StatementView,en:bo
  }
  rows.push([t('إجمالي الخصوم وحقوق الملكية','Total liabilities and equity'),new Money(p.liabilities).plus(p.equity).toFixed(4),'total','balance','FUNDING']);return rows;
 }
-export type StatementTreeRow={id:string;label:string;value:string;kind:string;icon?:string;parentId?:string;collapsedValue?:string;summaryFor?:string};
+export type StatementTreeRow={id:string;label:string;value:string;kind:string;icon?:string;parentId?:string;collapsedValue?:string;summaryFor?:string;note?:string};
 /** Display hierarchy uses only reconciled account/journal details; collapsing is UI state. */
 export function statementTreeRows(s:StatementSourceSnapshot,view:StatementView,en:boolean):StatementTreeRow[]{
  const base=statementRows(s,view,en),rows:StatementTreeRow[]=[];
@@ -139,7 +139,7 @@ export function statementTreeRows(s:StatementSourceSnapshot,view:StatementView,e
   }
  });return rows;
 }
-export function statementSourceExport(s:StatementSourceSnapshot,view:StatementView,en:boolean,comparison?:StatementSourceSnapshot|null):string[][]{const t=(ar:string,eng:string)=>en?eng:ar,prior=validStatementComparison(s,comparison),previous=new Map(prior?statementTreeRows(prior,view,en).map(r=>[r.id,r]):[]);return[...statementSourceMetadata(s,en),...(prior?[[t('فترة المقارنة','Comparison period'),prior.statements.from,prior.statements.to],[t('مصدر المقارنة','Comparison source'),prior.openingSourceId,prior.policyId]]:[]),[],[t('البند','Item'),t('الفترة الحالية','Current period'),...(prior?[t('الفترة السابقة','Previous period'),t('التغير','Change'),t('نسبة التغير','Change %')]:[])],...statementTreeRows(s,view,en).map(r=>{if(!prior)return[r.label,r.value];const before=r.value!==''?(previous.get(r.id)?.value??'0.0000'):'',change=r.value!==''&&before!==''?statementChange(r.value,before):undefined;return[r.label,r.value,before,change?.delta??'',change?.percentage??'']}),[],[t('القيود المصدرية','Source journals'),...s.statements.sourceJournalIds],[],[t('القيد','Journal'),t('الحدث','Event'),t('السطر','Line'),t('قاعدة الترحيل','Posting rule')],...s.lineage.map(l=>[l.journalId,l.eventId,l.lineId,l.ruleId])]}
+export function statementSourceExport(s:StatementSourceSnapshot,view:StatementView,en:boolean,comparison?:StatementSourceSnapshot|null):string[][]{const t=(ar:string,eng:string)=>en?eng:ar,prior=validStatementComparison(s,comparison),previous=new Map(prior?statementTreeRows(prior,view,en).map(r=>[r.id,r]):[]);return[...statementSourceMetadata(s,en),...(prior?[[t('فترة المقارنة','Comparison period'),prior.statements.from,prior.statements.to],[t('مصدر المقارنة','Comparison source'),prior.openingSourceId,prior.policyId]]:[]),[],[t('البند','Item'),t('الفترة الحالية','Current period'),...(prior?[t('الفترة السابقة','Previous period'),t('التغير','Change'),t('نسبة التغير','Change %')]:[])],...statementTreeRows(s,view,en).map(r=>{if(!prior)return[r.label,r.value];const {before,change}=statementRowComparison(r.value,previous.get(r.id)?.value??'0.0000');return[r.label,r.value,before??'',change?.delta??'',change?.percentage??'']}),[],[t('القيود المصدرية','Source journals'),...s.statements.sourceJournalIds],[],[t('القيد','Journal'),t('الحدث','Event'),t('السطر','Line'),t('قاعدة الترحيل','Posting rule')],...s.lineage.map(l=>[l.journalId,l.eventId,l.lineId,l.ruleId])]}
 
 
 export function statementSourceMetadata(s:StatementSourceSnapshot,en:boolean):string[][]{

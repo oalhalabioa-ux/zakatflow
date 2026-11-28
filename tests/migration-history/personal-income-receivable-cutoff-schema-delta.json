@@ -1,0 +1,10 @@
+{
+  "removals": [],
+  "upserts": [
+    {
+      "category": "function",
+      "object_key": "public.read_personal_debts_at_cutoff(p_as_of date)",
+      "fingerprint": "c38ee46a76056c872912231ef8fe2c4b"
+    }
+  ]
+}

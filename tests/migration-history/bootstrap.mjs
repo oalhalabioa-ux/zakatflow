@@ -15,6 +15,25 @@ const sql=input=>execFileSync('docker',['exec','-i','supabase_db_migration-histo
 const checks=[];const check=async(name,run)=>{await run();checks.push({name,status:'passed'});console.log('PASS '+name)};
 try{
  const manifest=await verifyFiles();
+ await check('personal income documents recognize only eligible posted invoices',async()=>{
+  sql(await load('tests/personal-income-documents.sql'));
+ });
+ await check('personal Hawl cutoff retains only assets included on that date',async()=>{
+  sql(await load('tests/sql/personal-hawl-cutoff-asset-scope.sql'));
+ });
+ await check('invoice net principal and FIFO descendants stay reconciled at historical cutoffs',async()=>{
+  const output=sql(await load('tests/sql/personal-invoice-hawl-positions.sql'));
+  assert.match(output,/"fullNet": 10000/);
+ });
+ await check('invoice cash receipt lots prove the original gross/net/VAT split and cutoff',async()=>{
+  sql(await load('tests/sql/personal-invoice-collection-evidence.sql'));
+ });
+ await check('invoice Hawl due/classification and verified net collection respect historical cutoffs',async()=>{
+  sql(await load('tests/sql/personal-invoice-hawl-evidence.sql'));
+ });
+ await check('document-origin personal receivables reconcile at cutoff',async()=>{
+  sql(await load('tests/sql/personal-income-receivable-cutoff.sql'));
+ });
  await check('daily Hawl continuity keeps same-day cutoff and persists the renewed cross-day cutoff',async()=>{
   sql(await load('tests/sql/personal-hawl-daily-continuity.sql'));
  });
@@ -119,6 +138,14 @@ try{
    'personal-first-hawl-schema-delta',
    'personal-pooled-hawl-schema-delta',
    'personal-hawl-daily-continuity-schema-delta',
+   'v2-reporting-source-contracts-schema-delta',
+   'personal-income-schema-delta',
+   'personal-hawl-cutoff-asset-scope-schema-delta',
+   'personal-income-receivable-cutoff-schema-delta',
+   'personal-invoice-hawl-evidence-schema-delta',
+   'personal-invoice-collection-evidence-schema-delta',
+   'personal-invoice-hawl-assessment-schema-delta',
+   'personal-settled-opening-hawl-schema-delta',
   ];
   const deltas=await Promise.all(deltaNames.map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
   for(const delta of deltas){
@@ -194,7 +221,8 @@ try{
  });
  await check('bootstrap contains no customer, owner, membership or subscription records',async()=>{
   assert.equal(sql('select (select count(*) from auth.users)+(select count(*) from organizations)+(select count(*) from organization_members)+(select count(*) from platform_admins)+(select count(*) from platform_subscriptions)'), '0');
-  assert.equal(sql('select count(*) from pg_policies where schemaname in (\'public\',\'private\',\'subscription_private\')'),'200');
+  // The pinned dependencies add seven policies; the owner-only invoice event reader adds one.
+  assert.equal(sql('select count(*) from pg_policies where schemaname in (\'public\',\'private\',\'subscription_private\')'),'208');
   assert.equal(sql('select count(*) from subscription_private.guard_coverage'),'103');
  });
  const admin=createClient(status.API_URL,status.SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
