@@ -80,7 +80,7 @@ export async function calculateAndSaveAssessment(request:AssessmentRequest,revis
  const periods=new Map<string,any>((periodRows??[]).map((p:any)=>[p.lot_id,p]));
  const {data:coverageRows,error:coverageError}=await supabase.rpc('investment_zakat_lot_coverage',{p_calendar:method.calendar_type});if(coverageError)throw coverageError;
  const coverages=new Map<string,any>((coverageRows??[]).map((c:any)=>[c.lot_id,c]));
- const candidates=zakatableLots.filter((lot:any)=>!!lot.hawl_start_date||receiptPeriods.has(lot.id)||invoicePositions.has(lot.id)).map((lot:any)=>{
+ const candidates=zakatableLots.filter((lot:any)=>!!lot.hawl_start_date||periods.has(lot.id)||receiptPeriods.has(lot.id)||invoicePositions.has(lot.id)).map((lot:any)=>{
   const account=lot.asset_accounts;const v=valuation(lot);
   const invoice=invoicePositions.get(lot.id);
   if(invoice){

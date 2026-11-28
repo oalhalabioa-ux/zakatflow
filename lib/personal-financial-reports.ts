@@ -43,6 +43,14 @@ export type PersonalReport={
 const D=Decimal.clone({precision:40});
 const money=(value:number|string)=>{const d=new D(value);if(!d.isFinite())throw Error('PERSONAL_REPORT_AMOUNT_INVALID');return d.toDecimalPlaces(2).toFixed(2)};
 const add=(values:Array<number|string>)=>money(values.reduce((sum,value)=>sum.plus(value),new D(0)).toString());
+const knownCashTypes=new Set(['OPENING_BALANCE','ADD','WITHDRAWAL','TRANSFER_IN','TRANSFER_OUT','ZAKAT_PAYMENT','REVERSAL','ADJUSTMENT','SALE']);
+
+/** One source check for both historical position and cash-flow balances. */
+function personalCashHistoryReconciles(account:RegisterData['accounts'][number],rows:RegisterData['cashMovements']){
+ return !rows.some(row=>row.currency!==account.baseCurrency||!knownCashTypes.has(row.transactionType??''))&&
+  new Set(rows.map(row=>row.id)).size===rows.length&&
+  rows.reduce((sum,row)=>sum.plus(row.amount),new D(0)).toDecimalPlaces(8).eq(new D(account.baseBalance).toDecimalPlaces(8));
+}
 
 /** Never interpret money moving into a personal bank account as income.
  * A personal P&L requires separately classified, recognized income/expenses. */
@@ -76,9 +84,12 @@ export function personalFinancialReports(data:RegisterData,from:string,to:string
  const cashMovementsByAccount=new Map<string,RegisterData['cashMovements']>();
  for(const movement of data.cashMovements){const rows=cashMovementsByAccount.get(movement.accountId);if(rows)rows.push(movement);else cashMovementsByAccount.set(movement.accountId,[movement]);}
  const cashAccounts=data.accounts.map(a=>{
-  const s=cashStatement(a,cashMovementsByAccount.get(a.id)??[],from,to);return{id:a.id,name:a.name,currency:a.currency,
-   opening:money(s.opening),inflows:money(s.inflows),outflows:money(s.outflows),closing:money(s.closing),
-   netMovement:money(new D(s.closing).minus(s.opening).toString()),movementCount:s.lines.length};
+  const rows=cashMovementsByAccount.get(a.id)??[];
+  const reconciled=personalCashHistoryReconciles(a,rows.filter(row=>row.date<=data.asOf)),s=cashStatement(a,rows,from,to);
+  return{id:a.id,name:a.name,currency:a.currency,
+   opening:reconciled?money(s.opening):'',inflows:money(s.inflows),outflows:money(s.outflows),
+   closing:to===data.asOf||reconciled?money(s.closing):'',
+   netMovement:money(new D(s.inflows).minus(s.outflows).toString()),movementCount:s.lines.length};
  });
  // Only an actual persisted transfer_id linking exactly one OUT transaction to
  // one IN transaction can remove a pair from gross account activity. Never
@@ -145,6 +156,7 @@ export function personalFinancialReports(data:RegisterData,from:string,to:string
  const historicalPosition=to===data.asOf?[]:historicalMonetaryPosition(data,to,evidence.unverifiedPayableCurrencies);
  const historicalAssetValuations=to===data.asOf?[]:(evidence.assetValuations??[]).filter(row=>row.date===to);
  const issues=[...data.warnings,...evidence.issues];
+ if(cashAccounts.some(account=>account.opening===''||account.closing===''))issues.push('PERSONAL_CASH_HISTORY_RECONCILIATION_REQUIRED');
  if(to<data.asOf)issues.push(historicalAssetValuations.length?'PERSONAL_HISTORICAL_ASSET_VALUES_PARTIAL':'PERSONAL_HISTORICAL_ASSET_VALUES_UNAVAILABLE');
  if(positions.some(p=>!p.complete))issues.push('PERSONAL_POSITION_RECONCILIATION_REQUIRED');
  if(positions.length>1)issues.push('PERSONAL_MULTI_CURRENCY_NOT_AGGREGATED');
@@ -162,15 +174,12 @@ function historicalMonetaryPosition(data:RegisterData,to:string,unverifiedPayabl
  const currencies=[...new Set([
   ...data.accounts.map(a=>a.baseCurrency),...data.debts.map(d=>d.currency),...data.debtMovements.map(d=>d.currency),...unverifiedPayableCurrencies,
  ])].sort();
- const knownCashTypes=new Set(['OPENING_BALANCE','ADD','WITHDRAWAL','TRANSFER_IN','TRANSFER_OUT','ZAKAT_PAYMENT','REVERSAL','ADJUSTMENT','SALE']);
  const total=(amounts:number[])=>amounts.reduce((sum,amount)=>sum.plus(amount),new D(0));
  return currencies.map(currency=>{
   const accounts=data.accounts.filter(a=>a.baseCurrency===currency);
   const holdings=accounts.map(account=>{
    const rows=data.cashMovements.filter(row=>row.accountId===account.id&&row.date<=data.asOf);
-   if(rows.some(row=>row.currency!==currency||!knownCashTypes.has(row.transactionType??''))||
-    new Set(rows.map(row=>row.id)).size!==rows.length||
-    !total(rows.map(row=>row.amount)).toDecimalPlaces(8).eq(new D(account.baseBalance).toDecimalPlaces(8)))return null;
+   if(!personalCashHistoryReconciles(account,rows))return null;
    return total(rows.filter(row=>row.date<=to).map(row=>row.amount));
   });
   const cash=holdings.some(v=>v===null)?null:money(holdings.reduce<Decimal>((sum,value)=>sum.plus(value??0),new D(0)).toString());

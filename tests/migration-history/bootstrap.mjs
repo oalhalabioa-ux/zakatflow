@@ -145,6 +145,7 @@ try{
    'personal-invoice-hawl-evidence-schema-delta',
    'personal-invoice-collection-evidence-schema-delta',
    'personal-invoice-hawl-assessment-schema-delta',
+   'personal-settled-opening-hawl-schema-delta',
   ];
   const deltas=await Promise.all(deltaNames.map(async name=>JSON.parse(await load('tests/migration-history/'+name+'.json'))));
   for(const delta of deltas){
