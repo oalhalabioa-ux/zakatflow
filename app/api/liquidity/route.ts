@@ -9,7 +9,7 @@ import { requireOrganizationMember, requireOrganizationAdmin } from '@/services/
 import { calculateLiquidityTransfer } from '@/lib/liquidity-transfer';
 import { calculateIntercompanyTransfer } from '@/lib/intercompany-transfer';
 import { executeFinancialEventAction } from '@/services/financial-events';
-import { loadAssetSupplierForecasts } from '@/services/asset-supplier-liquidity-forecast';
+import { loadAssetSupplierForecasts } from '../../../services/asset-supplier-liquidity-forecast';
 
 const accountSchema = z.object({
   organization_id: z.string().uuid(), entity_id: z.string().uuid().nullable().optional(),
