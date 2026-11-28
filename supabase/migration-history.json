@@ -2334,9 +2334,9 @@
       "path": "supabase/migrations/20261127214500_personal_settled_opening_hawl.sql",
       "version": "20261127214500",
       "name": "personal_settled_opening_hawl",
-      "expected_md5": "5b65cc6256e7b6e9080b24e2205b4957",
-      "file_sha256": "70e733883b0759b2a3fd8f2c5b9710c40b97e6e1e054d6a447c92c8116b480c5",
-      "validation_project": "Disposable personal settled opening: source-bound lot periods, calculation and final coverage in both Hawl methods"
+      "expected_md5": "60bdc918968aec20fda7d400d3e92db6",
+      "file_sha256": "e853972b8745c17d44dc6bba05693066df400815592e167afde6a19f0190c5f3",
+      "validation_project": "Disposable personal acquisitions: source-bound settled opening and funded purchase periods, calculation, final coverage and rollback in both Hawl methods"
     }
   ]
 }

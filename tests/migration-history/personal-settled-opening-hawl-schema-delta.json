@@ -3,18 +3,18 @@
   "upserts": [
     {
       "category": "function",
-      "object_key": "private.personal_settled_opening_lot_anchors()",
-      "fingerprint": "5d216795486c1598e9be1603aef86678"
+      "object_key": "private.personal_initial_lot_hawl_anchors()",
+      "fingerprint": "13b55ff8008cfaa169367ee6e14754d0"
     },
     {
       "category": "function",
       "object_key": "public.close_zakat_cycle(p_cycle_id uuid, p_final_assessment_id uuid)",
-      "fingerprint": "34e58fa3444b368fa86f047f262ae680"
+      "fingerprint": "e68911d3a78c4613f2ce7bbf54033d89"
     },
     {
       "category": "function",
       "object_key": "public.zakat_lot_hawl_periods(p_calendar text)",
-      "fingerprint": "ec3e7b6f6ef136ad9424820a141d98d3"
+      "fingerprint": "bf0b391d105538c5ad0a88e0bf6f8e65"
     }
   ]
 }

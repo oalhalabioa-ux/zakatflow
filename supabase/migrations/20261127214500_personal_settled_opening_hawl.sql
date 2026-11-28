@@ -1,6 +1,6 @@
--- Derive a Hawl for eligible opening balances only after the owner has
--- explicitly settled the prior periods. Preserve the original lot and finals.
-create function private.personal_settled_opening_lot_anchors()
+-- Derive missing initial Hawl dates from documented personal acquisitions.
+-- Opening balances still require explicit settlement of prior periods.
+create function private.personal_initial_lot_hawl_anchors()
 returns table(lot_id uuid, anchor_date date)
 language sql stable security invoker set search_path = '' as $$
   select l.id,greatest(l.acquisition_date,c.hawl_start_date)
@@ -11,12 +11,31 @@ language sql stable security invoker set search_path = '' as $$
     and a.organization_id is null and a.ownership_scope='PERSONAL' and a.is_zakatable
   join public.transactions t on t.id=l.source_transaction_id and t.user_id=c.user_id
     and t.asset_account_id=a.id and t.organization_id is null
-    and t.transaction_type='OPENING_BALANCE' and t.transaction_date=l.acquisition_date
+    and t.transaction_date=l.acquisition_date
   where c.user_id=auth.uid() and c.cycle_no=1
-    and c.snapshot->>'personal_start_policy'='SETTLED_OPENING_V1'
+    and (
+      (t.transaction_type='OPENING_BALANCE' and c.snapshot->>'personal_start_policy'='SETTLED_OPENING_V1')
+      or (t.transaction_type='PURCHASE'
+        and c.snapshot->>'personal_start_policy' in ('FIRST_NISAB_V1','SETTLED_OPENING_V1')
+        and l.origin_hawl_start_date is null
+        and t.metadata->>'source'='ATOMIC_ASSET_ACQUISITION'
+        and t.metadata->'purchase_funding'->>'version'='1'
+        and exists(
+          select 1
+          from public.transactions withdrawal
+          join public.asset_accounts funding on funding.id=withdrawal.asset_account_id
+            and funding.user_id=c.user_id and funding.organization_id is null
+            and funding.ownership_scope='PERSONAL' and funding.asset_type in ('CASH','BANK')
+          where withdrawal.id::text=t.metadata->'purchase_funding'->>'withdrawal_id'
+            and withdrawal.user_id=c.user_id and withdrawal.organization_id is null
+            and withdrawal.transaction_type='WITHDRAWAL'
+            and withdrawal.transaction_date=t.transaction_date
+            and withdrawal.metadata->>'purchase_transaction_id'=t.id::text
+        ))
+    )
 $$;
-revoke all on function private.personal_settled_opening_lot_anchors() from public,anon,authenticated;
-grant execute on function private.personal_settled_opening_lot_anchors() to authenticated;
+revoke all on function private.personal_initial_lot_hawl_anchors() from public,anon,authenticated;
+grant execute on function private.personal_initial_lot_hawl_anchors() to authenticated;
 
 create or replace function public.zakat_lot_hawl_periods(p_calendar text)
 returns table(lot_id uuid,hawl_start_date date,hawl_due_date date,hawl_period integer,covered_through date)
@@ -26,7 +45,7 @@ begin
  if uid is null then raise exception 'UNAUTHORIZED';end if;
  select public.personal_first_hawl_start() into cycle_start;
  for l in select lot.id,
-  case when lot.organization_id is null then greatest(coalesce(lot.hawl_start_date,opening.anchor_date),cycle_start)
+  case when lot.organization_id is null then greatest(coalesce(lot.hawl_start_date,initial.anchor_date),cycle_start)
     else lot.hawl_start_date end root_start,
   (with recursive ancestors as (select lot.id,lot.hawl_continuity_source_lot_id parent,array[lot.id] seen union all select parent.id,parent.hawl_continuity_source_lot_id,anc.seen||parent.id from ancestors anc join public.lots parent on parent.id=anc.parent and parent.user_id=uid where not(parent.id=any(anc.seen))) select max(case when a.calculation_snapshot->>'hawlPeriodPolicy'='FINAL_COVERAGE_V1' then nullif(al.valuation_snapshot->>'hawlDueDate','')::date else a.assessment_date end) from public.zakat_assessment_lines al
    join public.zakat_assessments a on a.id=al.assessment_id and a.user_id=uid
@@ -34,7 +53,7 @@ begin
    where al.lot_id in(select id from ancestors) and (al.zakat_amount>0 or (coalesce((al.valuation_snapshot->'institutionCoverage'->>'coveredDays')::integer,0)>0 and (al.valuation_snapshot->'institutionCoverage'->>'coveredDays')::integer=(al.valuation_snapshot->'institutionCoverage'->>'periodDays')::integer))) last_covered
   ,pooled.last_due,pooled.last_period
   from public.lots lot
-  left join private.personal_settled_opening_lot_anchors() opening on opening.lot_id=lot.id
+  left join private.personal_initial_lot_hawl_anchors() initial on initial.lot_id=lot.id
   left join lateral (
     with recursive ancestors as (
       select lot.id,lot.hawl_continuity_source_lot_id as parent,array[lot.id] as seen
@@ -53,7 +72,7 @@ begin
       and al.valuation_snapshot->>'periodBasis'='PERSONAL_POOL_V1'
     order by last_due desc,last_period desc limit 1
   ) pooled on true
-  where lot.user_id=uid and (lot.hawl_start_date is not null or opening.lot_id is not null) loop
+  where lot.user_id=uid and (lot.hawl_start_date is not null or initial.lot_id is not null) loop
   lot_id:=l.id;hawl_start_date:=l.root_start;hawl_period:=1;covered_through:=l.last_covered;
   if l.last_due>=hawl_start_date then
    hawl_start_date:=l.last_due;
@@ -100,10 +119,10 @@ begin
  effective_due:=greatest(c.hawl_due_date,(continuity->>'effectiveDue')::date);
  if a.assessment_date<effective_due or (now() at time zone 'Asia/Riyadh')::date<effective_due then raise exception 'CYCLE_HAWL_NOT_COMPLETED';end if;
  if a.calculation_snapshot->>'hawlPeriodPolicy' is distinct from 'FINAL_COVERAGE_V1' then raise exception 'FINAL_ASSESSMENT_RECALCULATION_REQUIRED';end if;
- -- Open assessments saved before opening lots had a derived period must be recalculated.
+ -- Require recalculation when an eligible acquisition with a derived period is missing.
  if exists(
-  select 1 from private.personal_settled_opening_lot_anchors() opening
-  join public.lots l on l.id=opening.lot_id
+  select 1 from private.personal_initial_lot_hawl_anchors() initial
+  join public.lots l on l.id=initial.lot_id
   join public.asset_accounts asset on asset.id=l.asset_account_id
   where l.acquisition_date<=a.assessment_date and l.remaining_quantity>0
    and case
